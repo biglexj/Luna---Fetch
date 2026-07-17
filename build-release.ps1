@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 . (Join-Path $root "scripts\release\ReleaseTools.ps1")
 
-$repository = "biglexj/Luna---YTDLP"
+$repository = "biglexj/Luna---Fetch"
 $propertiesPath = Join-Path $root "gradle.properties"
 $releaseNotesPath = Join-Path $root $ReleaseNotesFile
 $properties = Get-Content -LiteralPath $propertiesPath -Raw -Encoding UTF8
