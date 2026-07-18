@@ -16,7 +16,7 @@ Luna Fetch es una aplicación multiplataforma para analizar y descargar videos o
 
 ## Plataformas
 
-- **Windows:** aplicación JVM de escritorio y paquetes públicos EXE/MSI; MSIX queda disponible solo como build local.
+- **Windows:** aplicación JVM de escritorio distribuida como EXE/MSI desde GitHub y, cuando sea aceptada, mediante Winget.
 - **Linux:** aplicación JVM y configuración para paquetes DEB/RPM.
 - **Android:** interfaz compartida, almacenamiento mediante selector del sistema y motor local con Python, `yt-dlp` y FFmpeg.
 
@@ -49,7 +49,7 @@ Generar APK de depuración:
 .\build-release.ps1 -LocalOnly -SkipSigning
 ```
 
-El build local genera EXE, MSI, MSIX, APK de depuración y `SHA256SUMS.txt` dentro de `release/`. Una publicación oficial requiere el certificado de Windows y la firma Android descrita en [Docs/packaging.md](Docs/packaging.md); publica EXE, MSI, APK y AAB, pero no adjunta MSIX.
+El build local genera EXE, MSI, APK de depuración y `SHA256SUMS.txt` dentro de `release/`. Una publicación oficial requiere el certificado de Windows y la firma Android descrita en [Docs/packaging.md](Docs/packaging.md); publica EXE, MSI, APK y AAB. MSIX y Microsoft Store están fuera de la distribución del proyecto.
 
 ## Licencias
 

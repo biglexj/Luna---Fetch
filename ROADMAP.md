@@ -19,4 +19,4 @@
 - Interfaz Compose responsive con Material 3 y radios controlados.
 - Targets Windows, Linux y Android.
 - Motor Android local, almacenamiento SAF y servicio en primer plano.
-- Empaquetado EXE, MSI, MSIX, DEB/RPM, APK/AAB y hashes SHA-256.
+- Empaquetado EXE, MSI, DEB/RPM, APK/AAB y hashes SHA-256; MSIX descartado.

@@ -6,7 +6,7 @@ Luna YT-DLP Downloader adopta el nombre **Luna Fetch** y migra de WPF/.NET a Kot
 
 Android incorpora Material 3, color dinámico, almacenamiento mediante el selector del sistema y un motor local con Python, `yt-dlp` y FFmpeg. El motor comprueba actualizaciones estables, habilita EJS/QuickJS para YouTube y detecta la resolución máxima desde todos los formatos; los selectores incluyen fallbacks para evitar errores de formato. Se retira FLAC porque la fuente habitual ya es con pérdida.
 
-La distribución de escritorio adopta la cadena verificada de LyraFlow para EXE, MSI, MSIX local, DEB/RPM, firma y hashes, incluido el icono nativo de Luna Fetch en la ventana. GitHub publica EXE/MSI y omite MSIX; el flujo también compila APK/AAB con firma Android permanente.
+La distribución de escritorio adopta una cadena reproducible para EXE, MSI, DEB/RPM, firma y hashes, incluido el icono nativo de Luna Fetch en la ventana. GitHub publica EXE/MSI y el manifiesto Winget apunta al MSI; MSIX y Microsoft Store quedan descartados. El flujo también compila APK/AAB con firma Android permanente.
 
 ## [1.0.0] — Lollipop — 2026-07-14
 

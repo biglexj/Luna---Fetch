@@ -39,7 +39,6 @@ if ($Version -ne $currentVersion) {
 }
 
 $jdk = Get-FullJdk
-$makeAppx = Get-WindowsSdkTool "makeappx.exe"
 $signTool = if ($SkipSigning) { $null } else { Get-WindowsSdkTool "signtool.exe" }
 $env:JAVA_HOME = $jdk
 $env:ANDROID_HOME = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { Join-Path $env:LOCALAPPDATA "Android\Sdk" }
@@ -94,14 +93,11 @@ try {
 
 $exe = Join-Path $output "LunaFetch-Windows-$Version.exe"
 $msi = Join-Path $output "LunaFetch-Windows-$Version.msi"
-$msix = Join-Path $output "LunaFetch-Windows-$Version.msix"
 Copy-Item -LiteralPath (Join-Path $root "composeApp\build\compose\binaries\main\exe\LunaFetch-$Version.exe") -Destination $exe
 Copy-Item -LiteralPath (Join-Path $root "composeApp\build\compose\binaries\main\msi\LunaFetch-$Version.msi") -Destination $msi
 foreach ($artifact in @($exe, $msi)) {
     (Get-Item -LiteralPath $artifact).IsReadOnly = $false
 }
-& (Join-Path $root "scripts\packaging\New-MsixPackage.ps1") `
-    -ProjectRoot $root -Version $Version -OutputPath $msix -MakeAppxPath $makeAppx
 
 $androidArtifacts = @()
 if ($LocalOnly) {
@@ -143,13 +139,13 @@ if ($LocalOnly) {
 if (-not $SkipSigning) {
     $certificate = Join-Path $root "LunaFetch_Dev_Certificate.pfx"
     if (-not (Test-Path -LiteralPath $certificate)) { throw "Falta LunaFetch_Dev_Certificate.pfx." }
-    foreach ($artifact in @($exe, $msi, $msix)) {
+    foreach ($artifact in @($exe, $msi)) {
         Invoke-Checked $signTool @("sign", "/fd", "SHA256", "/f", $certificate, $artifact)
         Assert-SignedArtifact -Path $artifact -Publisher "CN=biglexj"
     }
 }
 
-foreach ($artifact in @($exe, $msi, $msix) + $androidArtifacts) {
+foreach ($artifact in @($exe, $msi) + $androidArtifacts) {
     if (-not (Test-Path -LiteralPath $artifact) -or (Get-Item -LiteralPath $artifact).Length -eq 0) {
         throw "El artefacto final falta o está vacío: $artifact"
     }
@@ -157,7 +153,7 @@ foreach ($artifact in @($exe, $msi, $msix) + $androidArtifacts) {
 
 $hashPath = Join-Path $output "SHA256SUMS.txt"
 $publishedArtifacts = @($exe, $msi) + $androidArtifacts
-$hashArtifacts = if ($LocalOnly) { @($exe, $msi, $msix) + $androidArtifacts } else { $publishedArtifacts }
+$hashArtifacts = $publishedArtifacts
 $hashArtifacts |
     Get-FileHash -Algorithm SHA256 |
     ForEach-Object { "{0}  {1}" -f $_.Hash.ToLowerInvariant(), (Split-Path $_.Path -Leaf) } |
