@@ -36,6 +36,6 @@ Después ejecuta:
 .\build-release.ps1
 ```
 
-La publicación exige `main` sincronizada, GitHub CLI autenticado, certificado Windows y firma Android permanente. Valida la firma e identidad del APK, la firma del AAB y los paquetes Windows; después crea commit, tag, push atómico y GitHub Release con EXE, MSI, MSIX, APK, AAB y hashes.
+La publicación exige `main` sincronizada, GitHub CLI autenticado, certificado Windows y firma Android permanente. Valida la firma e identidad del APK, la firma del AAB y los paquetes Windows; después crea commit, tag, push atómico y GitHub Release con EXE, MSI, APK, AAB y hashes. El MSIX se genera y firma para comprobaciones locales, pero nunca se adjunta a GitHub.
 
 DEB y RPM deben generarse y probarse en Linux mediante `:composeApp:packageDeb` y `:composeApp:packageRpm`.

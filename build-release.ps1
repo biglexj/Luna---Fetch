@@ -156,7 +156,9 @@ foreach ($artifact in @($exe, $msi, $msix) + $androidArtifacts) {
 }
 
 $hashPath = Join-Path $output "SHA256SUMS.txt"
-Get-ChildItem -LiteralPath $output -File |
+$publishedArtifacts = @($exe, $msi) + $androidArtifacts
+$hashArtifacts = if ($LocalOnly) { @($exe, $msi, $msix) + $androidArtifacts } else { $publishedArtifacts }
+$hashArtifacts |
     Get-FileHash -Algorithm SHA256 |
     ForEach-Object { "{0}  {1}" -f $_.Hash.ToLowerInvariant(), (Split-Path $_.Path -Leaf) } |
     Set-Content -LiteralPath $hashPath -Encoding UTF8
@@ -173,7 +175,7 @@ try {
     Invoke-Checked git @("push", "--atomic", "origin", "HEAD:main", "refs/tags/$tag")
 } finally { Pop-Location }
 
-$assets = @($exe, $msi, $msix, $hashPath) + $androidArtifacts
+$assets = @($exe, $msi, $hashPath) + $androidArtifacts
 Invoke-Checked gh (@("release", "create", $tag) + $assets + @(
     "--repo", $repository,
     "--verify-tag",
