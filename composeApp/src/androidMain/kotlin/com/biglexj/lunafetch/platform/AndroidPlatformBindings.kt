@@ -44,4 +44,15 @@ class AndroidPlatformBindings(
             )
         }
     }
+
+    override fun openUrl(url: String) {
+        if (url.isNotBlank()) {
+            runCatching {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                appContext.startActivity(intent)
+            }
+        }
+    }
 }

@@ -11,7 +11,18 @@ import javax.swing.JFileChooser
 
 class DesktopPlatformBindings : PlatformBindings {
     private val preferences = Preferences.userRoot().node("com/biglexj/lunafetch")
+    private val settings = AppSettings()
     override val engine: DownloadEngine = DesktopDownloadEngine()
+    override val isAutoStartEnabled: Boolean get() = settings.autoStart
+    override val isMinimizeToTrayEnabled: Boolean get() = settings.minimizeToTray
+    override val isNativeHostInstalled: Boolean get() = settings.isNativeHostInstalled
+    override fun setAutoStart(enabled: Boolean) { settings.autoStart = enabled }
+    override fun setMinimizeToTray(enabled: Boolean) { settings.minimizeToTray = enabled }
+    override fun installNativeHost() {
+        val exe = ProcessHandle.current().info().command().orElse(null) ?: return
+        settings.installNativeHost(exe)
+    }
+    override fun uninstallNativeHost() { settings.uninstallNativeHost() }
     override val defaultDestination: String
         get() = preferences.get("downloadDirectory", systemDownloadsDirectory())
 
@@ -35,6 +46,12 @@ class DesktopPlatformBindings : PlatformBindings {
         val openTarget = if (target.exists()) target else target.parentFile
         if (openTarget != null && openTarget.exists() && Desktop.isDesktopSupported()) {
             Desktop.getDesktop().open(openTarget)
+        }
+    }
+
+    override fun openUrl(url: String) {
+        if (url.isNotBlank() && Desktop.isDesktopSupported()) {
+            runCatching { Desktop.getDesktop().browse(java.net.URI(url)) }
         }
     }
 

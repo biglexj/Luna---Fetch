@@ -88,7 +88,7 @@ object YtdlpProtocol {
             addAll(listOf("--merge-output-format", request.format.extension))
         }
         add(if (request.downloadCollection) "--yes-playlist" else "--no-playlist")
-        addAll(listOf("-o", outputTemplate, "--", request.url))
+        addAll(listOf("-o", outputTemplate))
     }
 
     private fun String?.normalizedMetric(): String = this

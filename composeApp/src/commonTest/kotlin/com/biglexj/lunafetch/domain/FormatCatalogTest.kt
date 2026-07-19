@@ -9,7 +9,10 @@ class FormatCatalogTest {
     @Test
     fun videoQualitiesRespectAvailableHeight() {
         val qualities = FormatCatalog.qualities(MediaFormat.Mp4, 720)
-        assertEquals(listOf("720p · HD", "480p", "360p"), qualities.map(QualityOption::displayName))
+        assertEquals(
+            listOf("720p · HD (60 FPS)", "720p · HD (30 FPS)", "480p", "360p"),
+            qualities.map(QualityOption::displayName)
+        )
     }
 
     @Test
@@ -37,5 +40,25 @@ class FormatCatalogTest {
         assertTrue(LunaFetchPresenter.isSupportedUrl("https://youtu.be/example"))
         assertFalse(LunaFetchPresenter.isSupportedUrl("file:///video.mp4"))
         assertFalse(LunaFetchPresenter.isSupportedUrl("https://bad url.example"))
+    }
+
+    @Test
+    fun videoQualitiesInclude4KAnd8K() {
+        val qualities = FormatCatalog.qualities(MediaFormat.Mp4, 2160)
+        assertEquals(
+            listOf(
+                "4K · Ultra HD (60 FPS)",
+                "4K · Ultra HD (30 FPS)",
+                "1440p · 2K (60 FPS)",
+                "1440p · 2K (30 FPS)",
+                "1080p · Full HD (60 FPS)",
+                "1080p · Full HD (30 FPS)",
+                "720p · HD (60 FPS)",
+                "720p · HD (30 FPS)",
+                "480p",
+                "360p"
+            ),
+            qualities.map(QualityOption::displayName)
+        )
     }
 }

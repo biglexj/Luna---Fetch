@@ -25,6 +25,7 @@ data class LunaFetchState(
     val logs: List<String> = emptyList(),
     val error: String? = null,
     val completedOutput: String? = null,
+    val history: List<DownloadHistoryItem> = emptyList(),
 )
 
 class LunaFetchPresenter(
@@ -50,6 +51,14 @@ class LunaFetchPresenter(
         current.copy(downloadCollection = value && current.video?.isCollection == true)
     }
 
+    fun removeFromHistory(id: String) {
+        _state.update { current -> current.copy(history = current.history.filter { it.id != id }) }
+    }
+
+    fun clearHistory() {
+        _state.update { current -> current.copy(history = emptyList()) }
+    }
+
     fun analyze() {
         val url = state.value.url.trim()
         if (!isSupportedUrl(url)) {
@@ -63,14 +72,65 @@ class LunaFetchPresenter(
                 .onSuccess { video ->
                     _state.update { current ->
                         val qualities = FormatCatalog.qualities(current.selectedFormat, video.maxHeight)
+                        val hasSingleVideoId = url.contains("watch?v=") || url.contains("v=") || url.contains("youtu.be/")
+                        val shouldDefaultToCollection = video.isCollection && !hasSingleVideoId
                         current.copy(
                             video = video,
                             qualities = qualities,
                             selectedQuality = qualities.first(),
-                            downloadCollection = video.isCollection,
+                            downloadCollection = shouldDefaultToCollection,
                             isAnalyzing = false,
                         )
                     }
+                }
+                .onFailure { error ->
+                    if (error !is CancellationException) {
+                        _state.update { it.copy(isAnalyzing = false, error = error.userMessage("No se pudo analizar el enlace.")) }
+                    }
+                }
+        }
+    }
+
+    /**
+     * Triggered by browser extension / external requests.
+     * Analyzes the URL and starts downloading automatically in the background
+     * without showing popups or asking for user confirmation.
+     */
+    fun startDirectDownload(rawUrl: String, formatName: String = "mp4", requestedQuality: String? = null) {
+        val url = rawUrl.trim()
+        if (!isSupportedUrl(url)) return
+        val format = if (formatName.equals("mp3", ignoreCase = true)) MediaFormat.Mp3 else MediaFormat.Mp4
+        
+        setUrl(url)
+        selectFormat(format)
+
+        operation?.cancel()
+        operation = scope.launch {
+            _state.update { it.copy(isAnalyzing = true, video = null, error = null, completedOutput = null) }
+            runCatching { platform.engine.analyze(url) }
+                .onSuccess { video ->
+                    val qualities = FormatCatalog.qualities(format, video.maxHeight)
+                    val matchedQuality = if (!requestedQuality.isNullOrBlank()) {
+                        qualities.firstOrNull { 
+                            it.displayName.contains(requestedQuality, ignoreCase = true) ||
+                            it.formatSelector.contains(requestedQuality, ignoreCase = true)
+                        } ?: qualities.first()
+                    } else {
+                        qualities.first()
+                    }
+                    val hasSingleVideoId = url.contains("watch?v=") || url.contains("v=") || url.contains("youtu.be/")
+                    val shouldDefaultToCollection = video.isCollection && !hasSingleVideoId
+                    _state.update { current ->
+                        current.copy(
+                            video = video,
+                            selectedFormat = format,
+                            qualities = qualities,
+                            selectedQuality = matchedQuality,
+                            downloadCollection = shouldDefaultToCollection,
+                            isAnalyzing = false,
+                        )
+                    }
+                    download()
                 }
                 .onFailure { error ->
                     if (error !is CancellationException) {
@@ -124,11 +184,19 @@ class LunaFetchPresenter(
                     onProgress = { progress -> _state.update { it.copy(progress = progress) } },
                     onLog = ::appendLog,
                 )
+                val newItem = DownloadHistoryItem(
+                    id = "${System.currentTimeMillis()}_${(1000..9999).random()}",
+                    title = video.collectionTitle ?: video.title,
+                    formatLabel = "${current.selectedFormat.displayName} · ${current.selectedQuality.displayName}",
+                    path = result.openPath ?: "",
+                    url = video.url,
+                )
                 _state.update {
                     it.copy(
                         isDownloading = false,
                         progress = DownloadProgress(100.0, phase = DownloadPhase.Completed),
                         completedOutput = result.openPath,
+                        history = (listOf(newItem) + it.history).take(10),
                     )
                 }
             } catch (cancelled: CancellationException) {

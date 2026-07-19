@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.io.File
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -139,6 +140,16 @@ android {
 compose.desktop {
     application {
         mainClass = "com.biglexj.lunafetch.MainKt"
+        val currentJavaHome = System.getenv("JAVA_HOME") ?: System.getProperty("java.home")
+        val jpackageExists = File(currentJavaHome, "bin/jpackage.exe").exists() || File(currentJavaHome, "bin/jpackage").exists()
+        if (!jpackageExists) {
+            listOf(
+                "C:\\Program Files\\Microsoft\\jdk-17.0.19.10-hotspot",
+                "C:\\Program Files\\Eclipse Adoptium\\jdk-25.0.3.9-hotspot"
+            ).firstOrNull { File(it, "bin/jpackage.exe").exists() }?.let {
+                javaHome = it
+            }
+        }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb, TargetFormat.Rpm)
             packageName = "LunaFetch"

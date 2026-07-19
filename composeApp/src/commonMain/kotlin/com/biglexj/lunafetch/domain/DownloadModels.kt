@@ -22,6 +22,15 @@ data class CollectionEntry(
     val durationSeconds: Double = 0.0,
 )
 
+data class DownloadHistoryItem(
+    val id: String,
+    val title: String,
+    val formatLabel: String,
+    val path: String,
+    val url: String = "",
+    val timestampMs: Long = System.currentTimeMillis(),
+)
+
 enum class MediaFormat(
     val displayName: String,
     val extension: String,
@@ -50,26 +59,37 @@ object FormatCatalog {
         }
 
         val safeHeight = maxHeight.coerceAtLeast(360)
-        return listOf(1080, 720, 480, 360)
-            .filter { it <= safeHeight || it == 360 }
-            .distinct()
-            .map { height ->
+        val list = mutableListOf<QualityOption>()
+        listOf(4320, 2160, 1440, 1080, 720, 480, 360).forEach { height ->
+            if (height <= safeHeight || height == 360) {
                 val label = when (height) {
+                    4320 -> "8K · Ultra HD"
+                    2160 -> "4K · Ultra HD"
+                    1440 -> "1440p · 2K"
                     1080 -> "1080p · Full HD"
                     720 -> "720p · HD"
                     else -> "${height}p"
                 }
-                QualityOption(label, videoSelector(format, height))
+
+                if (height >= 720) {
+                    list.add(QualityOption("$label (60 FPS)", videoSelector(format, height)))
+                    list.add(QualityOption("$label (30 FPS)", videoSelector(format, height, 30)))
+                } else {
+                    list.add(QualityOption(label, videoSelector(format, height)))
+                }
             }
+        }
+        return list
     }
 
-    private fun videoSelector(format: MediaFormat, height: Int): String {
+    private fun videoSelector(format: MediaFormat, height: Int, maxFps: Int? = null): String {
+        val fpsConstraint = if (maxFps != null) "[fps<=$maxFps]" else ""
         val preferred = when (format) {
-            MediaFormat.Mp4 -> "bestvideo[height<=$height][ext=mp4]+bestaudio[ext=m4a]"
-            MediaFormat.WebM -> "bestvideo[height<=$height][ext=webm]+bestaudio[ext=webm]"
+            MediaFormat.Mp4 -> "bestvideo[height<=$height]$fpsConstraint[ext=mp4]+bestaudio[ext=m4a]"
+            MediaFormat.WebM -> "bestvideo[height<=$height]$fpsConstraint[ext=webm]+bestaudio[ext=webm]"
             else -> error("El selector de vídeo requiere un formato de vídeo.")
         }
-        return "$preferred/bestvideo[height<=$height]+bestaudio/best[height<=$height]/best"
+        return "$preferred/bestvideo[height<=$height]$fpsConstraint+bestaudio/best[height<=$height]/best"
     }
 }
 

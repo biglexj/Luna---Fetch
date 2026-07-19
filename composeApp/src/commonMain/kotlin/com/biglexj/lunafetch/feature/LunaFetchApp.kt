@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,6 +36,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -85,13 +88,14 @@ import androidx.compose.runtime.collectAsState
 import kotlin.math.cos
 import kotlin.math.sin
 
+
 @Composable
 fun LunaFetchApp(
     platform: PlatformBindings,
+    presenter: LunaFetchPresenter = remember(platform) { LunaFetchPresenter(platform) },
     quickDownloadUrl: String? = null,
     onDismissQuickDownload: () -> Unit = {},
 ) {
-    val presenter = remember(platform) { LunaFetchPresenter(platform) }
     val state by presenter.state.collectAsState()
     var themeMode by remember { mutableStateOf(ThemeMode.System) }
 
@@ -106,7 +110,7 @@ fun LunaFetchApp(
         }
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                AppHeader(themeMode, onThemeSelected = { themeMode = it })
+                AppHeader(themeMode, onThemeSelected = { themeMode = it }, platform = platform, presenter = presenter, state = state)
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val compact = maxWidth < 720.dp
                     val scroll = rememberScrollState()
@@ -182,7 +186,16 @@ private fun QuickDownloadSheet(
                                 else OutlinedButton(onClick = { presenter.selectFormat(format) }, modifier = Modifier.weight(1f)) { Text(format.displayName) }
                             }
                         }
-                        Text("Calidad: ${state.selectedQuality.displayName}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Calidad", style = MaterialTheme.typography.labelLarge)
+                        Selector(
+                            label = "Calidad",
+                            selected = state.selectedQuality.displayName,
+                            options = state.qualities,
+                            optionLabel = QualityOption::displayName,
+                            onSelected = presenter::selectQuality,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.isDownloading,
+                        )
                         Button(
                             onClick = presenter::download,
                             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -204,12 +217,89 @@ private fun MainCards(state: LunaFetchState, presenter: LunaFetchPresenter, plat
     VideoCard(state, presenter)
     DownloadOptionsCard(state, presenter, platform)
     DownloadStatusCard(state, presenter)
+    HistoryCard(state, presenter, platform)
     LogsCard(state)
     Spacer(Modifier.height(8.dp))
 }
 
 @Composable
-private fun AppHeader(mode: ThemeMode, onThemeSelected: (ThemeMode) -> Unit) {
+private fun HistoryCard(
+    state: LunaFetchState,
+    presenter: LunaFetchPresenter,
+    platform: PlatformBindings,
+) {
+    if (state.history.isEmpty()) return
+
+    LunaCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Historial de descargas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            TextButton(onClick = presenter::clearHistory) {
+                Text("Limpiar todo", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        state.history.forEach { item ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        item.formatLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (item.url.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = { platform.openUrl(item.url) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text("🌐 Web", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                if (item.path.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = { platform.openOutput(item.path) },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Text("Abrir", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                IconButton(
+                    onClick = { presenter.removeFromHistory(item.id) },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Text("🗑️", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        }
+    }
+}
+
+@Composable
+private fun AppHeader(
+    mode: ThemeMode,
+    onThemeSelected: (ThemeMode) -> Unit,
+    platform: PlatformBindings,
+    presenter: LunaFetchPresenter,
+    state: LunaFetchState,
+) {
+    // Show settings button only on platforms that expose settings (desktop)
+    val hasSettings = platform.isAutoStartEnabled != null
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         if (maxWidth < 520.dp) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -223,6 +313,10 @@ private fun AppHeader(mode: ThemeMode, onThemeSelected: (ThemeMode) -> Unit) {
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
+                    HistoryButton(presenter, state, platform)
+                    Spacer(Modifier.width(8.dp))
+                    if (hasSettings) SettingsButton(platform)
+                    Spacer(Modifier.width(8.dp))
                     ThemeModeButton(mode, onThemeSelected)
                 }
                 Text(
@@ -242,11 +336,274 @@ private fun AppHeader(mode: ThemeMode, onThemeSelected: (ThemeMode) -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                HistoryButton(presenter, state, platform)
+                Spacer(Modifier.width(8.dp))
+                if (hasSettings) SettingsButton(platform)
+                Spacer(Modifier.width(8.dp))
                 ThemeModeButton(mode, onThemeSelected)
             }
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HistoryButton(presenter: LunaFetchPresenter, state: LunaFetchState, platform: PlatformBindings) {
+    var showDialog by remember { mutableStateOf(false) }
+    val label = "Historial de descargas"
+
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                .clickable(role = Role.Button, onClickLabel = label, onClick = { showDialog = true }),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(modifier = Modifier.size(20.dp)) {
+                val color = androidx.compose.ui.graphics.Color(0xFF8A8A8A)
+                val sw = 1.8.dp.toPx()
+                val r = size.minDimension / 2f
+                drawCircle(color = color, radius = r, center = center, style = Stroke(sw))
+                drawLine(color = color, start = center, end = androidx.compose.ui.geometry.Offset(center.x, center.y - r * 0.55f), strokeWidth = sw, cap = StrokeCap.Round)
+                drawLine(color = color, start = center, end = androidx.compose.ui.geometry.Offset(center.x + r * 0.45f, center.y), strokeWidth = sw, cap = StrokeCap.Round)
+            }
+        }
+    }
+
+    if (showDialog) {
+        HistoryDialog(state = state, presenter = presenter, platform = platform, onDismiss = { showDialog = false })
+    }
+}
+
+@Composable
+private fun HistoryDialog(
+    state: LunaFetchState,
+    presenter: LunaFetchPresenter,
+    platform: PlatformBindings,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Historial de descargas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                if (state.history.isNotEmpty()) {
+                    TextButton(onClick = presenter::clearHistory) {
+                        Text("Limpiar todo")
+                    }
+                }
+            }
+        },
+        text = {
+            if (state.history.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "No hay descargas recientes.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    state.history.forEach { item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    item.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    item.formatLabel,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (item.url.isNotBlank()) {
+                                OutlinedButton(
+                                    onClick = { platform.openUrl(item.url) },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                ) {
+                                    Text("🌐 Web", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                            if (item.path.isNotBlank()) {
+                                OutlinedButton(
+                                    onClick = { platform.openOutput(item.path) },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                ) {
+                                    Text("Abrir", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                            IconButton(
+                                onClick = { presenter.removeFromHistory(item.id) },
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Text("🗑️", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsButton(platform: PlatformBindings) {
+    var showDialog by remember { mutableStateOf(false) }
+    val label = "Ajustes"
+
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                .clickable(role = Role.Button, onClickLabel = label, onClick = { showDialog = true }),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(modifier = Modifier.size(22.dp)) {
+                val c = center
+                val color = androidx.compose.ui.graphics.Color(0xFF8A8A8A)
+                val sw = 1.8.dp.toPx()
+                val outerR = size.minDimension / 2f
+                val innerR = outerR * 0.42f
+                val toothCount = 8
+                val toothPath = Path()
+                for (i in 0 until toothCount) {
+                    val baseAngle = (2 * Math.PI / toothCount * i).toFloat()
+                    val tipAngle = baseAngle + (Math.PI / toothCount).toFloat()
+                    val bx1 = c.x + outerR * 0.68f * cos(baseAngle - 0.22f)
+                    val by1 = c.y + outerR * 0.68f * sin(baseAngle - 0.22f)
+                    val tx  = c.x + outerR * cos(tipAngle - (Math.PI / toothCount).toFloat())
+                    val ty  = c.y + outerR * sin(tipAngle - (Math.PI / toothCount).toFloat())
+                    val bx2 = c.x + outerR * 0.68f * cos(baseAngle + 0.22f)
+                    val by2 = c.y + outerR * 0.68f * sin(baseAngle + 0.22f)
+                    if (i == 0) toothPath.moveTo(bx1, by1)
+                    else toothPath.lineTo(bx1, by1)
+                    toothPath.lineTo(tx, ty)
+                    toothPath.lineTo(bx2, by2)
+                }
+                toothPath.close()
+                drawPath(toothPath, color = color, style = Stroke(sw, cap = StrokeCap.Round))
+                drawCircle(color = color, radius = innerR, center = c, style = Stroke(sw))
+            }
+        }
+    }
+
+    if (showDialog) {
+        SettingsDialog(platform, onDismiss = { showDialog = false })
+    }
+}
+
+@Composable
+private fun SettingsDialog(platform: PlatformBindings, onDismiss: () -> Unit) {
+    var autoStart       by remember { mutableStateOf(platform.isAutoStartEnabled ?: false) }
+    var minimizeToTray  by remember { mutableStateOf(platform.isMinimizeToTrayEnabled ?: false) }
+    var nativeInstalled by remember { mutableStateOf(platform.isNativeHostInstalled ?: false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ajustes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                SettingsRow(
+                    title = "Iniciar con Windows",
+                    subtitle = "Abre Luna Fetch automáticamente al encender el equipo.",
+                    checked = autoStart,
+                    onCheckedChange = { autoStart = it; platform.setAutoStart(it) },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                SettingsRow(
+                    title = "Minimizar en lugar de cerrar",
+                    subtitle = "Al pulsar ✕, la app se oculta en la bandeja del sistema.",
+                    checked = minimizeToTray,
+                    onCheckedChange = { minimizeToTray = it; platform.setMinimizeToTray(it) },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                SettingsRow(
+                    title = "Extensión de navegador",
+                    subtitle = if (nativeInstalled)
+                        "Host registrado en Chrome/Edge. Instala la extensión para activarla."
+                    else
+                        "Registra el host para que Chrome/Edge puedan comunicarse con Luna Fetch.",
+                    checked = nativeInstalled,
+                    onCheckedChange = {
+                        nativeInstalled = it
+                        if (it) platform.installNativeHost() else platform.uninstallNativeHost()
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        },
+    )
+}
+
+
+@Composable
+private fun SettingsRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            )
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.5f),
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -437,7 +794,7 @@ private fun VideoCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
                 contentDescription = "Miniatura de ${video.title}",
                 modifier = thumbnailModifier.clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentScale = if (state.selectedFormat.isAudio) ContentScale.Crop else ContentScale.Fit,
+                contentScale = ContentScale.Crop,
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -501,7 +858,7 @@ private fun CoverThumbnail(model: String, description: String, isAudio: Boolean)
             model = model,
             contentDescription = description,
             modifier = Modifier.fillMaxSize(),
-            contentScale = if (isAudio) ContentScale.Crop else ContentScale.Fit,
+            contentScale = ContentScale.Crop,
         )
     }
 }

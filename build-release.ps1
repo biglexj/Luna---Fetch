@@ -174,7 +174,7 @@ if (-not $resolvedOutput.StartsWith($resolvedRoot, [StringComparison]::OrdinalIg
 try {
     Get-ChildItem -LiteralPath $output -File -ErrorAction SilentlyContinue | Remove-Item -Force
 } catch [System.UnauthorizedAccessException] {
-    $lockedPath = $_.Exception.ItemName
+    $lockedPath = if ($_.Exception.PSObject.Properties['ItemName']) { $_.Exception.ItemName } else { $_.Exception.Message }
     $lockingProcesses = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
         Where-Object { $_.ExecutablePath -and $_.ExecutablePath.Equals($lockedPath, [StringComparison]::OrdinalIgnoreCase) } |
         ForEach-Object { "$($_.Name) (PID $($_.ProcessId))" }
