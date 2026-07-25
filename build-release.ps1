@@ -268,7 +268,7 @@ Invoke-Checked winget @("validate", "--manifest", $wingetManifestDirectory)
 
 Push-Location $root
 try {
-    Invoke-Checked git @("add", "-u")
+    Invoke-Checked git @("add", "-A")
     Invoke-Checked git @("add", $wingetManifestDirectory)
     Invoke-Checked git @("diff", "--cached", "--check")
     & git diff --cached --quiet
