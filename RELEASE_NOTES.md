@@ -1,6 +1,9 @@
 # 🌌 Release Notes — Luna Fetch
 
 > [!IMPORTANT]
+> **Sanitización de Notas (CRÍTICO):**
+> - Los mensajes de las notas de lanzamiento DEBEN estar limpios de rutas de archivos del sistema local (ej. `d:\Proyectos\...`), nombres de variables internas, fragmentos de prompts o logs técnicos de depuración. Deben redactarse con lenguaje limpio, profesional y enfocado al usuario final.
+>
 > **Regla del .9 para Versionado:**
 > - Nunca se debe pasar de una versión de parche `.9` (ej. de `1.0.9` no se pasa a `1.0.10`). Al alcanzar el límite del parche `.9`, se incrementa el número menor/secundario (ej. pasando a `1.1.0`).
 > - De igual manera, al alcanzar el límite de la versión menor `1.9.9` (o ante hitos de arquitectura significativos), se debe saltar obligatoriamente al siguiente número mayor completo (`2.0.0`).
