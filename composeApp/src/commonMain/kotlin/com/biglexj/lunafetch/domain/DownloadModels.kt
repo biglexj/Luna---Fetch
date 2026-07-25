@@ -22,6 +22,7 @@ data class CollectionEntry(
     val durationSeconds: Double = 0.0,
 )
 
+@kotlinx.serialization.Serializable
 data class DownloadHistoryItem(
     val id: String,
     val title: String,
@@ -71,12 +72,7 @@ object FormatCatalog {
                     else -> "${height}p"
                 }
 
-                if (height >= 720) {
-                    list.add(QualityOption("$label (60 FPS)", videoSelector(format, height)))
-                    list.add(QualityOption("$label (30 FPS)", videoSelector(format, height, 30)))
-                } else {
-                    list.add(QualityOption(label, videoSelector(format, height)))
-                }
+                list.add(QualityOption(label, videoSelector(format, height)))
             }
         }
         return list

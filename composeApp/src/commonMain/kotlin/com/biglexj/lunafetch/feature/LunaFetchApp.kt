@@ -60,6 +60,7 @@ fun LunaFetchApp(
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 AppHeader(themeMode, onThemeSelected = { themeMode = it }, platform = platform, presenter = presenter, state = state)
+                com.biglexj.lunafetch.feature.components.UpdateBanner(state, presenter)
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val compact = maxWidth < 720.dp
                     val scroll = rememberScrollState()
@@ -81,6 +82,7 @@ fun LunaFetchApp(
                             ) {
                                 LinkCard(state, presenter)
                                 VideoCard(state, presenter)
+                                HistoryCard(state, presenter, platform)
                             }
                             Column(
                                 modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),

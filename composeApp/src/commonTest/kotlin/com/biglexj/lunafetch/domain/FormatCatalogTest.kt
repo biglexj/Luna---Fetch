@@ -10,7 +10,7 @@ class FormatCatalogTest {
     fun videoQualitiesRespectAvailableHeight() {
         val qualities = FormatCatalog.qualities(MediaFormat.Mp4, 720)
         assertEquals(
-            listOf("720p · HD (60 FPS)", "720p · HD (30 FPS)", "480p", "360p"),
+            listOf("720p · HD", "480p", "360p"),
             qualities.map(QualityOption::displayName)
         )
     }
@@ -47,14 +47,10 @@ class FormatCatalogTest {
         val qualities = FormatCatalog.qualities(MediaFormat.Mp4, 2160)
         assertEquals(
             listOf(
-                "4K · Ultra HD (60 FPS)",
-                "4K · Ultra HD (30 FPS)",
-                "1440p · 2K (60 FPS)",
-                "1440p · 2K (30 FPS)",
-                "1080p · Full HD (60 FPS)",
-                "1080p · Full HD (30 FPS)",
-                "720p · HD (60 FPS)",
-                "720p · HD (30 FPS)",
+                "4K · Ultra HD",
+                "1440p · 2K",
+                "1080p · Full HD",
+                "720p · HD",
                 "480p",
                 "360p"
             ),

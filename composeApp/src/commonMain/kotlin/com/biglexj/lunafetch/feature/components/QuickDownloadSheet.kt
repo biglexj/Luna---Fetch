@@ -77,7 +77,10 @@ fun QuickDownloadSheet(
                             enabled = !state.isDownloading,
                         )
                         Button(
-                            onClick = presenter::download,
+                            onClick = {
+                                presenter.download()
+                                onDismiss()
+                            },
                             modifier = Modifier.fillMaxWidth().height(52.dp),
                             enabled = !state.isDownloading,
                         ) { Text(if (state.isDownloading) "Descargando…" else if (video.isCollection) "Descargar colección" else "Iniciar descarga") }

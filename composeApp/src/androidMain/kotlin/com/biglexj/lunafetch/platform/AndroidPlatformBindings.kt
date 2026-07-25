@@ -55,4 +55,41 @@ class AndroidPlatformBindings(
             }
         }
     }
+
+    override fun downloadAndInstallUpdate(release: com.biglexj.lunafetch.domain.UpdateRelease) {
+        if (release.downloadUrl.endsWith(".apk", ignoreCase = true)) {
+            val dm = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as? android.app.DownloadManager
+            if (dm != null) {
+                runCatching {
+                    val request = android.app.DownloadManager.Request(Uri.parse(release.downloadUrl)).apply {
+                        setTitle("Descargando Luna Fetch v${release.version}")
+                        setDescription("Actualización disponible de Luna Fetch")
+                        setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        setDestinationInExternalPublicDir(
+                            android.os.Environment.DIRECTORY_DOWNLOADS,
+                            "LunaFetch-v${release.version}.apk",
+                        )
+                        setMimeType("application/vnd.android.package-archive")
+                    }
+                    dm.enqueue(request)
+                    return
+                }
+            }
+        }
+        openUrl(release.releasePageUrl)
+    }
+
+    override fun loadHistory(): List<com.biglexj.lunafetch.domain.DownloadHistoryItem> {
+        val raw = preferences.getString("downloadHistory", null) ?: return emptyList()
+        return runCatching {
+            kotlinx.serialization.json.Json.decodeFromString<List<com.biglexj.lunafetch.domain.DownloadHistoryItem>>(raw)
+        }.getOrDefault(emptyList())
+    }
+
+    override fun saveHistory(history: List<com.biglexj.lunafetch.domain.DownloadHistoryItem>) {
+        runCatching {
+            val json = kotlinx.serialization.json.Json.encodeToString(history)
+            preferences.edit().putString("downloadHistory", json).apply()
+        }
+    }
 }

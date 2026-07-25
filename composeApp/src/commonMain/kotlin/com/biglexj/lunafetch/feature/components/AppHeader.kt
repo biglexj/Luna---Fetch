@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -84,6 +85,8 @@ fun AppHeader(
                     Spacer(Modifier.width(8.dp))
                     if (hasSettings) SettingsButton(platform)
                     Spacer(Modifier.width(8.dp))
+                    AboutButton(platform)
+                    Spacer(Modifier.width(8.dp))
                     ThemeModeButton(mode, onThemeSelected)
                 }
                 Text(
@@ -106,6 +109,8 @@ fun AppHeader(
                 HistoryButton(presenter, state, platform)
                 Spacer(Modifier.width(8.dp))
                 if (hasSettings) SettingsButton(platform)
+                Spacer(Modifier.width(8.dp))
+                AboutButton(platform)
                 Spacer(Modifier.width(8.dp))
                 ThemeModeButton(mode, onThemeSelected)
             }
@@ -505,4 +510,97 @@ private fun ThemeModeGlyph(mode: ThemeMode, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AboutButton(platform: PlatformBindings) {
+    var showDialog by remember { mutableStateOf(false) }
+    val label = "Acerca de y Donaciones"
+
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                .clickable(role = Role.Button, onClickLabel = label, onClick = { showDialog = true }),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(modifier = Modifier.size(20.dp)) {
+                val color = androidx.compose.ui.graphics.Color(0xFF8A8A8A)
+                val sw = 1.8.dp.toPx()
+                val r = size.minDimension / 2f
+                drawCircle(color = color, radius = r, center = center, style = Stroke(sw))
+                drawCircle(color = color, radius = sw * 0.8f, center = Offset(center.x, center.y - r * 0.4f))
+                drawLine(color = color, start = Offset(center.x, center.y - r * 0.1f), end = Offset(center.x, center.y + r * 0.45f), strokeWidth = sw, cap = StrokeCap.Round)
+            }
+        }
+    }
+
+    if (showDialog) {
+        AboutDialog(platform, onDismiss = { showDialog = false })
+    }
+}
+
+@Composable
+private fun AboutDialog(platform: PlatformBindings, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    "Versión 1.0.6 · Desarrollado por Biglex J",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    "Luna Fetch es una herramienta moderna y gratuita para descargar videos y audio de TikTok sin marca de agua, YouTube, Instagram y más.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                Text("Apoya el Desarrollo Oficial", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Si esta aplicación te es útil, puedes apoyar su desarrollo mediante una donación voluntaria:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = { platform.openUrl("https://www.biglexj.com/donaciones") },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(50),
+                ) {
+                    Text("💳 Donar (Yape / Plin / Transferencias)", fontWeight = FontWeight.Bold)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { platform.openUrl("https://buymeacoffee.com/biglexj") },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(50),
+                    ) {
+                        Text("☕ Buy Me a Coffee", style = MaterialTheme.typography.labelMedium)
+                    }
+                    OutlinedButton(
+                        onClick = { platform.openUrl("https://github.com/biglexj") },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(50),
+                    ) {
+                        Text("⭐ GitHub", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        },
+    )
 }

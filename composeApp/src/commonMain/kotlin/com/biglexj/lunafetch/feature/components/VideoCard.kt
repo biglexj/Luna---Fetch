@@ -52,7 +52,7 @@ fun VideoCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
             AsyncImage(
                 model = video.thumbnailUrl,
                 contentDescription = "Miniatura de ${video.title}",
-                modifier = thumbnailModifier.clip(RoundedCornerShape(14.dp))
+                modifier = thumbnailModifier.clip(RoundedCornerShape(18.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentScale = ContentScale.Crop,
             )
@@ -60,18 +60,18 @@ fun VideoCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
                 Text(
                     video.title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(video.uploader, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(video.uploader, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                 val detail = if (video.isCollection) {
                     "Lista · ${video.collectionCount} elementos"
                 } else {
                     formatDuration(video.durationSeconds)
                 }
-                Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(detail, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
             }
         }
     }

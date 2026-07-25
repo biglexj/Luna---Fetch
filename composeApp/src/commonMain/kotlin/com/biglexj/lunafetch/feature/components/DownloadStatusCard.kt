@@ -31,7 +31,7 @@ fun DownloadStatusCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
         Spacer(Modifier.height(10.dp))
         LinearProgressIndicator(
             progress = { (progress.percentage / 100.0).toFloat() },
-            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+            modifier = Modifier.fillMaxWidth().height(8.dp).clip(androidx.compose.foundation.shape.CircleShape),
         )
         if (progress.speed.isNotBlank() || progress.size.isNotBlank() || progress.eta.isNotBlank()) {
             Spacer(Modifier.height(10.dp))

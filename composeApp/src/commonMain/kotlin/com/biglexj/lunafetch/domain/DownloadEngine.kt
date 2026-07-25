@@ -30,4 +30,24 @@ interface PlatformBindings {
     fun rememberDestination(destination: String)
     fun openOutput(path: String)
     fun openUrl(url: String) {}
+
+    suspend fun checkUpdate(): UpdateRelease? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val url = java.net.URL("https://api.github.com/repos/biglexj/Luna---Fetch/releases/latest")
+            val connection = url.openConnection() as java.net.HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 10_000
+            connection.setRequestProperty("User-Agent", "LunaFetch-Updater")
+            if (connection.responseCode == 200) {
+                val json = connection.inputStream.bufferedReader().use { it.readText() }
+                UpdateChecker.parseUpdateRelease(json)
+            } else null
+        }.getOrNull()
+    }
+
+    fun downloadAndInstallUpdate(release: UpdateRelease) {}
+
+    fun loadHistory(): List<DownloadHistoryItem> = emptyList()
+    fun saveHistory(history: List<DownloadHistoryItem>) {}
 }

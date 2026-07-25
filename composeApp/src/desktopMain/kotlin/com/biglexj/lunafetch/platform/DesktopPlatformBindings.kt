@@ -3,6 +3,7 @@ package com.biglexj.lunafetch.platform
 import com.biglexj.lunafetch.domain.DownloadEngine
 import com.biglexj.lunafetch.domain.PlatformBindings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
 import java.io.File
@@ -52,6 +53,53 @@ class DesktopPlatformBindings : PlatformBindings {
     override fun openUrl(url: String) {
         if (url.isNotBlank() && Desktop.isDesktopSupported()) {
             runCatching { Desktop.getDesktop().browse(java.net.URI(url)) }
+        }
+    }
+
+    override fun downloadAndInstallUpdate(release: com.biglexj.lunafetch.domain.UpdateRelease) {
+        val exeUrl = release.exeDownloadUrl.ifBlank {
+            release.downloadUrl.takeIf { it.endsWith(".exe", true) || it.endsWith(".msi", true) }
+        }
+        if (exeUrl.isNullOrBlank()) {
+            openUrl(release.releasePageUrl)
+            return
+        }
+
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val url = java.net.URL(exeUrl)
+                val ext = if (exeUrl.endsWith(".msi", true)) ".msi" else ".exe"
+                val targetFile = File(systemDownloadsDirectory(), "LunaFetch-Windows-${release.version}$ext")
+                url.openStream().use { input ->
+                    targetFile.outputStream().use { output -> input.copyTo(output) }
+                }
+                if (targetFile.exists() && targetFile.length() > 0) {
+                    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                        Desktop.getDesktop().open(targetFile)
+                    } else {
+                        ProcessBuilder("cmd", "/c", "start", "\"\"", "\"${targetFile.absolutePath}\"").start()
+                    }
+                } else {
+                    openUrl(release.releasePageUrl)
+                }
+            }.onFailure {
+                openUrl(release.releasePageUrl)
+            }
+        }
+    }
+
+    override fun loadHistory(): List<com.biglexj.lunafetch.domain.DownloadHistoryItem> {
+        val raw = preferences.get("downloadHistory", null) ?: return emptyList()
+        return runCatching {
+            kotlinx.serialization.json.Json.decodeFromString<List<com.biglexj.lunafetch.domain.DownloadHistoryItem>>(raw)
+        }.getOrDefault(emptyList())
+    }
+
+    override fun saveHistory(history: List<com.biglexj.lunafetch.domain.DownloadHistoryItem>) {
+        runCatching {
+            val json = kotlinx.serialization.json.Json.encodeToString(history)
+            preferences.put("downloadHistory", json)
         }
     }
 

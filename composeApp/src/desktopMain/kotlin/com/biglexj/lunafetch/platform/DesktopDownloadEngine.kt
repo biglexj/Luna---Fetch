@@ -31,13 +31,7 @@ class DesktopDownloadEngine(
     override suspend fun analyze(url: String): VideoInfo = analyzeWithCookieFile(url, null)
 
     suspend fun analyzeWithCookieFile(url: String, customCookieFile: String? = null): VideoInfo = withContext(Dispatchers.IO) {
-        val analyzeOptions = listOf(
-            "--ignore-config",
-            "--no-colors",
-            "--dump-single-json",
-            "--flat-playlist",
-            "--yes-playlist",
-        )
+        val analyzeOptions = YtdlpProtocol.buildAnalyzeArguments(url)
 
         val (exitCode, outputs) = executeWithCookieFallback(analyzeOptions, url, customCookieFile = customCookieFile)
         val (stdout, stderr) = outputs

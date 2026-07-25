@@ -9,6 +9,14 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.0.6] — TikTok sin Marca de Agua, Material Expressive & Auto-Updater — 2026-07-25
+
+Luna Fetch 1.0.6 introduce compatibilidad completa para la descarga de videos de TikTok sin marca de agua, desinfección de enlaces con parámetros de seguimiento e inclusión de cabeceras HTTP de navegador.
+
+Se adopta el sistema de diseño Material 3 Expressive para Windows y Android con colores tonales vibrantes, botones en forma de píldora, tarjetas elevadas y menús emergentes sin tintes desalineados.
+
+Se integra la comprobación y descarga directa de actualizaciones desde GitHub Releases, notificaciones del sistema de progreso en Android y la sección oficial de "Acerca de" con accesos a donaciones (Yape, Plin y Buy Me a Coffee).
+
 ## [1.0.5] — Refactorización y Estandarización Modular — 2026-07-24
 
 Estandarización de la estructura del repositorio bajo las reglas del agente y refactorización modular de la interfaz de usuario en Compose. Se eliminó la deuda técnica de `LunaFetchApp.kt` dividiéndolo en 9 sub-componentes atomizados, mejorando la mantenibilidad y organización del proyecto.

@@ -64,4 +64,22 @@ class YtdlpProtocolTest {
     fun extractsFinalPath() {
         assertEquals("D:/Downloads/video.mp4", YtdlpProtocol.outputPath("LUNAFETCH_FILE|D:/Downloads/video.mp4"))
     }
+
+    @Test
+    fun tikTokUrlAddsHeadersAndReferer() {
+        val request = DownloadRequest(
+            url = "https://www.tiktok.com/@user/video/123456789",
+            destination = "unused",
+            format = MediaFormat.Mp4,
+            quality = FormatCatalog.qualities(MediaFormat.Mp4, 1080).first(),
+        )
+        val arguments = YtdlpProtocol.buildDownloadArguments(request, "C:/Downloads/%(title)s.%(ext)s")
+        assertTrue("--user-agent" in arguments)
+        assertTrue("--referer" in arguments)
+        assertTrue("https://www.tiktok.com/" in arguments)
+
+        val analyzeArgs = YtdlpProtocol.buildAnalyzeArguments("https://vt.tiktok.com/ZS123456/")
+        assertTrue("--user-agent" in arguments)
+        assertTrue("--referer" in analyzeArgs)
+    }
 }

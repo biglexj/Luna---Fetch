@@ -1,5 +1,6 @@
 package com.biglexj.lunafetch.feature.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -97,7 +98,7 @@ fun DownloadOptionsCard(
         onClick = presenter::chooseDestination,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
         enabled = !state.isDownloading,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(20.dp),
     ) {
         Text(
             platform.destinationLabel(state.destination),
@@ -108,13 +109,14 @@ fun DownloadOptionsCard(
     Spacer(Modifier.height(14.dp))
     Button(
         onClick = presenter::download,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
+        modifier = Modifier.fillMaxWidth().height(54.dp),
         enabled = state.video != null && !state.isDownloading,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(50),
     ) {
         Text(
             if (state.downloadCollection) "Descargar colección"
             else "Descargar ${state.selectedFormat.extension.uppercase()}",
+            fontWeight = FontWeight.Bold,
         )
     }
 }
@@ -135,17 +137,21 @@ fun <T> Selector(
             onClick = { expanded = true },
             enabled = enabled,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(20.dp),
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(selected, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
+                    text = { Text(optionLabel(option), fontWeight = FontWeight.Medium) },
                     onClick = {
                         expanded = false
                         onSelected(option)

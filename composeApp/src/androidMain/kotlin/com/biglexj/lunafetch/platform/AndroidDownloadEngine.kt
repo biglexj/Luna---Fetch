@@ -37,7 +37,7 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         try {
             val response = YoutubeDL.execute(
                 androidRequest(url).addCommands(
-                    listOf("--dump-single-json", "--flat-playlist", "--yes-playlist", "--no-warnings"),
+                    YtdlpProtocol.buildAnalyzeArguments(url) + "--no-warnings",
                 ),
             )
             if (response.exitCode != 0) {
@@ -82,7 +82,7 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         DownloadForegroundService.start(context)
 
         try {
-            val command = YtdlpProtocol.buildDownloadArguments(request, outputTemplate).dropLast(2)
+            val command = YtdlpProtocol.buildDownloadArguments(request, outputTemplate)
             val youtubeRequest = androidRequest(request.url).addCommands(command)
             val response = YoutubeDL.execute(youtubeRequest, id) { percentage, etaSeconds, line ->
                 onLog(line)
@@ -114,11 +114,14 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                 throw DownloadException("La descarga terminó, pero no se encontró el archivo resultante.")
             }
             val resultUris = copyToTree(downloaded, treeUri)
+            val completedName = downloaded.firstOrNull()?.name ?: "Archivo descargado"
+            DownloadForegroundService.notifyCompleted(context, completedName)
             DownloadResult(
                 outputPaths = resultUris.map(Uri::toString),
                 openPath = if (resultUris.size == 1) resultUris.first().toString() else treeUri.toString(),
             )
         } catch (error: Exception) {
+            DownloadForegroundService.notifyFailed(context, error.message ?: "No se pudo completar la descarga.")
             throw DownloadException(error.message ?: "No se pudo completar la descarga en Android.", error)
         } finally {
             processId = null
@@ -146,9 +149,19 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         }
     }
 
-    private fun androidRequest(url: String): YoutubeDLRequest = YoutubeDLRequest(url)
-        .addOption("--js-runtimes", "quickjs")
-        .addOption("--remote-components", "ejs:github")
+    private fun androidRequest(url: String): YoutubeDLRequest {
+        val req = YoutubeDLRequest(url)
+            .addOption("--js-runtimes", "quickjs")
+            .addOption("--remote-components", "ejs:github")
+
+        val cookieFile = File(context.filesDir, "luna_session_cookies.txt").let {
+            if (it.exists() && it.length() > 0) it else File(context.cacheDir, "luna_session_cookies.txt")
+        }
+        if (cookieFile.exists() && cookieFile.length() > 0) {
+            req.addOption("--cookies", cookieFile.absolutePath)
+        }
+        return req
+    }
 
     private fun updateYtdlpIfNeeded() {
         val preferences = context.getSharedPreferences("lunafetch-engine", Context.MODE_PRIVATE)

@@ -17,9 +17,11 @@ Si necesitas referencias sobre la arquitectura, el lenguaje de diseño, los comp
 - **Raíz del Proyecto**: `d:\Proyectos\biglexj\Aurora---Blog` (especialmente su archivo [agent.md](file:///d:/Proyectos/biglexj/Aurora---Blog/agent.md))
 - **Documentación del Proyecto**: [docs](file:///d:/Proyectos/biglexj/Aurora---Blog/docs) (incluyendo la guía de diseño en [DESIGN.md](file:///d:/Proyectos/biglexj/Aurora---Blog/docs/es/frontend/Lenguaje%20de%20Dise%C3%B1o/DESIGN.md) y la estructura de directorios en [Arbol de Carpetas.md](file:///d:/Proyectos/biglexj/Aurora---Blog/docs/es/guides/Arbol%20de%20Carpetas.md))
 
-## Estructura de Carpetas de Trabajo [CRÍTICO]
-> La estructura de carpetas del proyecto está definida en la regla [folder_structure.md](.agents/rules/folder_structure.md). Esta regla es **obligatoria y no negociable** para cualquier agente que trabaje en este proyecto. Todo nuevo archivo o carpeta DEBE seguir la convención establecida allí antes de ser creado.
+## Estructura de Carpetas & Lenguaje de Diseño [CRÍTICO]
+> La estructura de carpetas está en [folder_structure.md](.agents/rules/folder_structure.md). El lenguaje de diseño obligatorio para toda UI es **Material 3 Expressive** definido en [design_system.md](.agents/rules/design_system.md). La lógica de autodescarga de actualizaciones está en [auto_updater.md](.agents/rules/auto_updater.md). Estas reglas son **obligatorias y no negociables**.
 
+- **Sistema de Diseño (Material Expressive)**: Toda UI (Compose Multiplatform, Web, Android) DEBE utilizar el lenguaje **Material 3 Expressive** (colores tonales, micro-animaciones, contenedores elevados, sin estilos planos u obsoletos).
+- **Auto-Actualización**: Todos los proyectos DEBEN soportar la comprobación silenciosa y descarga directa de versiones desde GitHub Releases (`UpdateChecker`).
 - **Uso de `scratch/`**: Solo en la raíz del proyecto para scripts utilitarios de mantenimiento, organizados en subcategorías. **Prohibido** dentro de cualquier carpeta de código fuente (`composeApp/`, `src/`).
 - **Uso de `test/`**: Scripts de prueba temporales en `test/` de la raíz. Ignorado en `.gitignore`.
 

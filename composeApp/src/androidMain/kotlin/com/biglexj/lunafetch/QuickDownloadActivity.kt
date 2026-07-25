@@ -27,10 +27,8 @@ class QuickDownloadActivity : ComponentActivity() {
 
     private fun Intent.sharedUrl(): String? {
         if (action != Intent.ACTION_SEND || type != "text/plain") return null
-        return UrlPattern.find(getStringExtra(Intent.EXTRA_TEXT).orEmpty())?.value
-    }
-
-    private companion object {
-        val UrlPattern = Regex("https?://[^\\s]+", RegexOption.IGNORE_CASE)
+        val rawText = getStringExtra(Intent.EXTRA_TEXT).orEmpty()
+        val sanitized = com.biglexj.lunafetch.domain.TikTokUtils.sanitizeUrl(rawText)
+        return sanitized.takeIf { com.biglexj.lunafetch.domain.LunaFetchPresenter.isSupportedUrl(it) }
     }
 }

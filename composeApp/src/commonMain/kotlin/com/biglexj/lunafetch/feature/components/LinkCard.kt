@@ -19,7 +19,7 @@ import com.biglexj.lunafetch.domain.LunaFetchState
 
 @Composable
 fun LinkCard(state: LunaFetchState, presenter: LunaFetchPresenter) = LunaCard {
-    Text("Enlace", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    Text("Enlace de descarga", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
@@ -28,16 +28,16 @@ fun LinkCard(state: LunaFetchState, presenter: LunaFetchPresenter) = LunaCard {
             modifier = Modifier.weight(1f),
             enabled = !state.isAnalyzing && !state.isDownloading,
             singleLine = true,
-            label = { Text("URL del video") },
-            shape = RoundedCornerShape(14.dp),
+            label = { Text("Pega un enlace de TikTok, YouTube, Instagram...") },
+            shape = RoundedCornerShape(20.dp),
         )
         Button(
             onClick = presenter::analyze,
             enabled = !state.isAnalyzing && !state.isDownloading,
             modifier = Modifier.height(56.dp),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(50),
         ) {
-            Text(if (state.isAnalyzing) "Analizando…" else "Analizar")
+            Text(if (state.isAnalyzing) "Analizando…" else "Analizar", fontWeight = FontWeight.Bold)
         }
     }
     state.error?.let {

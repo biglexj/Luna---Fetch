@@ -16,7 +16,7 @@ class DownloadForegroundService : Service() {
         super.onCreate()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(ChannelId, "Descargas", NotificationManager.IMPORTANCE_LOW),
+                NotificationChannel(ChannelId, "Descargas", NotificationManager.IMPORTANCE_DEFAULT),
             )
         }
     }
@@ -73,6 +73,54 @@ class DownloadForegroundService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, DownloadForegroundService::class.java).setAction(ActionStop))
+        }
+
+        fun notifyCompleted(context: Context, fileName: String) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val openApp = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(context, ChannelId)
+            } else {
+                @Suppress("DEPRECATION")
+                Notification.Builder(context)
+            }
+            val notification = builder
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle("Luna Fetch: Descarga completada")
+                .setContentText(fileName)
+                .setContentIntent(openApp)
+                .setAutoCancel(true)
+                .build()
+            nm.notify((System.currentTimeMillis() % 10000).toInt() + 5000, notification)
+        }
+
+        fun notifyFailed(context: Context, errorMsg: String) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val openApp = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(context, ChannelId)
+            } else {
+                @Suppress("DEPRECATION")
+                Notification.Builder(context)
+            }
+            val notification = builder
+                .setSmallIcon(android.R.drawable.stat_notify_error)
+                .setContentTitle("Luna Fetch: Descarga fallida")
+                .setContentText(errorMsg)
+                .setContentIntent(openApp)
+                .setAutoCancel(true)
+                .build()
+            nm.notify((System.currentTimeMillis() % 10000).toInt() + 6000, notification)
         }
 
         private fun send(context: Context, intent: Intent) {

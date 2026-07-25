@@ -26,6 +26,7 @@ data class LunaFetchState(
     val error: String? = null,
     val completedOutput: String? = null,
     val history: List<DownloadHistoryItem> = emptyList(),
+    val availableUpdate: UpdateRelease? = null,
 )
 
 class LunaFetchPresenter(
@@ -36,7 +37,33 @@ class LunaFetchPresenter(
     val state: StateFlow<LunaFetchState> = _state.asStateFlow()
     private var operation: Job? = null
 
-    fun setUrl(value: String) = _state.update { it.copy(url = value, error = null) }
+    init {
+        _state.update { it.copy(history = platform.loadHistory()) }
+        checkForUpdates()
+    }
+
+    fun checkForUpdates() {
+        scope.launch {
+            val release = platform.checkUpdate() ?: return@launch
+            val currentVersion = "1.0.6"
+            if (UpdateChecker.isNewerVersion(currentVersion, release.version)) {
+                _state.update { it.copy(availableUpdate = release) }
+            }
+        }
+    }
+
+    fun installUpdate() {
+        state.value.availableUpdate?.let(platform::downloadAndInstallUpdate)
+    }
+
+    fun dismissUpdate() {
+        _state.update { it.copy(availableUpdate = null) }
+    }
+
+    fun setUrl(value: String) {
+        val sanitized = TikTokUtils.sanitizeUrl(value)
+        _state.update { it.copy(url = sanitized, error = null) }
+    }
 
     fun selectFormat(format: MediaFormat) {
         _state.update { current ->
@@ -52,15 +79,24 @@ class LunaFetchPresenter(
     }
 
     fun removeFromHistory(id: String) {
-        _state.update { current -> current.copy(history = current.history.filter { it.id != id }) }
+        _state.update { current ->
+            val updated = current.history.filter { it.id != id }
+            platform.saveHistory(updated)
+            current.copy(history = updated)
+        }
     }
 
     fun clearHistory() {
+        platform.saveHistory(emptyList())
         _state.update { current -> current.copy(history = emptyList()) }
     }
 
     fun analyze() {
-        val url = state.value.url.trim()
+        val rawUrl = state.value.url.trim()
+        val url = TikTokUtils.sanitizeUrl(rawUrl)
+        if (url != rawUrl) {
+            setUrl(url)
+        }
         if (!isSupportedUrl(url)) {
             _state.update { it.copy(error = "Escribe una URL http o https válida.") }
             return
@@ -97,7 +133,7 @@ class LunaFetchPresenter(
      * without showing popups or asking for user confirmation.
      */
     fun startDirectDownload(rawUrl: String, formatName: String = "mp4", requestedQuality: String? = null) {
-        val url = rawUrl.trim()
+        val url = TikTokUtils.sanitizeUrl(rawUrl)
         if (!isSupportedUrl(url)) return
         val format = if (formatName.equals("mp3", ignoreCase = true)) MediaFormat.Mp3 else MediaFormat.Mp4
         
@@ -192,11 +228,13 @@ class LunaFetchPresenter(
                     url = video.url,
                 )
                 _state.update {
+                    val updatedHistory = (listOf(newItem) + it.history).take(20)
+                    platform.saveHistory(updatedHistory)
                     it.copy(
                         isDownloading = false,
                         progress = DownloadProgress(100.0, phase = DownloadPhase.Completed),
                         completedOutput = result.openPath,
-                        history = (listOf(newItem) + it.history).take(10),
+                        history = updatedHistory,
                     )
                 }
             } catch (cancelled: CancellationException) {
@@ -235,6 +273,15 @@ class LunaFetchPresenter(
     }
 }
 
-private fun Throwable.userMessage(fallback: String): String = message
-    ?.takeIf { it.isNotBlank() }
-    ?: fallback
+private fun Throwable.userMessage(fallback: String): String {
+    val raw = message.orEmpty()
+    return when {
+        raw.contains("comfortable for some audiences", ignoreCase = true) ||
+        raw.contains("Log in for access", ignoreCase = true) ->
+            "Este video de TikTok tiene restricción de edad o contenido sensible impuesta por TikTok y requiere sesión iniciada (cookies)."
+        raw.contains("Sign in to confirm", ignoreCase = true) ->
+            "Este contenido requiere iniciar sesión."
+        raw.isNotBlank() -> raw
+        else -> fallback
+    }
+}
