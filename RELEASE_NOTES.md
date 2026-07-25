@@ -12,6 +12,12 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.0.7] — Auto-actualizador Nativo para Windows y Optimización de Publicaciones — 2026-07-25
+
+Luna Fetch 1.0.7 amplía la experiencia de actualización silenciosa a Windows. Al detectar una nueva versión, la aplicación descarga automáticamente el instalador oficial a la carpeta de descargas del usuario y ejecuta la instalación sin requerir navegación manual externa.
+
+Se incorporan reglas estrictas de sanitización de notas de versión en el sistema de plantillas y empaquetado, asegurando que todos los registros e historiales de cambios sean limpios, profesionales y orientados al usuario final.
+
 ## [1.0.6] — TikTok sin Marca de Agua, Material Expressive & Auto-Updater — 2026-07-25
 
 Luna Fetch 1.0.6 introduce compatibilidad completa para la descarga de videos de TikTok sin marca de agua, desinfección de enlaces con parámetros de seguimiento e inclusión de cabeceras HTTP de navegador.

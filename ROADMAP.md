@@ -24,6 +24,7 @@ Plan de trabajo, objetivos y prioridades del proyecto.
 
 ## 🟢 Completado
 
+- [x] **Versión 1.0.7**: Auto-actualización nativa para Windows con descarga e instalación directa del ejecutable, sanitización estricta de Release Notes en plantillas y publicaciones oficiales.
 - [x] **Versión 1.0.6**: Compatibilidad con TikTok sin marca de agua y desinfección de URL, auto-actualización desde GitHub Releases (`UpdateChecker`), notificaciones de sistema en Android al completar/fallar descargas, adopción completa de **Material 3 Expressive System** (Windows & Android) y modal de donaciones oficiales (`biglexj.com/donaciones`).
 - [x] **Versión 1.0.5**: Refactorización modular de UI (`LunaFetchApp.kt` de 1,108 a 98 líneas), eliminación de deuda técnica activa, creación de 9 sub-componentes UI en `feature/components/`, estandarización de `.agents/rules/folder_structure.md` y estructura del repositorio.
 - [x] **Versión 1.0.4**: Extensión de navegador Chrome / Edge, descargas silenciosas, historial unificado y miniaturas 16:9.

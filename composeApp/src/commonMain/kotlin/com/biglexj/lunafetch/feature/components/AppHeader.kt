@@ -555,7 +555,7 @@ private fun AboutDialog(platform: PlatformBindings, onDismiss: () -> Unit) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "Versión 1.0.6 · Desarrollado por Biglex J",
+                    "Versión 1.0.7 · Desarrollado por Biglex J",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
