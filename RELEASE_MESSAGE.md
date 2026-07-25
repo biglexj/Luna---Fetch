@@ -1,7 +1,7 @@
-# 🌙 Luna Fetch 1.0.4
+# 🌙 Luna Fetch 1.0.5
 
-Soporte para descargas en ultra-alta definición con control de fotogramas por segundo.
+Refactorización modular de la interfaz de usuario y estandarización de la estructura del repositorio.
 
-- 📺 Descarga videos en resoluciones superiores a Full HD: 1440p (2K), 2160p (4K) y 4320p (8K) cuando el origen lo soporte.
-- 🎞️ Selección de tasa de fotogramas: elige entre 60 FPS o 30 FPS para cada resolución (720p y superiores).
-- ⚙️ La app ya no limita la calidad máxima; el selector se adapta a lo que cada video ofrece.
+- 🧩 **Arquitectura Modular**: Refactorización completa de la interfaz Compose UI, dividiendo la aplicación en 9 sub-componentes atomizados.
+- ⚡ **Rendimiento y Mantenibilidad**: Reducción de `LunaFetchApp.kt` de 1,108 a 98 líneas, eliminando la deuda técnica activa en UI.
+- 📁 **Estandarización del Proyecto**: Integración de las reglas `.agents/rules/folder_structure.md` y alineación con las plantillas del sistema.

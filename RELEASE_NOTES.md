@@ -1,4 +1,21 @@
-# Release Notes — Luna Fetch
+# 🌌 Release Notes — Luna Fetch
+
+> [!IMPORTANT]
+> **Regla del .9 para Versionado:**
+> - Nunca se debe pasar de una versión de parche `.9` (ej. de `1.0.9` no se pasa a `1.0.10`). Al alcanzar el límite del parche `.9`, se incrementa el número menor/secundario (ej. pasando a `1.1.0`).
+> - De igual manera, al alcanzar el límite de la versión menor `1.9.9` (o ante hitos de arquitectura significativos), se debe saltar obligatoriamente al siguiente número mayor completo (`2.0.0`).
+> - **Extensión proporcional en Release Notes:** La cantidad de párrafos depende del alcance: 1 para un hito pequeño, 2 cuando hay dos cambios relevantes, 3 como extensión habitual, 4 para hitos relativamente grandes y hasta 5 para lanzamientos de gran alcance. Cada párrafo debe concentrarse en un cambio principal y evitar descripciones excesivamente largas o listas detalladas de archivos.
+> - **No duplicar versiones**: Si una versión ya está registrada localmente pero aún no se ha subido a GitHub (no se ha hecho push), no crees una nueva versión de parche. Simplemente añade los nuevos cambios dentro de la misma versión activa.
+
+Registro histórico de cambios y versiones del proyecto.
+
+## [1.0.5] — Refactorización y Estandarización Modular — 2026-07-24
+
+Estandarización de la estructura del repositorio bajo las reglas del agente y refactorización modular de la interfaz de usuario en Compose. Se eliminó la deuda técnica de `LunaFetchApp.kt` dividiéndolo en 9 sub-componentes atomizados, mejorando la mantenibilidad y organización del proyecto.
+
+## [1.0.4] — Extensión Web e Historial Unificado — 2026-07-24
+
+Integración de la extensión oficial para navegadores Chromium (Chrome / Edge) con botón directo de descarga y sincronización silenciosa en segundo plano. Se unifica el historial de descargas entre cliente de escritorio y móvil, optimizando además las miniaturas a relación de aspecto 16:9 y mejorando la resiliencia contra verificaciones anti-bot.
 
 ## [1.0.3] — Audio con contexto — 2026-07-18
 
@@ -12,9 +29,7 @@ Android se distribuye ahora en APK firmados y separados para ARM64, ARM32 y x86_
 
 Luna YT-DLP Downloader adopta el nombre **Luna Fetch** y migra de WPF/.NET a Kotlin Multiplatform con una interfaz Compose compartida para Windows, Linux y Android. La versión conserva análisis, formatos, calidades, miniaturas, progreso y logs, añade cancelación real y permite abrir el archivo descargado pulsando su tarjeta.
 
-Android incorpora Material 3, color dinámico, almacenamiento mediante el selector del sistema y un motor local con Python, `yt-dlp` y FFmpeg. El motor comprueba actualizaciones estables, habilita EJS/QuickJS para YouTube y detecta la resolución máxima desde todos los formatos; los selectores incluyen fallbacks para evitar errores de formato. Se retira FLAC porque la fuente habitual ya es con pérdida.
-
-La distribución de escritorio adopta una cadena reproducible para EXE, MSI, DEB/RPM, firma y hashes, incluido el icono nativo de Luna Fetch en la ventana. GitHub publica EXE/MSI y el manifiesto Winget apunta al MSI; MSIX y Microsoft Store quedan descartados. Android se firma de manera permanente.
+Android incorpora Material 3, color dinámico, almacenamiento mediante el selector del sistema y un motor local con Python, `yt-dlp` y FFmpeg. La distribución de escritorio adopta una cadena reproducible para EXE, MSI, DEB/RPM, firma y hashes.
 
 ## [1.0.0] — Lollipop — 2026-07-14
 

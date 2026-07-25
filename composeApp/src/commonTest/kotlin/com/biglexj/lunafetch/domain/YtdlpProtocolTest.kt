@@ -22,14 +22,15 @@ class YtdlpProtocolTest {
     }
 
     @Test
-    fun argumentsRemainSeparatedAndEndWithUrl() {
+    fun argumentsRemainSeparatedAndEndWithOutputTemplate() {
         val request = DownloadRequest(
             url = "https://example.com/watch?v=1&list=2",
             destination = "unused",
             format = MediaFormat.Mp3,
             quality = FormatCatalog.qualities(MediaFormat.Mp3, 1080).first(),
         )
-        val arguments = YtdlpProtocol.buildDownloadArguments(request, "C:/Downloads/%(title)s.%(ext)s")
+        val outputTemplate = "C:/Downloads/%(title)s.%(ext)s"
+        val arguments = YtdlpProtocol.buildDownloadArguments(request, outputTemplate)
         assertTrue("-x" in arguments)
         assertTrue("--audio-format" in arguments)
         assertTrue("--embed-metadata" in arguments)
@@ -38,7 +39,7 @@ class YtdlpProtocolTest {
         assertTrue("ThumbnailsConvertor+FFmpeg_o:-vf crop=ih:ih:(iw-ih)/2:0" in arguments)
         assertTrue("--no-playlist" in arguments)
         assertFalse(arguments.any { it.contains("\"https://") })
-        assertEquals(request.url, arguments.last())
+        assertEquals(outputTemplate, arguments.last())
     }
 
     @Test
