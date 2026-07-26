@@ -14,6 +14,6 @@ ReleaseDate: 2026-07-25
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/biglexj/Luna---Fetch/releases/download/v1.0.8/LunaFetch-Windows-1.0.8.msi
-    InstallerSha256: D89339D4BC2AE9FAEB776ECA49E94CEDAE369949520B370E55267EB0D25AA7AF
+    InstallerSha256: 5E5AF5CEBCA49AB618A79791B768447B2B8086F952439B529BF6F84AF751A92A
 ManifestType: installer
 ManifestVersion: 1.10.0

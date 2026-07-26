@@ -1,7 +1,7 @@
 # 🌙 Luna Fetch 1.0.8
 
-Optimización visual en dispositivos móviles y rediseño del diálogo "Acerca de".
+Experiencia híbrida adaptativa en el diálogo "Acerca de" y optimizaciones visuales.
 
-- 📱 **Optimización Móvil**: Ajuste del ancho de modales al 92% para una visualización cómoda y sin cortes de texto en teléfonos.
-- 💖 **Panel Acerca de Reworked**: Botones estilizados a ancho completo para apoyos oficiales (Yape/Plin/Web) y Buy Me a Coffee.
-- 🔄 **Verificación Manual de Actualizaciones**: Botón "Buscar actualizaciones" directamente accesible en la información del sistema.
+- 💻 **Panel PC (Estilo LyraFlow)**: Integración de la comprobación de actualizaciones directamente en la barra de acciones inferior junto a "Cerrar".
+- 📱 **Panel Teléfono (Estilo Lienzo Gallery)**: Ajuste adaptativo al 85% del ancho de pantalla con píldoras apiladas para apoyos, GitHub y actualizaciones.
+- 💬 **Retroalimentación en Tiempo Real**: Notificación en pantalla cuando la aplicación ya se encuentra en la versión más reciente.

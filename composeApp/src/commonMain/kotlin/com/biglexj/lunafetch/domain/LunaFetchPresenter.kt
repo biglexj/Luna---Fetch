@@ -27,6 +27,7 @@ data class LunaFetchState(
     val completedOutput: String? = null,
     val history: List<DownloadHistoryItem> = emptyList(),
     val availableUpdate: UpdateRelease? = null,
+    val updateMessage: String? = null,
 )
 
 class LunaFetchPresenter(
@@ -42,14 +43,23 @@ class LunaFetchPresenter(
         checkForUpdates()
     }
 
-    fun checkForUpdates() {
+    fun checkForUpdates(manual: Boolean = false) {
         scope.launch {
-            val release = platform.checkUpdate() ?: return@launch
+            if (manual) {
+                _state.update { it.copy(updateMessage = "Buscando actualizaciones...") }
+            }
+            val release = platform.checkUpdate()
             val currentVersion = "1.0.8"
-            if (UpdateChecker.isNewerVersion(currentVersion, release.version)) {
-                _state.update { it.copy(availableUpdate = release) }
+            if (release != null && UpdateChecker.isNewerVersion(currentVersion, release.version)) {
+                _state.update { it.copy(availableUpdate = release, updateMessage = null) }
+            } else if (manual) {
+                _state.update { it.copy(updateMessage = "¡Tienes la versión más reciente (v1.0.8)!") }
             }
         }
+    }
+
+    fun clearUpdateMessage() {
+        _state.update { it.copy(updateMessage = null) }
     }
 
     fun installUpdate() {

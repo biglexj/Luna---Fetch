@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,6 +35,7 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +53,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.biglexj.lunafetch.core.theme.ThemeMode
@@ -549,11 +553,96 @@ private fun AboutButton(platform: PlatformBindings, presenter: LunaFetchPresente
 
 @Composable
 private fun AboutDialog(platform: PlatformBindings, presenter: LunaFetchPresenter, onDismiss: () -> Unit) {
+    BoxWithConstraints {
+        if (maxWidth < 520.dp) {
+            AboutDialogMobile(platform, presenter, onDismiss)
+        } else {
+            AboutDialogDesktop(platform, presenter, onDismiss)
+        }
+    }
+}
+
+@Composable
+private fun AboutDialogDesktop(platform: PlatformBindings, presenter: LunaFetchPresenter, onDismiss: () -> Unit) {
+    val state by presenter.state.collectAsState()
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxWidth(0.92f),
         title = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    "Versión 1.0.8 · Desarrollado por Biglex J",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    "Luna Fetch es una herramienta moderna y gratuita para descargar videos y audio de TikTok sin marca de agua, YouTube, Instagram y más.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                Text("Apoya el Desarrollo Oficial", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Si esta aplicación te es útil, puedes apoyar su desarrollo mediante una donación voluntaria:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = { platform.openUrl("https://www.biglexj.com/donaciones") },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(50),
+                ) {
+                    Text("💳 Donar (Yape / Plin / Transferencias)", fontWeight = FontWeight.Bold)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { platform.openUrl("https://buymeacoffee.com/biglexj") },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(50),
+                    ) {
+                        Text("☕ Buy Me a Coffee", style = MaterialTheme.typography.labelMedium)
+                    }
+                    OutlinedButton(
+                        onClick = { platform.openUrl("https://github.com/biglexj") },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(50),
+                    ) {
+                        Text("⭐ GitHub", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                if (state.updateMessage != null) {
+                    Text(
+                        state.updateMessage!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { presenter.checkForUpdates(manual = true) }) {
+                Text("🔄 Buscar actualizaciones", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        },
+    )
+}
+
+@Composable
+private fun AboutDialogMobile(platform: PlatformBindings, presenter: LunaFetchPresenter, onDismiss: () -> Unit) {
+    val state by presenter.state.collectAsState()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth(0.85f),
+        title = {
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Acerca de Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -588,14 +677,14 @@ private fun AboutDialog(platform: PlatformBindings, presenter: LunaFetchPresente
                 )
                 Button(
                     onClick = { platform.openUrl("https://www.biglexj.com/donaciones") },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
                     shape = RoundedCornerShape(50),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     ),
                 ) {
-                    Text("Donaciones Oficiales (Yape / Plin / Web) 💚", fontWeight = FontWeight.Bold)
+                    Text("Donar (Yape / Plin / Web) 🤍", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
                 }
                 OutlinedButton(
                     onClick = { platform.openUrl("https://buymeacoffee.com/biglexj") },
@@ -605,21 +694,29 @@ private fun AboutDialog(platform: PlatformBindings, presenter: LunaFetchPresente
                     Text("Buy Me a Coffee ☕", style = MaterialTheme.typography.labelLarge)
                 }
                 OutlinedButton(
-                    onClick = {
-                        presenter.checkForUpdates()
-                        onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text("🔄 Buscar actualizaciones", style = MaterialTheme.typography.labelLarge)
-                }
-                OutlinedButton(
                     onClick = { platform.openUrl("https://github.com/biglexj") },
                     modifier = Modifier.fillMaxWidth().height(44.dp),
                     shape = RoundedCornerShape(50),
                 ) {
                     Text("⭐ GitHub", style = MaterialTheme.typography.labelLarge)
+                }
+                OutlinedButton(
+                    onClick = { presenter.checkForUpdates(manual = true) },
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(50),
+                ) {
+                    Text("🔄 Buscar actualizaciones", style = MaterialTheme.typography.labelLarge)
+                }
+                if (state.updateMessage != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        state.updateMessage!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                    )
                 }
             }
         },

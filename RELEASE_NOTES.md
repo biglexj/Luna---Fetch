@@ -12,11 +12,11 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
-## [1.0.8] — Optimización Móvil y Diálogo Acerca de Estandarizado — 2026-07-25
+## [1.0.8] — Experiencia Híbrida del Diálogo Acerca de y Optimización Móvil — 2026-07-25
 
-Luna Fetch 1.0.8 optimiza la experiencia visual en pantallas de teléfonos móviles. Se ajusta la proporción de los diálogos emergentes al 92% del ancho de pantalla para evitar truncamiento de texto en botones y elementos interactivos.
+Luna Fetch 1.0.8 optimiza la interfaz del panel "Acerca de Luna Fetch" mediante un diseño híbrido adaptativo para PC y teléfonos móviles. En PC, se mantiene el diseño de escritorio estilo LyraFlow con la comprobación de actualizaciones ubicada de forma accesible en la barra de acciones inferior.
 
-Se rediseña el panel informativo "Acerca de Luna Fetch" incorporando botones de píldora apilados a ancho completo para donaciones oficiales (Yape, Plin y Web), Buy Me a Coffee y un botón directo para comprobar e instalar actualizaciones del sistema.
+En teléfonos móviles, la ventana se ajusta dinámicamente al 85% del ancho de pantalla con píldoras apiladas para donaciones (Yape, Plin y Web), Buy Me a Coffee, perfil de GitHub y comprobación de actualizaciones, garantizando una lectura limpia y sin recortes de texto.
 
 ## [1.0.7] — Auto-actualizador Nativo para Windows y Optimización de Publicaciones — 2026-07-25
 
