@@ -9,11 +9,11 @@ import kotlin.test.assertTrue
 class UpdateCheckerTest {
     @Test
     fun comparesVersionsCorrectly() {
-        assertTrue(UpdateChecker.isNewerVersion("1.0.7", "1.0.8"))
-        assertTrue(UpdateChecker.isNewerVersion("1.0.7", "1.1.0"))
-        assertTrue(UpdateChecker.isNewerVersion("1.0.7", "2.0.0"))
-        assertFalse(UpdateChecker.isNewerVersion("1.0.7", "1.0.7"))
-        assertFalse(UpdateChecker.isNewerVersion("1.0.7", "1.0.6"))
+        assertTrue(UpdateChecker.isNewerVersion("1.0.8", "1.0.9"))
+        assertTrue(UpdateChecker.isNewerVersion("1.0.8", "1.1.0"))
+        assertTrue(UpdateChecker.isNewerVersion("1.0.8", "2.0.0"))
+        assertFalse(UpdateChecker.isNewerVersion("1.0.8", "1.0.8"))
+        assertFalse(UpdateChecker.isNewerVersion("1.0.8", "1.0.7"))
     }
 
     @Test

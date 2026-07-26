@@ -1,7 +1,7 @@
-# 🌙 Luna Fetch 1.0.7
+# 🌙 Luna Fetch 1.0.8
 
-Auto-actualizador nativo para Windows y optimización en las notas de lanzamiento.
+Optimización visual en dispositivos móviles y rediseño del diálogo "Acerca de".
 
-- 💻 **Actualizaciones en Windows**: Al presionar "Actualizar", la aplicación descarga directamente el instalador `.exe` / `.msi` y ejecuta el asistente sin abrir el navegador.
-- 🧹 **Notas Limpias**: Estandarización de avisos de versión y registros de cambios limpios enfocados en la experiencia del usuario.
-- 🎨 **Estabilidad UI**: Consolidación del lenguaje de diseño Material 3 Expressive en Windows y Android.
+- 📱 **Optimización Móvil**: Ajuste del ancho de modales al 92% para una visualización cómoda y sin cortes de texto en teléfonos.
+- 💖 **Panel Acerca de Reworked**: Botones estilizados a ancho completo para apoyos oficiales (Yape/Plin/Web) y Buy Me a Coffee.
+- 🔄 **Verificación Manual de Actualizaciones**: Botón "Buscar actualizaciones" directamente accesible en la información del sistema.

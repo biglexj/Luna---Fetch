@@ -45,7 +45,7 @@ class LunaFetchPresenter(
     fun checkForUpdates() {
         scope.launch {
             val release = platform.checkUpdate() ?: return@launch
-            val currentVersion = "1.0.7"
+            val currentVersion = "1.0.8"
             if (UpdateChecker.isNewerVersion(currentVersion, release.version)) {
                 _state.update { it.copy(availableUpdate = release) }
             }
