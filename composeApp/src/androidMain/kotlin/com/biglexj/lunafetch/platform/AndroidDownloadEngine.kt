@@ -35,31 +35,46 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
     override suspend fun analyze(url: String): VideoInfo = withContext(Dispatchers.IO) {
         initialize()
         try {
-            val response = YoutubeDL.execute(
-                androidRequest(url).addCommands(
-                    YtdlpProtocol.buildAnalyzeArguments(url) + "--no-warnings",
-                ),
-            )
-            if (response.exitCode != 0) {
-                throw DownloadException(response.err.ifBlank { "yt-dlp no pudo analizar el enlace." })
-            }
-            val parsed = response.out.toVideoInfo(url)
-            if (parsed.thumbnailUrl.isBlank() && parsed.isCollection) {
-                response.out.firstCollectionVideoUrl()?.let { firstVideoUrl ->
-                    val firstItem = YoutubeDL.getInfo(
-                        androidRequest(firstVideoUrl).addOption("--no-playlist"),
-                    )
-                    parsed.copy(
-                        thumbnailUrl = firstItem.thumbnail.orEmpty().ifBlank {
-                            firstItem.thumbnails?.lastOrNull()?.url.orEmpty()
-                        },
-                    )
-                } ?: parsed
-            } else {
-                parsed
-            }
+            executeAnalyze(url)
         } catch (error: Exception) {
-            throw DownloadException(error.message ?: "No se pudo analizar el enlace en Android.", error)
+            val message = error.message.orEmpty()
+            if (message.contains("Unable to extract", ignoreCase = true) ||
+                message.contains("Unexpected response", ignoreCase = true) ||
+                message.contains("please report this issue", ignoreCase = true)
+            ) {
+                runCatching { updateYtdlpIfNeeded(forceNightly = true) }
+                runCatching { executeAnalyze(url) }.getOrElse {
+                    throw DownloadException(error.message ?: "No se pudo analizar el enlace en Android.", error)
+                }
+            } else {
+                throw DownloadException(error.message ?: "No se pudo analizar el enlace en Android.", error)
+            }
+        }
+    }
+
+    private fun executeAnalyze(url: String): VideoInfo {
+        val response = YoutubeDL.execute(
+            androidRequest(url).addCommands(
+                YtdlpProtocol.buildAnalyzeArguments(url) + "--no-warnings",
+            ),
+        )
+        if (response.exitCode != 0) {
+            throw DownloadException(response.err.ifBlank { "yt-dlp no pudo analizar el enlace." })
+        }
+        val parsed = response.out.toVideoInfo(url)
+        return if (parsed.thumbnailUrl.isBlank() && parsed.isCollection) {
+            response.out.firstCollectionVideoUrl()?.let { firstVideoUrl ->
+                val firstItem = YoutubeDL.getInfo(
+                    androidRequest(firstVideoUrl).addOption("--no-playlist"),
+                )
+                parsed.copy(
+                    thumbnailUrl = firstItem.thumbnail.orEmpty().ifBlank {
+                        firstItem.thumbnails?.lastOrNull()?.url.orEmpty()
+                    },
+                )
+            } ?: parsed
+        } else {
+            parsed
         }
     }
 
@@ -163,16 +178,19 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         return req
     }
 
-    private fun updateYtdlpIfNeeded() {
+    private fun updateYtdlpIfNeeded(forceNightly: Boolean = false) {
         val preferences = context.getSharedPreferences("lunafetch-engine", Context.MODE_PRIVATE)
         val lastUpdate = preferences.getLong("lastYtdlpUpdate", 0L)
+        val lastChannel = preferences.getString("lastYtdlpChannel", "")
         val now = System.currentTimeMillis()
-        if (now - lastUpdate < UpdateIntervalMillis) return
+        if (!forceNightly && lastChannel == "NIGHTLY" && now - lastUpdate < UpdateIntervalMillis) return
 
         runCatching {
+            YoutubeDL.updateYoutubeDL(context, YoutubeDL.UpdateChannel._NIGHTLY)
+            preferences.edit().putLong("lastYtdlpUpdate", now).putString("lastYtdlpChannel", "NIGHTLY").apply()
+        }.recoverCatching {
             YoutubeDL.updateYoutubeDL(context, YoutubeDL.UpdateChannel._STABLE)
-        }.onSuccess {
-            preferences.edit().putLong("lastYtdlpUpdate", now).apply()
+            preferences.edit().putLong("lastYtdlpUpdate", now).putString("lastYtdlpChannel", "STABLE").apply()
         }
     }
 

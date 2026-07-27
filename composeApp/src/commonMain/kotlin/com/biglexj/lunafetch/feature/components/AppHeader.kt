@@ -154,6 +154,9 @@ private fun HistoryButton(presenter: LunaFetchPresenter, state: LunaFetchState, 
     }
 
     if (showDialog) {
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            presenter.refreshHistory()
+        }
         HistoryDialog(state = state, presenter = presenter, platform = platform, onDismiss = { showDialog = false })
     }
 }
@@ -167,16 +170,26 @@ private fun HistoryDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 560.dp),
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Historial de descargas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    "Historial de descargas",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 if (state.history.isNotEmpty()) {
-                    TextButton(onClick = presenter::clearHistory) {
-                        Text("Limpiar todo")
+                    TextButton(
+                        onClick = presenter::clearHistory,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text("Limpiar todo", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -571,7 +584,7 @@ private fun AboutDialogDesktop(platform: PlatformBindings, presenter: LunaFetchP
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "Versión 1.0.8 · Desarrollado por Biglex J",
+                    "Versión 1.0.9 · Desarrollado por Biglex J",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -646,7 +659,7 @@ private fun AboutDialogMobile(platform: PlatformBindings, presenter: LunaFetchPr
                 Text("Acerca de Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Luna Fetch v1.0.8",
+                    "Luna Fetch v1.0.9",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,

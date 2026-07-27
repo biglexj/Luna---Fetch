@@ -79,16 +79,22 @@ class AndroidPlatformBindings(
         openUrl(release.releasePageUrl)
     }
 
+    private val jsonSerializer = kotlinx.serialization.json.Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        coerceInputValues = true
+    }
+
     override fun loadHistory(): List<com.biglexj.lunafetch.domain.DownloadHistoryItem> {
         val raw = preferences.getString("downloadHistory", null) ?: return emptyList()
         return runCatching {
-            kotlinx.serialization.json.Json.decodeFromString<List<com.biglexj.lunafetch.domain.DownloadHistoryItem>>(raw)
+            jsonSerializer.decodeFromString<List<com.biglexj.lunafetch.domain.DownloadHistoryItem>>(raw)
         }.getOrDefault(emptyList())
     }
 
     override fun saveHistory(history: List<com.biglexj.lunafetch.domain.DownloadHistoryItem>) {
         runCatching {
-            val json = kotlinx.serialization.json.Json.encodeToString(history)
+            val json = jsonSerializer.encodeToString(history)
             preferences.edit().putString("downloadHistory", json).apply()
         }
     }

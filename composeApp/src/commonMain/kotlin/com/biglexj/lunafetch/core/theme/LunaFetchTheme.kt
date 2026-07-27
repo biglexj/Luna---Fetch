@@ -7,8 +7,15 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 enum class ThemeMode { System, Light, Dark }
 
@@ -69,13 +76,34 @@ private val LunaShapes = Shapes(
     extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
 )
 
+
+
+@Composable
+fun rememberDynamicSystemInDarkTheme(): Boolean {
+    val composeSystemDark = isSystemInDarkTheme()
+    val platformDark = isPlatformInDarkTheme()
+    var isDarkState by remember { mutableStateOf(composeSystemDark || platformDark) }
+
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(1_000)
+            val currentPlatform = isPlatformInDarkTheme()
+            if (isDarkState != currentPlatform) {
+                isDarkState = currentPlatform
+            }
+        }
+    }
+    return isDarkState
+}
+
 @Composable
 fun LunaFetchTheme(
     mode: ThemeMode,
     content: @Composable () -> Unit,
 ) {
+    val systemInDark = rememberDynamicSystemInDarkTheme()
     val dark = when (mode) {
-        ThemeMode.System -> isSystemInDarkTheme()
+        ThemeMode.System -> systemInDark
         ThemeMode.Light -> false
         ThemeMode.Dark -> true
     }

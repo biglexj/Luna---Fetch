@@ -20,6 +20,10 @@ object TikTokUtils {
         if (!isTikTokUrl(extracted)) {
             return extracted
         }
+        val lower = extracted.lowercase()
+        if (lower.contains("vt.tiktok.com/") || lower.contains("vm.tiktok.com/") || lower.contains("v.tiktok.com/")) {
+            return extracted
+        }
         return cleanTrackingParameters(extracted)
     }
 

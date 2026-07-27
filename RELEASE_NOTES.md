@@ -12,6 +12,14 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.0.9] — Estabilidad de TikTok, Historial Persistente y Tema Dinámico — 2026-07-27
+
+Luna Fetch 1.0.9 resuelve las interrupciones en descargas de TikTok actualizando dinámicamente el motor a las compilaciones nocturnas de `yt-dlp` (`_NIGHTLY`) ante errores de extracción, eliminando el User-Agent de escritorio desfasado y preservando los parámetros esenciales en enlaces cortos (`vt.tiktok.com`).
+
+Se garantiza el guardado del historial de descargas en `SharedPreferences` y `Preferences` mediante una serialización JSON tolerante a cambios, añadiendo refresco automático en tiempo real sin requerir reiniciar la aplicación. El cuadro de diálogo de Historial se ajusta al 88% del ancho de pantalla en móviles para prevenir recortes de texto.
+
+Se aplica la arquitectura nativa JNA para consultar directamente el Registro de Windows (`AppsUseLightTheme`), permitiendo que el modo de tema "Sistema" reaccione instantáneamente en 1 segundo al alternar entre Modo Claro y Oscuro en Windows. Además, el panel de registro técnico se expande de forma continua al detectar errores y muestra un banner de advertencia claro al final de la pantalla.
+
 ## [1.0.8] — Experiencia Híbrida del Diálogo Acerca de y Optimización Móvil — 2026-07-25
 
 Luna Fetch 1.0.8 optimiza la interfaz del panel "Acerca de Luna Fetch" mediante un diseño híbrido adaptativo para PC y teléfonos móviles. En PC, se mantiene el diseño de escritorio estilo LyraFlow con la comprobación de actualizaciones ubicada de forma accesible en la barra de acciones inferior.

@@ -66,7 +66,7 @@ class YtdlpProtocolTest {
     }
 
     @Test
-    fun tikTokUrlAddsHeadersAndReferer() {
+    fun tikTokUrlUsesCleanNativeArguments() {
         val request = DownloadRequest(
             url = "https://www.tiktok.com/@user/video/123456789",
             destination = "unused",
@@ -74,12 +74,13 @@ class YtdlpProtocolTest {
             quality = FormatCatalog.qualities(MediaFormat.Mp4, 1080).first(),
         )
         val arguments = YtdlpProtocol.buildDownloadArguments(request, "C:/Downloads/%(title)s.%(ext)s")
-        assertTrue("--user-agent" in arguments)
-        assertTrue("--referer" in arguments)
-        assertTrue("https://www.tiktok.com/" in arguments)
+        assertTrue("--ignore-config" in arguments)
+        assertFalse("--user-agent" in arguments)
+        assertFalse("--referer" in arguments)
 
         val analyzeArgs = YtdlpProtocol.buildAnalyzeArguments("https://vt.tiktok.com/ZS123456/")
-        assertTrue("--user-agent" in arguments)
-        assertTrue("--referer" in analyzeArgs)
+        assertTrue("--dump-single-json" in analyzeArgs)
+        assertFalse("--user-agent" in analyzeArgs)
+        assertFalse("--referer" in analyzeArgs)
     }
 }

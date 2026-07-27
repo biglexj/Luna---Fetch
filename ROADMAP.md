@@ -24,6 +24,7 @@ Plan de trabajo, objetivos y prioridades del proyecto.
 
 ## 🟢 Completado
 
+- [x] **Versión 1.0.9**: Estabilidad en TikTok (canal NIGHTLY auto-reintento), historial de descargas persistente con refresco en tiempo real, rediseño de modal de historial al 88% de ancho en móviles, tema del sistema en tiempo real en Windows vía JNA y consola técnica continua.
 - [x] **Versión 1.0.8**: Optimización de la interfaz en dispositivos móviles (ancho del 92% para modales), rediseño del diálogo 'Acerca de' alineado al sistema visual de Lienzo Gallery con botones de píldora a ancho completo y botón directo 'Buscar actualizaciones'.
 - [x] **Versión 1.0.7**: Auto-actualización nativa para Windows con descarga e instalación directa del ejecutable, sanitización estricta de Release Notes en plantillas y publicaciones oficiales.
 - [x] **Versión 1.0.6**: Compatibilidad con TikTok sin marca de agua y desinfección de URL, auto-actualización desde GitHub Releases (`UpdateChecker`), notificaciones de sistema en Android al completar/fallar descargas, adopción completa de **Material 3 Expressive System** (Windows & Android) y modal de donaciones oficiales (`biglexj.com/donaciones`).

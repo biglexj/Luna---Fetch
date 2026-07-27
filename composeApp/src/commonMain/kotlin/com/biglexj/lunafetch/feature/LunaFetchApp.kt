@@ -57,6 +57,9 @@ fun LunaFetchApp(
             QuickDownloadSheet(state, presenter, onDismissQuickDownload)
             return@LunaFetchTheme
         }
+        LaunchedEffect(Unit) {
+            presenter.refreshHistory()
+        }
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 AppHeader(themeMode, onThemeSelected = { themeMode = it }, platform = platform, presenter = presenter, state = state)

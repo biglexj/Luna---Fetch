@@ -1,7 +1,8 @@
-# 🌙 Luna Fetch 1.0.8
+# 🌙 Luna Fetch 1.0.9
 
-Experiencia híbrida adaptativa en el diálogo "Acerca de" y optimizaciones visuales.
+Estabilidad en TikTok (canal NIGHTLY), historial persistente en tiempo real y tema dinámico en Windows.
 
-- 💻 **Panel PC (Estilo LyraFlow)**: Integración de la comprobación de actualizaciones directamente en la barra de acciones inferior junto a "Cerrar".
-- 📱 **Panel Teléfono (Estilo Lienzo Gallery)**: Ajuste adaptativo al 85% del ancho de pantalla con píldoras apiladas para apoyos, GitHub y actualizaciones.
-- 💬 **Retroalimentación en Tiempo Real**: Notificación en pantalla cuando la aplicación ya se encuentra en la versión más reciente.
+- 🎵 **TikTok & Extracción**: Actualización automática al canal `_NIGHTLY` de `yt-dlp` con auto-reintento ante errores de extracción, remoción de User-Agent estático y preservación de parámetros en enlaces cortos (`vt.tiktok.com`).
+- 📜 **Historial Persistente & UI Adaptativa**: Guardado robusto de historial con refresco en tiempo real sin reiniciar la app y cuadro de diálogo al 88% de ancho de pantalla en teléfonos.
+- 🎨 **Tema del Sistema en Tiempo Real (PC/Windows)**: Integración nativa vía JNA para consultar el Registro de Windows y cambiar entre Claro/Oscuro en 1 segundo.
+- ⚠️ **Registro Técnico Continuo**: Banner de advertencia ⚠️ y visualización expandible al final de la pantalla para cualquier error del motor.

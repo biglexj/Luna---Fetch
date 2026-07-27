@@ -39,8 +39,12 @@ class LunaFetchPresenter(
     private var operation: Job? = null
 
     init {
-        _state.update { it.copy(history = platform.loadHistory()) }
+        refreshHistory()
         checkForUpdates()
+    }
+
+    fun refreshHistory() {
+        _state.update { it.copy(history = platform.loadHistory()) }
     }
 
     fun checkForUpdates(manual: Boolean = false) {
@@ -49,11 +53,11 @@ class LunaFetchPresenter(
                 _state.update { it.copy(updateMessage = "Buscando actualizaciones...") }
             }
             val release = platform.checkUpdate()
-            val currentVersion = "1.0.8"
+            val currentVersion = "1.0.9"
             if (release != null && UpdateChecker.isNewerVersion(currentVersion, release.version)) {
                 _state.update { it.copy(availableUpdate = release, updateMessage = null) }
             } else if (manual) {
-                _state.update { it.copy(updateMessage = "¡Tienes la versión más reciente (v1.0.8)!") }
+                _state.update { it.copy(updateMessage = "¡Tienes la versión más reciente (v1.0.9)!") }
             }
         }
     }
@@ -131,7 +135,9 @@ class LunaFetchPresenter(
                 }
                 .onFailure { error ->
                     if (error !is CancellationException) {
-                        _state.update { it.copy(isAnalyzing = false, error = error.userMessage("No se pudo analizar el enlace.")) }
+                        val msg = error.userMessage("No se pudo analizar el enlace.")
+                        appendLog("ERROR: $msg")
+                        _state.update { it.copy(isAnalyzing = false, error = msg) }
                     }
                 }
         }
@@ -180,7 +186,9 @@ class LunaFetchPresenter(
                 }
                 .onFailure { error ->
                     if (error !is CancellationException) {
-                        _state.update { it.copy(isAnalyzing = false, error = error.userMessage("No se pudo analizar el enlace.")) }
+                        val msg = error.userMessage("No se pudo analizar el enlace.")
+                        appendLog("ERROR: $msg")
+                        _state.update { it.copy(isAnalyzing = false, error = msg) }
                     }
                 }
         }
@@ -252,10 +260,12 @@ class LunaFetchPresenter(
                     it.copy(isDownloading = false, progress = DownloadProgress(0.0, phase = DownloadPhase.Cancelled))
                 }
             } catch (error: Throwable) {
+                val msg = error.userMessage("La descarga no pudo completarse.")
+                appendLog("ERROR: $msg")
                 _state.update {
                     it.copy(
                         isDownloading = false,
-                        error = error.userMessage("La descarga no pudo completarse."),
+                        error = msg,
                     )
                 }
             }

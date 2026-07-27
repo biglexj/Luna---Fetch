@@ -50,27 +50,13 @@ object YtdlpProtocol {
         ?.removePrefix(OutputPrefix)
         ?.takeIf { it.isNotBlank() }
 
-    fun buildAnalyzeArguments(url: String): List<String> = buildList {
-        addAll(
-            listOf(
-                "--ignore-config",
-                "--no-colors",
-                "--dump-single-json",
-                "--flat-playlist",
-                "--yes-playlist",
-            ),
-        )
-        if (TikTokUtils.isTikTokUrl(url)) {
-            addAll(
-                listOf(
-                    "--user-agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-                    "--referer",
-                    "https://www.tiktok.com/",
-                ),
-            )
-        }
-    }
+    fun buildAnalyzeArguments(url: String): List<String> = listOf(
+        "--ignore-config",
+        "--no-colors",
+        "--dump-single-json",
+        "--flat-playlist",
+        "--yes-playlist",
+    )
 
     fun buildDownloadArguments(request: DownloadRequest, outputTemplate: String): List<String> = buildList {
         addAll(
@@ -87,16 +73,6 @@ object YtdlpProtocol {
                 request.quality.formatSelector,
             ),
         )
-        if (TikTokUtils.isTikTokUrl(request.url)) {
-            addAll(
-                listOf(
-                    "--user-agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-                    "--referer",
-                    "https://www.tiktok.com/",
-                ),
-            )
-        }
         if (request.format.isAudio) {
             addAll(
                 listOf(
