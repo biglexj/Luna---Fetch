@@ -54,16 +54,36 @@ class LunaFetchPresenter(
     }
 
     fun checkForUpdates(manual: Boolean = false) {
-        scope.launch {
-            if (manual) {
-                _state.update { it.copy(updateMessage = "Buscando actualizaciones...") }
+        if (manual) {
+            _state.update {
+                it.copy(
+                    updateMessage = "Buscando actualizaciones...",
+                )
             }
+        }
+        scope.launch {
             val release = platform.checkUpdate()
-            val currentVersion = "1.1.0"
+            val currentVersion = "1.1.1"
             if (release != null && UpdateChecker.isNewerVersion(currentVersion, release.version)) {
-                _state.update { it.copy(availableUpdate = release, updateMessage = null) }
+                _state.update {
+                    it.copy(
+                        availableUpdate = release,
+                        showUpdateModal = manual,
+                        updateMessage = null,
+                        isUpdateDownloading = false,
+                        updateDownloadProgress = 0f,
+                        updateDownloadedFilePath = null,
+                        updateError = null,
+                    )
+                }
             } else if (manual) {
-                _state.update { it.copy(updateMessage = "¡Tienes la versión más reciente (v1.1.0)!") }
+                _state.update {
+                    it.copy(
+                        availableUpdate = null,
+                        showUpdateModal = false,
+                        updateMessage = "¡Tienes la versión más reciente (v1.1.1)!",
+                    )
+                }
             }
         }
     }

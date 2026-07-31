@@ -1,6 +1,5 @@
 package com.biglexj.lunafetch.feature.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,9 +8,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,12 +47,17 @@ fun UpdateModalDialog(
 
     Dialog(
         onDismissRequest = { presenter.dismissUpdateModal() },
-        properties = DialogProperties(dismissOnBackPress = !state.isUpdateDownloading, dismissOnClickOutside = false),
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = !state.isUpdateDownloading,
+            dismissOnClickOutside = false,
+        ),
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(0.80f)
+                .widthIn(max = 480.dp)
+                .padding(vertical = 16.dp),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
@@ -61,25 +65,25 @@ fun UpdateModalDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                // Header Badge
+                // Header Icon
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = if (state.updateDownloadedFilePath != null) "✅" else "🚀",
-                        fontSize = 28.sp,
+                        fontSize = 26.sp,
                     )
                 }
 
-                // Title & Version
+                // Title & Subtitle
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = if (state.updateDownloadedFilePath != null) "¡Descarga Lista!" else "Actualizar Luna Fetch",
@@ -87,38 +91,39 @@ fun UpdateModalDialog(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "Versión v${release.version} disponible",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        text = "Nueva versión v${release.version} disponible",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
 
-                // Release Notes Body (Scrollable if long)
-                if (release.body.isNotBlank()) {
+                // Scrollable Release Notes with Clean Formatting
+                val cleanBody = renderCleanReleaseNotes(release.body)
+                if (cleanBody.isNotBlank()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(110.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .heightIn(min = 140.dp, max = 220.dp)
+                            .clip(RoundedCornerShape(14.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(12.dp),
+                            .padding(14.dp),
                     ) {
                         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                             Text(
-                                text = "Novedades:",
-                                style = MaterialTheme.typography.labelMedium,
+                                text = "Novedades de esta versión:",
+                                style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.primary,
                             )
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(6.dp))
                             Text(
-                                text = release.body,
-                                style = MaterialTheme.typography.bodySmall,
+                                text = cleanBody,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 12.sp,
+                                lineHeight = 18.sp,
                             )
                         }
                     }
@@ -128,7 +133,7 @@ fun UpdateModalDialog(
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     if (state.isUpdateDownloading) {
                         val percentage = (state.updateDownloadProgress * 100).toInt().coerceIn(0, 100)
@@ -138,7 +143,7 @@ fun UpdateModalDialog(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "Descargando actualización...",
+                                text = "Descargando paquete...",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -160,7 +165,7 @@ fun UpdateModalDialog(
                         )
                     } else if (state.updateDownloadedFilePath != null) {
                         Text(
-                            text = "El paquete de actualización se descargó correctamente.",
+                            text = "El paquete se descargó correctamente. Presiona instalar para aplicar la actualización.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Medium,
@@ -172,81 +177,97 @@ fun UpdateModalDialog(
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.SemiBold,
                         )
-                    } else {
-                        Text(
-                            text = "Presiona descargar para obtener la nueva versión.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
                 }
 
                 // Action Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (state.isUpdateDownloading) {
                         OutlinedButton(
                             onClick = { presenter.dismissUpdateModal() },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f).height(44.dp),
                         ) {
-                            Text("Cancelar")
+                            Text("Cancelar", maxLines = 1)
                         }
                     } else if (state.updateDownloadedFilePath != null) {
                         OutlinedButton(
                             onClick = { presenter.dismissUpdateModal() },
-                            modifier = Modifier.padding(end = 8.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f).height(44.dp),
                         ) {
-                            Text("Cerrar")
+                            Text("Cerrar", maxLines = 1, fontSize = 13.sp)
                         }
                         Button(
                             onClick = { presenter.installDownloadedUpdate() },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f).height(44.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
                             ),
                         ) {
-                            Text("Instalar actualización")
+                            Text("Instalar", maxLines = 1, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     } else if (state.updateError != null) {
                         OutlinedButton(
                             onClick = { presenter.dismissUpdateModal() },
-                            modifier = Modifier.padding(end = 8.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f).height(44.dp),
                         ) {
-                            Text("Cerrar")
+                            Text("Cerrar", maxLines = 1, fontSize = 13.sp)
                         }
                         Button(
                             onClick = { presenter.startUpdateDownload() },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f).height(44.dp),
                         ) {
-                            Text("Reintentar")
+                            Text("Reintentar", maxLines = 1, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     } else {
                         OutlinedButton(
                             onClick = { presenter.dismissUpdateModal() },
-                            modifier = Modifier.padding(end = 8.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f).height(44.dp),
                         ) {
-                            Text("Ahora no")
+                            Text("Ahora no", maxLines = 1, fontSize = 13.sp)
                         }
                         Button(
                             onClick = { presenter.startUpdateDownload() },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.weight(1f).height(44.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
                             ),
                         ) {
-                            Text("Descargar e Instalar")
+                            Text("Descargar", maxLines = 1, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     }
                 }
             }
         }
     }
+}
+
+private fun renderCleanReleaseNotes(rawMarkdown: String): String {
+    if (rawMarkdown.isBlank()) return ""
+    return rawMarkdown.lineSequence()
+        .map { line ->
+            var cleaned = line.trim()
+            if (cleaned.startsWith("#")) {
+                cleaned = cleaned.trimStart('#', ' ').trim()
+            }
+            if (cleaned.startsWith("- ") || cleaned.startsWith("* ")) {
+                cleaned = "• " + cleaned.substring(2).trim()
+            }
+            cleaned = cleaned.replace("**", "").replace("__", "").replace("*", "")
+            cleaned
+        }
+        .filter { it.isNotBlank() }
+        .joinToString("\n\n")
 }

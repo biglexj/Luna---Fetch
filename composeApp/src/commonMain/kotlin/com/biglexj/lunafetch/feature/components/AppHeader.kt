@@ -584,7 +584,7 @@ private fun AboutDialogDesktop(platform: PlatformBindings, presenter: LunaFetchP
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "Versión 1.1.0 · Desarrollado por Biglex J",
+                    "Versión 1.1.1 · Desarrollado por Biglex J",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -637,7 +637,10 @@ private fun AboutDialogDesktop(platform: PlatformBindings, presenter: LunaFetchP
             }
         },
         dismissButton = {
-            TextButton(onClick = { presenter.checkForUpdates(manual = true) }) {
+            TextButton(onClick = {
+                onDismiss()
+                presenter.checkForUpdates(manual = true)
+            }) {
                 Text("🔄 Buscar actualizaciones", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
         },
@@ -714,7 +717,10 @@ private fun AboutDialogMobile(platform: PlatformBindings, presenter: LunaFetchPr
                     Text("⭐ GitHub", style = MaterialTheme.typography.labelLarge)
                 }
                 OutlinedButton(
-                    onClick = { presenter.checkForUpdates(manual = true) },
+                    onClick = {
+                        onDismiss()
+                        presenter.checkForUpdates(manual = true)
+                    },
                     modifier = Modifier.fillMaxWidth().height(44.dp),
                     shape = RoundedCornerShape(50),
                 ) {

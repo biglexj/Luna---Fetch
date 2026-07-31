@@ -28,6 +28,7 @@ fun UpdateBanner(
     presenter: LunaFetchPresenter,
     modifier: Modifier = Modifier,
 ) {
+    if (state.showUpdateModal) return
     val update = state.availableUpdate ?: return
 
     Column(

@@ -3,7 +3,7 @@ package com.biglexj.lunafetch.core.theme
 import com.sun.jna.platform.win32.Advapi32Util
 import com.sun.jna.platform.win32.WinReg
 
-actual fun isPlatformInDarkTheme(): Boolean {
+actual fun isPlatformInDarkTheme(): Boolean? {
     val osName = System.getProperty("os.name").orEmpty().lowercase()
     if (osName.contains("win")) {
         return runCatching {

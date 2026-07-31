@@ -82,13 +82,15 @@ private val LunaShapes = Shapes(
 fun rememberDynamicSystemInDarkTheme(): Boolean {
     val composeSystemDark = isSystemInDarkTheme()
     val platformDark = isPlatformInDarkTheme()
-    var isDarkState by remember { mutableStateOf(composeSystemDark || platformDark) }
+    var isDarkState by remember(composeSystemDark, platformDark) {
+        mutableStateOf(platformDark ?: composeSystemDark)
+    }
 
     LaunchedEffect(Unit) {
         while (isActive) {
             delay(1_000)
             val currentPlatform = isPlatformInDarkTheme()
-            if (isDarkState != currentPlatform) {
+            if (currentPlatform != null && isDarkState != currentPlatform) {
                 isDarkState = currentPlatform
             }
         }

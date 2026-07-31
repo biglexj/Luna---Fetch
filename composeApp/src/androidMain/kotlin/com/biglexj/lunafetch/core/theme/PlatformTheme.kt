@@ -1,3 +1,3 @@
 package com.biglexj.lunafetch.core.theme
 
-actual fun isPlatformInDarkTheme(): Boolean = false
+actual fun isPlatformInDarkTheme(): Boolean? = null

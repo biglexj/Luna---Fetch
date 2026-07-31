@@ -12,6 +12,14 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.1.1] — Optimización Visual de Modales en Móvil, Transición de Diálogos y Modo Oscuro — 2026-07-31
+
+Luna Fetch 1.1.1 optimiza el diseño del Modal Central de Actualización fijando su contenedor al 80% del ancho de pantalla en dispositivos móviles (`usePlatformDefaultWidth = false`). Se simplifican los botones de acción a "Descargar" e "Instalar" con tipografía adaptativa de 14sp, eliminando cualquier desbordamiento de texto.
+
+Se refactoriza la transición entre ventanas modales: al pulsar "Buscar actualizaciones" desde el panel "Acerca de", este se cierra de inmediato y despliega el modal de actualización en el mismo fotograma sin parpadeos ni destellos intermedios. Asimismo, el banner superior de notificación se oculta automáticamente mientras el modal central esté visible para evitar duplicidad de elementos.
+
+Se incorpora un parseador y renderizador limpio de notas de versión en Markdown que convierte encabezados y negritas en texto estilizado con viñetas. Finalmente, se corrige la detección del tema oscuro del sistema en Android, eliminando el parpadeo y la regresión a modo claro que ocurría tras un segundo.
+
 ## [1.1.0] — Modal Central de Actualización e Instalación Nativa In-App — 2026-07-31
 
 Luna Fetch 1.1.0 renueva por completo el sistema de actualizaciones. Se elimina la descarga incontrolada en segundo plano y se introduce un Modal Central Interactivo de Actualización en Compose que muestra en tiempo real el porcentaje de descarga (0-100%) y las notas de la versión.

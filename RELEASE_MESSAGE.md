@@ -1,8 +1,9 @@
-# 🌙 Luna Fetch 1.1.0
+# 🌙 Luna Fetch 1.1.1
 
-Nuevo modal central de actualización interactivo con barra de progreso en vivo e instalación nativa mediante FileProvider.
+Optimización visual para modales en móviles (ancho al 80%), transición fluida sin parpadeos, renderizado limpio de Markdown y corrección del tema oscuro del sistema en Android.
 
-- 🚀 **Modal Central de Actualización**: Cuadro flotante e interactivo al centro de la pantalla que muestra el progreso de descarga en vivo (0-100%) y las notas de la versión.
-- 🌐 **Descarga Resiliente de Paquetes**: Motor de descarga directa que sigue redirecciones HTTP de GitHub Releases y valida la firma del APK/ejecutable.
-- 📦 **Instalación Nativa en Android (`FileProvider`)**: Integración con el instalador de paquetes del sistema sin errores de análisis ("Se produjo un error al analizar el paquete").
-- ⚙️ **Control de Estado de Actualización**: Eliminación de descargas masivas/duplicadas en segundo plano.
+- 📐 **Ancho de Modal al 80%**: Contenedor del diálogo optimizado al 80% de la pantalla en móviles (`usePlatformDefaultWidth = false`) con botones "Descargar" e "Instalar" adaptativos en una sola línea.
+- ⚡ **Transición Fluida entre Modales**: Cierre inmediato del cuadro "Acerca de" y sustitución en el mismo fotograma por el Modal Central sin pantallas vacías ni parpadeos.
+- 📜 **Renderizado Limpio en Markdown**: Parseador de notas de versión que elimina caracteres de formato plano (`#`, `**`, `-`) para presentar las novedades estilizadas con viñetas.
+- 🌙 **Estabilidad de Tema Oscuro en Android**: Corrección del bucle de verificación de tema en Android para seguir fielmente la configuración del sistema sin regresiones a modo claro.
+- 🛡️ **Ocultamiento de Banners Duplicados**: Desactivación del `UpdateBanner` superior mientras el Modal Central de actualización permanece activo.
