@@ -584,7 +584,7 @@ private fun AboutDialogDesktop(platform: PlatformBindings, presenter: LunaFetchP
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "Versión 1.0.9 · Desarrollado por Biglex J",
+                    "Versión 1.1.0 · Desarrollado por Biglex J",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -659,7 +659,7 @@ private fun AboutDialogMobile(platform: PlatformBindings, presenter: LunaFetchPr
                 Text("Acerca de Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Luna Fetch v1.0.9",
+                    "Luna Fetch v1.1.0",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,

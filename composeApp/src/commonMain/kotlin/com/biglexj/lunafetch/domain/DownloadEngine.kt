@@ -48,6 +48,9 @@ interface PlatformBindings {
 
     fun downloadAndInstallUpdate(release: UpdateRelease) {}
 
+    suspend fun downloadUpdateFile(release: UpdateRelease, onProgress: (Float) -> Unit): String? = null
+    fun installDownloadedApk(filePath: String) {}
+
     fun loadHistory(): List<DownloadHistoryItem> = emptyList()
     fun saveHistory(history: List<DownloadHistoryItem>) {}
 }

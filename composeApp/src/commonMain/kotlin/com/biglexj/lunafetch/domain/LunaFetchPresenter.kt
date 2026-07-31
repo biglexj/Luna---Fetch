@@ -28,6 +28,11 @@ data class LunaFetchState(
     val history: List<DownloadHistoryItem> = emptyList(),
     val availableUpdate: UpdateRelease? = null,
     val updateMessage: String? = null,
+    val showUpdateModal: Boolean = false,
+    val isUpdateDownloading: Boolean = false,
+    val updateDownloadProgress: Float = 0f,
+    val updateDownloadedFilePath: String? = null,
+    val updateError: String? = null,
 )
 
 class LunaFetchPresenter(
@@ -37,6 +42,7 @@ class LunaFetchPresenter(
     private val _state = MutableStateFlow(LunaFetchState(destination = platform.defaultDestination))
     val state: StateFlow<LunaFetchState> = _state.asStateFlow()
     private var operation: Job? = null
+    private var updateJob: Job? = null
 
     init {
         refreshHistory()
@@ -53,11 +59,11 @@ class LunaFetchPresenter(
                 _state.update { it.copy(updateMessage = "Buscando actualizaciones...") }
             }
             val release = platform.checkUpdate()
-            val currentVersion = "1.0.9"
+            val currentVersion = "1.1.0"
             if (release != null && UpdateChecker.isNewerVersion(currentVersion, release.version)) {
                 _state.update { it.copy(availableUpdate = release, updateMessage = null) }
             } else if (manual) {
-                _state.update { it.copy(updateMessage = "¡Tienes la versión más reciente (v1.0.9)!") }
+                _state.update { it.copy(updateMessage = "¡Tienes la versión más reciente (v1.1.0)!") }
             }
         }
     }
@@ -66,12 +72,92 @@ class LunaFetchPresenter(
         _state.update { it.copy(updateMessage = null) }
     }
 
+    fun openUpdateModal() {
+        _state.update { it.copy(showUpdateModal = true) }
+    }
+
+    fun dismissUpdateModal() {
+        updateJob?.cancel()
+        updateJob = null
+        _state.update {
+            it.copy(
+                showUpdateModal = false,
+                isUpdateDownloading = false,
+                updateDownloadProgress = 0f,
+                updateDownloadedFilePath = null,
+                updateError = null,
+            )
+        }
+    }
+
+    fun startUpdateDownload() {
+        val release = state.value.availableUpdate ?: return
+        if (state.value.isUpdateDownloading) return
+
+        updateJob?.cancel()
+        updateJob = scope.launch {
+            _state.update {
+                it.copy(
+                    isUpdateDownloading = true,
+                    updateDownloadProgress = 0f,
+                    updateDownloadedFilePath = null,
+                    updateError = null,
+                )
+            }
+            try {
+                val filePath = platform.downloadUpdateFile(release) { progress ->
+                    _state.update { it.copy(updateDownloadProgress = progress) }
+                }
+                if (filePath != null) {
+                    _state.update {
+                        it.copy(
+                            isUpdateDownloading = false,
+                            updateDownloadProgress = 1f,
+                            updateDownloadedFilePath = filePath,
+                            updateError = null,
+                        )
+                    }
+                } else {
+                    _state.update {
+                        it.copy(
+                            isUpdateDownloading = false,
+                            updateError = "No se pudo descargar la actualización.",
+                        )
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                _state.update {
+                    it.copy(
+                        isUpdateDownloading = false,
+                        updateDownloadProgress = 0f,
+                    )
+                }
+            } catch (error: Throwable) {
+                _state.update {
+                    it.copy(
+                        isUpdateDownloading = false,
+                        updateError = error.message ?: "Ocurrió un error al descargar la actualización.",
+                    )
+                }
+            }
+        }
+    }
+
+    fun installDownloadedUpdate() {
+        val path = state.value.updateDownloadedFilePath
+        if (!path.isNullOrBlank()) {
+            platform.installDownloadedApk(path)
+        } else {
+            state.value.availableUpdate?.let(platform::downloadAndInstallUpdate)
+        }
+    }
+
     fun installUpdate() {
-        state.value.availableUpdate?.let(platform::downloadAndInstallUpdate)
+        openUpdateModal()
     }
 
     fun dismissUpdate() {
-        _state.update { it.copy(availableUpdate = null) }
+        _state.update { it.copy(availableUpdate = null, showUpdateModal = false) }
     }
 
     fun setUrl(value: String) {

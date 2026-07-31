@@ -57,26 +57,107 @@ class AndroidPlatformBindings(
     }
 
     override fun downloadAndInstallUpdate(release: com.biglexj.lunafetch.domain.UpdateRelease) {
-        if (release.downloadUrl.endsWith(".apk", ignoreCase = true)) {
-            val dm = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as? android.app.DownloadManager
-            if (dm != null) {
-                runCatching {
-                    val request = android.app.DownloadManager.Request(Uri.parse(release.downloadUrl)).apply {
-                        setTitle("Descargando Luna Fetch v${release.version}")
-                        setDescription("Actualización disponible de Luna Fetch")
-                        setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                        setDestinationInExternalPublicDir(
-                            android.os.Environment.DIRECTORY_DOWNLOADS,
-                            "LunaFetch-v${release.version}.apk",
-                        )
-                        setMimeType("application/vnd.android.package-archive")
+        openUrl(release.releasePageUrl)
+    }
+
+    override suspend fun downloadUpdateFile(
+        release: com.biglexj.lunafetch.domain.UpdateRelease,
+        onProgress: (Float) -> Unit,
+    ): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val downloadUrl = release.downloadUrl.takeIf { it.isNotBlank() } ?: return@withContext null
+        val targetFile = java.io.File(appContext.cacheDir, "LunaFetch-v${release.version}.apk")
+
+        runCatching {
+            var currentUrl = downloadUrl
+            var connection: java.net.HttpURLConnection
+            var redirectCount = 0
+            while (true) {
+                val url = java.net.URL(currentUrl)
+                connection = url.openConnection() as java.net.HttpURLConnection
+                connection.instanceFollowRedirects = true
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 30_000
+                connection.setRequestProperty("User-Agent", "LunaFetch-Updater")
+
+                val status = connection.responseCode
+                if (status in 300..399 && redirectCount < 5) {
+                    val location = connection.getHeaderField("Location") ?: break
+                    currentUrl = if (location.startsWith("http")) location else java.net.URL(url, location).toString()
+                    connection.disconnect()
+                    redirectCount++
+                    continue
+                }
+                break
+            }
+
+            if (connection.responseCode != 200) {
+                return@withContext null
+            }
+
+            val totalBytes = connection.contentLengthLong
+            var downloadedBytes = 0L
+
+            connection.inputStream.use { input ->
+                targetFile.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                        downloadedBytes += read
+                        if (totalBytes > 0) {
+                            onProgress((downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f))
+                        }
                     }
-                    dm.enqueue(request)
-                    return
+                }
+            }
+
+            // Verify integrity (must be > 100KB and start with ZIP magic bytes PK\x03\x04)
+            if (!targetFile.exists() || targetFile.length() < 100_000) {
+                targetFile.delete()
+                return@withContext null
+            }
+            val header = ByteArray(4)
+            targetFile.inputStream().use { it.read(header) }
+            if (header[0] != 0x50.toByte() || header[1] != 0x4B.toByte()) {
+                targetFile.delete()
+                return@withContext null
+            }
+
+            onProgress(1f)
+            targetFile.absolutePath
+        }.getOrNull()
+    }
+
+    override fun installDownloadedApk(filePath: String) {
+        val apkFile = java.io.File(filePath)
+        if (!apkFile.exists()) return
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if (!appContext.packageManager.canRequestPackageInstalls()) {
+                runCatching {
+                    val settingsIntent = Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${appContext.packageName}"),
+                    ).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    appContext.startActivity(settingsIntent)
                 }
             }
         }
-        openUrl(release.releasePageUrl)
+
+        runCatching {
+            val contentUri = androidx.core.content.FileProvider.getUriForFile(
+                appContext,
+                "${appContext.packageName}.fileprovider",
+                apkFile,
+            )
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            appContext.startActivity(installIntent)
+        }
     }
 
     private val jsonSerializer = kotlinx.serialization.json.Json {

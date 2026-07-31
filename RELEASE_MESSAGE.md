@@ -1,8 +1,8 @@
-# 🌙 Luna Fetch 1.0.9
+# 🌙 Luna Fetch 1.1.0
 
-Estabilidad en TikTok (canal NIGHTLY), historial persistente en tiempo real y tema dinámico en Windows.
+Nuevo modal central de actualización interactivo con barra de progreso en vivo e instalación nativa mediante FileProvider.
 
-- 🎵 **TikTok & Extracción**: Actualización automática al canal `_NIGHTLY` de `yt-dlp` con auto-reintento ante errores de extracción, remoción de User-Agent estático y preservación de parámetros en enlaces cortos (`vt.tiktok.com`).
-- 📜 **Historial Persistente & UI Adaptativa**: Guardado robusto de historial con refresco en tiempo real sin reiniciar la app y cuadro de diálogo al 88% de ancho de pantalla en teléfonos.
-- 🎨 **Tema del Sistema en Tiempo Real (PC/Windows)**: Integración nativa vía JNA para consultar el Registro de Windows y cambiar entre Claro/Oscuro en 1 segundo.
-- ⚠️ **Registro Técnico Continuo**: Banner de advertencia ⚠️ y visualización expandible al final de la pantalla para cualquier error del motor.
+- 🚀 **Modal Central de Actualización**: Cuadro flotante e interactivo al centro de la pantalla que muestra el progreso de descarga en vivo (0-100%) y las notas de la versión.
+- 🌐 **Descarga Resiliente de Paquetes**: Motor de descarga directa que sigue redirecciones HTTP de GitHub Releases y valida la firma del APK/ejecutable.
+- 📦 **Instalación Nativa en Android (`FileProvider`)**: Integración con el instalador de paquetes del sistema sin errores de análisis ("Se produjo un error al analizar el paquete").
+- ⚙️ **Control de Estado de Actualización**: Eliminación de descargas masivas/duplicadas en segundo plano.

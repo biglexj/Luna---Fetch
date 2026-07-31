@@ -57,34 +57,81 @@ class DesktopPlatformBindings : PlatformBindings {
     }
 
     override fun downloadAndInstallUpdate(release: com.biglexj.lunafetch.domain.UpdateRelease) {
+        openUrl(release.releasePageUrl)
+    }
+
+    override suspend fun downloadUpdateFile(
+        release: com.biglexj.lunafetch.domain.UpdateRelease,
+        onProgress: (Float) -> Unit,
+    ): String? = withContext(Dispatchers.IO) {
         val exeUrl = release.exeDownloadUrl.ifBlank {
             release.downloadUrl.takeIf { it.endsWith(".exe", true) || it.endsWith(".msi", true) }
-        }
-        if (exeUrl.isNullOrBlank()) {
-            openUrl(release.releasePageUrl)
-            return
-        }
+        } ?: return@withContext null
 
-        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                val url = java.net.URL(exeUrl)
-                val ext = if (exeUrl.endsWith(".msi", true)) ".msi" else ".exe"
-                val targetFile = File(systemDownloadsDirectory(), "LunaFetch-Windows-${release.version}$ext")
-                url.openStream().use { input ->
-                    targetFile.outputStream().use { output -> input.copyTo(output) }
+        runCatching {
+            var currentUrl = exeUrl
+            var connection: java.net.HttpURLConnection
+            var redirectCount = 0
+            while (true) {
+                val url = java.net.URL(currentUrl)
+                connection = url.openConnection() as java.net.HttpURLConnection
+                connection.instanceFollowRedirects = true
+                connection.connectTimeout = 15_000
+                connection.readTimeout = 30_000
+                connection.setRequestProperty("User-Agent", "LunaFetch-Updater")
+
+                val status = connection.responseCode
+                if (status in 300..399 && redirectCount < 5) {
+                    val location = connection.getHeaderField("Location") ?: break
+                    currentUrl = if (location.startsWith("http")) location else java.net.URL(url, location).toString()
+                    connection.disconnect()
+                    redirectCount++
+                    continue
                 }
-                if (targetFile.exists() && targetFile.length() > 0) {
-                    if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
-                        Desktop.getDesktop().open(targetFile)
-                    } else {
-                        ProcessBuilder("cmd", "/c", "start", "\"\"", "\"${targetFile.absolutePath}\"").start()
+                break
+            }
+
+            if (connection.responseCode != 200) {
+                return@withContext null
+            }
+
+            val ext = if (exeUrl.endsWith(".msi", true)) ".msi" else ".exe"
+            val targetFile = File(systemDownloadsDirectory(), "LunaFetch-Windows-${release.version}$ext")
+
+            val totalBytes = connection.contentLengthLong
+            var downloadedBytes = 0L
+
+            connection.inputStream.use { input ->
+                targetFile.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                        downloadedBytes += read
+                        if (totalBytes > 0) {
+                            onProgress((downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f))
+                        }
                     }
-                } else {
-                    openUrl(release.releasePageUrl)
                 }
-            }.onFailure {
-                openUrl(release.releasePageUrl)
+            }
+
+            if (targetFile.exists() && targetFile.length() > 0) {
+                onProgress(1f)
+                targetFile.absolutePath
+            } else {
+                null
+            }
+        }.getOrNull()
+    }
+
+    override fun installDownloadedApk(filePath: String) {
+        val targetFile = File(filePath)
+        if (!targetFile.exists()) return
+        runCatching {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(targetFile)
+            } else {
+                ProcessBuilder("cmd", "/c", "start", "\"\"", "\"${targetFile.absolutePath}\"").start()
             }
         }
     }

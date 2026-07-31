@@ -12,6 +12,12 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.1.0] — Modal Central de Actualización e Instalación Nativa In-App — 2026-07-31
+
+Luna Fetch 1.1.0 renueva por completo el sistema de actualizaciones. Se elimina la descarga incontrolada en segundo plano y se introduce un Modal Central Interactivo de Actualización en Compose que muestra en tiempo real el porcentaje de descarga (0-100%) y las notas de la versión.
+
+Se implementa una descarga resiliente por flujo de red que sigue hasta 5 redirecciones HTTP (302/307) de GitHub Releases y valida la integridad del archivo ejecutable o APK (`PK\x03\x04`). Al completar la descarga, la aplicación permite ejecutar la instalación limpia e inmediata del paquete mediante `FileProvider` e intenciones nativas de Android sin errores de análisis de paquete.
+
 ## [1.0.9] — Estabilidad de TikTok, Historial Persistente y Tema Dinámico — 2026-07-27
 
 Luna Fetch 1.0.9 resuelve las interrupciones en descargas de TikTok actualizando dinámicamente el motor a las compilaciones nocturnas de `yt-dlp` (`_NIGHTLY`) ante errores de extracción, eliminando el User-Agent de escritorio desfasado y preservando los parámetros esenciales en enlaces cortos (`vt.tiktok.com`).

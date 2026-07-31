@@ -64,6 +64,7 @@ fun LunaFetchApp(
             Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 AppHeader(themeMode, onThemeSelected = { themeMode = it }, platform = platform, presenter = presenter, state = state)
                 com.biglexj.lunafetch.feature.components.UpdateBanner(state, presenter)
+                com.biglexj.lunafetch.feature.components.UpdateModalDialog(state, presenter, platform)
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val compact = maxWidth < 720.dp
                     val scroll = rememberScrollState()
