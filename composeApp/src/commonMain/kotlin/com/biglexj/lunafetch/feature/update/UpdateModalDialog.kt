@@ -1,4 +1,4 @@
-package com.biglexj.lunafetch.feature.components
+package com.biglexj.lunafetch.feature.update
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -265,6 +265,8 @@ private fun renderCleanReleaseNotes(rawMarkdown: String): String {
             if (cleaned.startsWith("- ") || cleaned.startsWith("* ")) {
                 cleaned = "• " + cleaned.substring(2).trim()
             }
+            cleaned = cleaned.replace(Regex("\\[(.*?)\\]\\(.*\\)"), "$1")
+            cleaned = cleaned.replace(Regex("<[^>]*>"), "")
             cleaned = cleaned.replace("**", "").replace("__", "").replace("*", "")
             cleaned
         }

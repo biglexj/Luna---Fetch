@@ -33,6 +33,7 @@ data class LunaFetchState(
     val updateDownloadProgress: Float = 0f,
     val updateDownloadedFilePath: String? = null,
     val updateError: String? = null,
+    val toastMessage: String? = null,
 )
 
 class LunaFetchPresenter(
@@ -43,6 +44,7 @@ class LunaFetchPresenter(
     val state: StateFlow<LunaFetchState> = _state.asStateFlow()
     private var operation: Job? = null
     private var updateJob: Job? = null
+    private var autoClearUpdateMessageJob: Job? = null
 
     init {
         refreshHistory()
@@ -53,22 +55,23 @@ class LunaFetchPresenter(
         _state.update { it.copy(history = platform.loadHistory()) }
     }
 
+    fun showToast(message: String) {
+        _state.update { it.copy(toastMessage = message) }
+    }
+
+    fun clearToast() {
+        _state.update { it.copy(toastMessage = null) }
+    }
+
     fun checkForUpdates(manual: Boolean = false) {
-        if (manual) {
-            _state.update {
-                it.copy(
-                    updateMessage = "Buscando actualizaciones...",
-                )
-            }
-        }
         scope.launch {
             val release = platform.checkUpdate()
-            val currentVersion = "1.1.1"
+            val currentVersion = "1.1.2"
             if (release != null && UpdateChecker.isNewerVersion(currentVersion, release.version)) {
                 _state.update {
                     it.copy(
                         availableUpdate = release,
-                        showUpdateModal = manual,
+                        showUpdateModal = manual || it.showUpdateModal,
                         updateMessage = null,
                         isUpdateDownloading = false,
                         updateDownloadProgress = 0f,
@@ -77,18 +80,26 @@ class LunaFetchPresenter(
                     )
                 }
             } else if (manual) {
+                autoClearUpdateMessageJob?.cancel()
+                val msg = if (release != null) "✅ ¡Estás en la última versión!" else "⚠️ No se pudo comprobar las actualizaciones."
                 _state.update {
                     it.copy(
                         availableUpdate = null,
                         showUpdateModal = false,
-                        updateMessage = "¡Tienes la versión más reciente (v1.1.1)!",
+                        updateMessage = msg,
+                        toastMessage = null,
                     )
+                }
+                autoClearUpdateMessageJob = scope.launch {
+                    kotlinx.coroutines.delay(3000L)
+                    _state.update { it.copy(updateMessage = null) }
                 }
             }
         }
     }
 
     fun clearUpdateMessage() {
+        autoClearUpdateMessageJob?.cancel()
         _state.update { it.copy(updateMessage = null) }
     }
 

@@ -12,6 +12,14 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.1.2] — Unificación de Ajustes y Acerca de, Rediseño Modular de Carpetas y Temporizador de Estado — 2026-08-01
+
+Luna Fetch 1.1.2 unifica el panel de "Acerca de Luna Fetch" dentro del modal de "Ajustes", eliminando la acumulación de botones independientes en la barra superior. Se rediseña la iconografía de Ajustes con un trazado de engranaje mecánico de 6 dientes trapezoidales y se añade un panel de actualización en tiempo real para los controladores del motor de extracción (`yt-dlp`), sanitizando las salidas de consola a mensajes limpios de interfaz.
+
+Se refactoriza la arquitectura de la capa UI reorganizando orgánicamente los componentes en subsistemas por dominio funcional (`header`, `download`, `history`, `logs`, `update` y `components`). El modal de Ajustes se adapta de forma responsiva al 80% del ancho de pantalla en teléfonos móviles con márgenes verticales optimizados para interacción táctil.
+
+Se incorpora un temporizador de 3 segundos con animaciones suaves de entrada y salida (`AnimatedVisibility`) para la comprobación manual de actualizaciones, garantizando que el estado aparezca centrado en el modal y se disuelva automáticamente sin mostrar avisos flotantes emergentes en la barra superior. Asimismo, se añade soporte para el registro automático del Native Messaging Host en Windows y la guía paso a paso `browser-extension/README.md` para la instalación de la extensión en Chrome, Edge, Brave y Opera.
+
 ## [1.1.1] — Optimización Visual de Modales en Móvil, Transición de Diálogos y Modo Oscuro — 2026-07-31
 
 Luna Fetch 1.1.1 optimiza el diseño del Modal Central de Actualización fijando su contenedor al 80% del ancho de pantalla en dispositivos móviles (`usePlatformDefaultWidth = false`). Se simplifican los botones de acción a "Descargar" e "Instalar" con tipografía adaptativa de 14sp, eliminando cualquier desbordamiento de texto.

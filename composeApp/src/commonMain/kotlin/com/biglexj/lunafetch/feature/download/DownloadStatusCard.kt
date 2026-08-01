@@ -1,4 +1,6 @@
-package com.biglexj.lunafetch.feature.components
+package com.biglexj.lunafetch.feature.download
+
+import com.biglexj.lunafetch.feature.components.LunaCard
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer

@@ -1,4 +1,4 @@
-package com.biglexj.lunafetch.feature.components
+package com.biglexj.lunafetch.feature.download
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

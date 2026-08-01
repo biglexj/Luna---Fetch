@@ -16,25 +16,39 @@ data class UpdateRelease(
 object UpdateChecker {
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
-    fun parseUpdateRelease(json: String): UpdateRelease? {
+    fun parseUpdateRelease(json: String, preferredAbi: String? = null): UpdateRelease? {
         val root = runCatching { jsonParser.parseToJsonElement(json).jsonObject }.getOrNull() ?: return null
         val tagName = root["tag_name"]?.jsonPrimitive?.content ?: return null
         val htmlUrl = root["html_url"]?.jsonPrimitive?.content ?: return null
         val body = root["body"]?.jsonPrimitive?.content.orEmpty()
 
         val assets = root["assets"]?.jsonArray.orEmpty()
-        val apkAsset = assets.firstOrNull { asset ->
-            val url = asset.jsonObject["browser_download_url"]?.jsonPrimitive?.content.orEmpty()
-            val name = asset.jsonObject["name"]?.jsonPrimitive?.content.orEmpty()
-            url.endsWith(".apk", ignoreCase = true) || name.endsWith(".apk", ignoreCase = true)
+        val apkAsset = if (!preferredAbi.isNullOrBlank()) {
+            assets.firstOrNull { asset ->
+                val url = asset.jsonObject["browser_download_url"]?.jsonPrimitive?.content.orEmpty()
+                val name = asset.jsonObject["name"]?.jsonPrimitive?.content.orEmpty()
+                (url.endsWith(".apk", ignoreCase = true) || name.endsWith(".apk", ignoreCase = true)) &&
+                    (name.contains(preferredAbi, ignoreCase = true) || url.contains(preferredAbi, ignoreCase = true))
+            } ?: assets.firstOrNull { asset ->
+                val url = asset.jsonObject["browser_download_url"]?.jsonPrimitive?.content.orEmpty()
+                val name = asset.jsonObject["name"]?.jsonPrimitive?.content.orEmpty()
+                url.endsWith(".apk", ignoreCase = true) || name.endsWith(".apk", ignoreCase = true)
+            }
+        } else {
+            assets.firstOrNull { asset ->
+                val url = asset.jsonObject["browser_download_url"]?.jsonPrimitive?.content.orEmpty()
+                val name = asset.jsonObject["name"]?.jsonPrimitive?.content.orEmpty()
+                url.endsWith(".apk", ignoreCase = true) || name.endsWith(".apk", ignoreCase = true)
+            }
         }
+
         val exeAsset = assets.firstOrNull { asset ->
             val url = asset.jsonObject["browser_download_url"]?.jsonPrimitive?.content.orEmpty()
             val name = asset.jsonObject["name"]?.jsonPrimitive?.content.orEmpty()
             url.endsWith(".exe", ignoreCase = true) || name.endsWith(".exe", ignoreCase = true) || name.endsWith(".msi", ignoreCase = true)
         }
 
-        val apkUrl = apkAsset?.jsonObject?.get("browser_download_url")?.jsonPrimitive?.content ?: htmlUrl
+        val apkUrl = apkAsset?.jsonObject?.get("browser_download_url")?.jsonPrimitive?.content.orEmpty()
         val exeUrl = exeAsset?.jsonObject?.get("browser_download_url")?.jsonPrimitive?.content.orEmpty()
 
         val cleanVersion = tagName.removePrefix("v").trim()

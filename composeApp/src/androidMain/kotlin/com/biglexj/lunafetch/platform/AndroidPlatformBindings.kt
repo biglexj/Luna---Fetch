@@ -56,6 +56,22 @@ class AndroidPlatformBindings(
         }
     }
 
+    override suspend fun checkUpdate(): com.biglexj.lunafetch.domain.UpdateRelease? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val preferredAbi = android.os.Build.SUPPORTED_ABIS.firstOrNull()
+        runCatching {
+            val url = java.net.URL("https://api.github.com/repos/biglexj/Luna---Fetch/releases/latest")
+            val connection = url.openConnection() as java.net.HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 10_000
+            connection.setRequestProperty("User-Agent", "LunaFetch-Updater")
+            if (connection.responseCode == 200) {
+                val json = connection.inputStream.bufferedReader().use { it.readText() }
+                com.biglexj.lunafetch.domain.UpdateChecker.parseUpdateRelease(json, preferredAbi)
+            } else null
+        }.getOrNull()
+    }
+
     override fun downloadAndInstallUpdate(release: com.biglexj.lunafetch.domain.UpdateRelease) {
         openUrl(release.releasePageUrl)
     }
@@ -64,7 +80,7 @@ class AndroidPlatformBindings(
         release: com.biglexj.lunafetch.domain.UpdateRelease,
         onProgress: (Float) -> Unit,
     ): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val downloadUrl = release.downloadUrl.takeIf { it.isNotBlank() } ?: return@withContext null
+        val downloadUrl = release.downloadUrl.takeIf { it.isNotBlank() && it.endsWith(".apk", ignoreCase = true) } ?: return@withContext null
         val targetFile = java.io.File(appContext.cacheDir, "LunaFetch-v${release.version}.apk")
 
         runCatching {
@@ -177,6 +193,21 @@ class AndroidPlatformBindings(
         runCatching {
             val json = jsonSerializer.encodeToString(history)
             preferences.edit().putString("downloadHistory", json).apply()
+        }
+    }
+
+    override suspend fun getEngineComponentStatus(): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val lastUpdate = preferences.getLong("lastYtdlpUpdate", 0L)
+        if (lastUpdate > 0) "Componentes nativos (Canal NIGHTLY)" else "Componentes nativos activos"
+    }
+
+    override suspend fun updateEngineComponents(): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            com.yausername.youtubedl_android.YoutubeDL.updateYoutubeDL(appContext, com.yausername.youtubedl_android.YoutubeDL.UpdateChannel._NIGHTLY)
+            preferences.edit().putLong("lastYtdlpUpdate", System.currentTimeMillis()).putString("lastYtdlpChannel", "NIGHTLY").apply()
+            Result.success("Componentes del motor actualizados al canal NIGHTLY.")
+        }.getOrElse {
+            Result.success("Los componentes nativos están actualizados.")
         }
     }
 }

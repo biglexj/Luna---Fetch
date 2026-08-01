@@ -1,4 +1,4 @@
-package com.biglexj.lunafetch.feature.components
+package com.biglexj.lunafetch.feature.header
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -35,11 +36,14 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,7 +75,6 @@ fun AppHeader(
     presenter: LunaFetchPresenter,
     state: LunaFetchState,
 ) {
-    val hasSettings = platform.isAutoStartEnabled != null
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         if (maxWidth < 520.dp) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -87,9 +90,7 @@ fun AppHeader(
                     )
                     HistoryButton(presenter, state, platform)
                     Spacer(Modifier.width(8.dp))
-                    if (hasSettings) SettingsButton(platform)
-                    Spacer(Modifier.width(8.dp))
-                    AboutButton(platform, presenter)
+                    SettingsButton(platform, presenter)
                     Spacer(Modifier.width(8.dp))
                     ThemeModeButton(mode, onThemeSelected)
                 }
@@ -112,9 +113,7 @@ fun AppHeader(
                 }
                 HistoryButton(presenter, state, platform)
                 Spacer(Modifier.width(8.dp))
-                if (hasSettings) SettingsButton(platform)
-                Spacer(Modifier.width(8.dp))
-                AboutButton(platform, presenter)
+                SettingsButton(platform, presenter)
                 Spacer(Modifier.width(8.dp))
                 ThemeModeButton(mode, onThemeSelected)
             }
@@ -267,7 +266,7 @@ private fun HistoryDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsButton(platform: PlatformBindings) {
+private fun SettingsButton(platform: PlatformBindings, presenter: LunaFetchPresenter) {
     var showDialog by remember { mutableStateOf(false) }
     val label = "Ajustes"
 
@@ -284,83 +283,284 @@ private fun SettingsButton(platform: PlatformBindings) {
                 .clickable(role = Role.Button, onClickLabel = label, onClick = { showDialog = true }),
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(modifier = Modifier.size(22.dp)) {
+            Canvas(modifier = Modifier.size(20.dp)) {
                 val c = center
                 val color = androidx.compose.ui.graphics.Color(0xFF8A8A8A)
                 val sw = 1.8.dp.toPx()
-                val outerR = size.minDimension / 2f
-                val innerR = outerR * 0.42f
-                val toothCount = 8
+                val rOuter = size.minDimension / 2f
+                val rInner = rOuter * 0.65f
+                val rHole = rOuter * 0.28f
+                val teeth = 6
                 val toothPath = Path()
-                for (i in 0 until toothCount) {
-                    val baseAngle = (2 * Math.PI / toothCount * i).toFloat()
-                    val tipAngle = baseAngle + (Math.PI / toothCount).toFloat()
-                    val bx1 = c.x + outerR * 0.68f * cos(baseAngle - 0.22f)
-                    val by1 = c.y + outerR * 0.68f * sin(baseAngle - 0.22f)
-                    val tx  = c.x + outerR * cos(tipAngle - (Math.PI / toothCount).toFloat())
-                    val ty  = c.y + outerR * sin(tipAngle - (Math.PI / toothCount).toFloat())
-                    val bx2 = c.x + outerR * 0.68f * cos(baseAngle + 0.22f)
-                    val by2 = c.y + outerR * 0.68f * sin(baseAngle + 0.22f)
-                    if (i == 0) toothPath.moveTo(bx1, by1)
-                    else toothPath.lineTo(bx1, by1)
-                    toothPath.lineTo(tx, ty)
-                    toothPath.lineTo(bx2, by2)
+                val toothAngle = (2 * Math.PI / teeth).toFloat()
+                val halfTooth = toothAngle * 0.28f
+
+                for (i in 0 until teeth) {
+                    val angle = toothAngle * i
+                    val a1 = angle - halfTooth
+                    val a2 = angle + halfTooth
+
+                    val x1 = c.x + rInner * cos(a1)
+                    val y1 = c.y + rInner * sin(a1)
+                    val x2 = c.x + rOuter * cos(a1)
+                    val y2 = c.y + rOuter * sin(a1)
+                    val x3 = c.x + rOuter * cos(a2)
+                    val y3 = c.y + rOuter * sin(a2)
+                    val x4 = c.x + rInner * cos(a2)
+                    val y4 = c.y + rInner * sin(a2)
+
+                    if (i == 0) toothPath.moveTo(x1, y1) else toothPath.lineTo(x1, y1)
+                    toothPath.lineTo(x2, y2)
+                    toothPath.lineTo(x3, y3)
+                    toothPath.lineTo(x4, y4)
                 }
                 toothPath.close()
                 drawPath(toothPath, color = color, style = Stroke(sw, cap = StrokeCap.Round))
-                drawCircle(color = color, radius = innerR, center = c, style = Stroke(sw))
+                drawCircle(color = color, radius = rHole, center = c, style = Stroke(sw))
             }
         }
     }
 
     if (showDialog) {
-        SettingsDialog(platform, onDismiss = { showDialog = false })
+        SettingsDialog(platform, presenter, onDismiss = { showDialog = false })
     }
 }
 
 @Composable
-private fun SettingsDialog(platform: PlatformBindings, onDismiss: () -> Unit) {
+private fun SettingsDialog(
+    platform: PlatformBindings,
+    presenter: LunaFetchPresenter,
+    onDismiss: () -> Unit,
+) {
+    val state by presenter.state.collectAsState()
     var autoStart       by remember { mutableStateOf(platform.isAutoStartEnabled ?: false) }
     var minimizeToTray  by remember { mutableStateOf(platform.isMinimizeToTrayEnabled ?: false) }
     var nativeInstalled by remember { mutableStateOf(platform.isNativeHostInstalled ?: false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Ajustes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SettingsRow(
-                    title = "Iniciar con Windows",
-                    subtitle = "Abre Luna Fetch automáticamente al encender el equipo.",
-                    checked = autoStart,
-                    onCheckedChange = { autoStart = it; platform.setAutoStart(it) },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                SettingsRow(
-                    title = "Minimizar en lugar de cerrar",
-                    subtitle = "Al pulsar ✕, la app se oculta en la bandeja del sistema.",
-                    checked = minimizeToTray,
-                    onCheckedChange = { minimizeToTray = it; platform.setMinimizeToTray(it) },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                SettingsRow(
-                    title = "Extensión de navegador",
-                    subtitle = if (nativeInstalled)
-                        "Host registrado en Chrome/Edge. Instala la extensión para activarla."
-                    else
-                        "Registra el host para que Chrome/Edge puedan comunicarse con Luna Fetch.",
-                    checked = nativeInstalled,
-                    onCheckedChange = {
-                        nativeInstalled = it
-                        if (it) platform.installNativeHost() else platform.uninstallNativeHost()
-                    },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cerrar") }
-        },
-    )
+    var componentStatus by remember { mutableStateOf("") }
+    var componentMessage by remember { mutableStateOf<String?>(null) }
+    var isUpdatingComponents by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val handleDismiss = {
+        presenter.clearUpdateMessage()
+        onDismiss()
+    }
+
+    LaunchedEffect(Unit) {
+        componentStatus = platform.getEngineComponentStatus()
+        presenter.clearUpdateMessage()
+    }
+
+    LaunchedEffect(state.showUpdateModal, state.availableUpdate) {
+        if (state.showUpdateModal && state.availableUpdate != null) {
+            handleDismiss()
+        }
+    }
+
+    BoxWithConstraints {
+        val isMobile = maxWidth < 520.dp
+        val dialogModifier = if (isMobile) {
+            Modifier.widthIn(max = 440.dp).fillMaxWidth(0.80f)
+        } else {
+            Modifier.widthIn(max = 500.dp).fillMaxWidth(0.92f)
+        }
+        val mainSpacing = if (isMobile) 12.dp else 8.dp
+        val dividerPadding = if (isMobile) 4.dp else 2.dp
+
+        AlertDialog(
+            onDismissRequest = handleDismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = dialogModifier,
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("Ajustes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        "v1.1.2",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(mainSpacing),
+                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                ) {
+                    if (platform.isAutoStartEnabled != null) {
+                        SettingsRow(
+                            title = "Iniciar con Windows",
+                            subtitle = "Abre Luna Fetch automáticamente al encender el equipo.",
+                            checked = autoStart,
+                            onCheckedChange = { autoStart = it; platform.setAutoStart(it) },
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                    }
+                    if (platform.isMinimizeToTrayEnabled != null) {
+                        SettingsRow(
+                            title = "Minimizar en lugar de cerrar",
+                            subtitle = "Al pulsar ✕, la app se oculta en la bandeja del sistema.",
+                            checked = minimizeToTray,
+                            onCheckedChange = { minimizeToTray = it; platform.setMinimizeToTray(it) },
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                    }
+                    if (platform.isNativeHostInstalled != null) {
+                        SettingsRow(
+                            title = "Extensión de navegador",
+                            subtitle = if (nativeInstalled)
+                                "Host registrado en Windows. Abre la página para agregar la extensión a Chrome/Edge."
+                            else
+                                "Registra el host para que Chrome/Edge puedan comunicarse con Luna Fetch.",
+                            checked = nativeInstalled,
+                            onCheckedChange = {
+                                nativeInstalled = it
+                                if (it) {
+                                    platform.installNativeHost()
+                                    platform.openUrl("https://github.com/biglexj/Luna---Fetch/tree/main/browser-extension#readme")
+                                } else {
+                                    platform.uninstallNativeHost()
+                                }
+                            },
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                    }
+
+                    // Controladores del motor (versiones/actualizaciones de binarios)
+                    Column(verticalArrangement = Arrangement.spacedBy(if (isMobile) 6.dp else 4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    "Controladores del motor",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    if (componentStatus.isNotBlank()) "Estado: $componentStatus" else "Componentes de extracción y conversión.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    isUpdatingComponents = true
+                                    componentMessage = null
+                                    scope.launch {
+                                        val res = platform.updateEngineComponents()
+                                        componentMessage = res.getOrDefault("Componentes al día")
+                                        componentStatus = platform.getEngineComponentStatus()
+                                        isUpdatingComponents = false
+                                    }
+                                },
+                                enabled = !isUpdatingComponents,
+                                shape = RoundedCornerShape(50),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp),
+                            ) {
+                                if (isUpdatingComponents) {
+                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Text("🔄 Actualizar", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                        if (componentMessage != null) {
+                            Text(
+                                componentMessage!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+
+                    // Sección "Acerca de Luna Fetch" unificada
+                    Column(verticalArrangement = Arrangement.spacedBy(if (isMobile) 8.dp else 6.dp)) {
+                        Text(
+                            "Acerca de Luna Fetch",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            "Una herramienta moderna y gratuita para descargar videos, audio y contenido multimedia de YouTube, TikTok sin marca de agua, Instagram y más.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(
+                            onClick = { platform.openUrl("https://www.biglexj.com/donaciones") },
+                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 42.dp else 38.dp),
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(vertical = 2.dp),
+                        ) {
+                            Text("Donar (Yape / Plin / Web) 🤍", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { platform.openUrl("https://buymeacoffee.com/biglexj") },
+                                modifier = Modifier.weight(1f).height(if (isMobile) 38.dp else 36.dp),
+                                shape = RoundedCornerShape(50),
+                                contentPadding = PaddingValues(vertical = 2.dp),
+                            ) {
+                                Text("☕ Buy Me a Coffee", style = MaterialTheme.typography.labelSmall)
+                            }
+                            OutlinedButton(
+                                onClick = { platform.openUrl("https://github.com/biglexj") },
+                                modifier = Modifier.weight(1f).height(if (isMobile) 38.dp else 36.dp),
+                                shape = RoundedCornerShape(50),
+                                contentPadding = PaddingValues(vertical = 2.dp),
+                            ) {
+                                Text("⭐ GitHub", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = { presenter.checkForUpdates(manual = true) },
+                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 38.dp else 36.dp),
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(vertical = 2.dp),
+                        ) {
+                            Text("🔄 Buscar actualizaciones de la app", style = MaterialTheme.typography.labelMedium)
+                        }
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = state.updateMessage != null,
+                            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+                            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(),
+                        ) {
+                            if (state.updateMessage != null) {
+                                Text(
+                                    state.updateMessage!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = handleDismiss,
+                    modifier = Modifier.padding(top = if (isMobile) 4.dp else 0.dp, bottom = 0.dp),
+                ) {
+                    Text("Cerrar", fontWeight = FontWeight.Bold)
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -527,222 +727,4 @@ private fun ThemeModeGlyph(mode: ThemeMode, modifier: Modifier = Modifier) {
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AboutButton(platform: PlatformBindings, presenter: LunaFetchPresenter) {
-    var showDialog by remember { mutableStateOf(false) }
-    val label = "Acerca de y Donaciones"
-
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = { PlainTooltip { Text(label) } },
-        state = rememberTooltipState(),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                .clickable(role = Role.Button, onClickLabel = label, onClick = { showDialog = true }),
-            contentAlignment = Alignment.Center,
-        ) {
-            Canvas(modifier = Modifier.size(20.dp)) {
-                val color = androidx.compose.ui.graphics.Color(0xFF8A8A8A)
-                val sw = 1.8.dp.toPx()
-                val r = size.minDimension / 2f
-                drawCircle(color = color, radius = r, center = center, style = Stroke(sw))
-                drawCircle(color = color, radius = sw * 0.8f, center = Offset(center.x, center.y - r * 0.4f))
-                drawLine(color = color, start = Offset(center.x, center.y - r * 0.1f), end = Offset(center.x, center.y + r * 0.45f), strokeWidth = sw, cap = StrokeCap.Round)
-            }
-        }
-    }
-
-    if (showDialog) {
-        AboutDialog(platform, presenter, onDismiss = { showDialog = false })
-    }
-}
-
-@Composable
-private fun AboutDialog(platform: PlatformBindings, presenter: LunaFetchPresenter, onDismiss: () -> Unit) {
-    BoxWithConstraints {
-        if (maxWidth < 520.dp) {
-            AboutDialogMobile(platform, presenter, onDismiss)
-        } else {
-            AboutDialogDesktop(platform, presenter, onDismiss)
-        }
-    }
-}
-
-@Composable
-private fun AboutDialogDesktop(platform: PlatformBindings, presenter: LunaFetchPresenter, onDismiss: () -> Unit) {
-    val state by presenter.state.collectAsState()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text("Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    "Versión 1.1.1 · Desarrollado por Biglex J",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(
-                    "Luna Fetch es una herramienta moderna y gratuita para descargar videos y audio de TikTok sin marca de agua, YouTube, Instagram y más.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                Text("Apoya el Desarrollo Oficial", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(
-                    "Si esta aplicación te es útil, puedes apoyar su desarrollo mediante una donación voluntaria:",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(
-                    onClick = { platform.openUrl("https://www.biglexj.com/donaciones") },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text("💳 Donar (Yape / Plin / Transferencias)", fontWeight = FontWeight.Bold)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(
-                        onClick = { platform.openUrl("https://buymeacoffee.com/biglexj") },
-                        modifier = Modifier.weight(1f).height(44.dp),
-                        shape = RoundedCornerShape(50),
-                    ) {
-                        Text("☕ Buy Me a Coffee", style = MaterialTheme.typography.labelMedium)
-                    }
-                    OutlinedButton(
-                        onClick = { platform.openUrl("https://github.com/biglexj") },
-                        modifier = Modifier.weight(1f).height(44.dp),
-                        shape = RoundedCornerShape(50),
-                    ) {
-                        Text("⭐ GitHub", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-                if (state.updateMessage != null) {
-                    Text(
-                        state.updateMessage!!,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = {
-                onDismiss()
-                presenter.checkForUpdates(manual = true)
-            }) {
-                Text("🔄 Buscar actualizaciones", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cerrar") }
-        },
-    )
-}
-
-@Composable
-private fun AboutDialogMobile(platform: PlatformBindings, presenter: LunaFetchPresenter, onDismiss: () -> Unit) {
-    val state by presenter.state.collectAsState()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.widthIn(max = 440.dp).fillMaxWidth(0.85f),
-        title = {
-            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Acerca de Luna Fetch", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Luna Fetch v1.1.0",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    "Licencia: MIT · Autor: Biglex J (2026)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-            ) {
-                Text(
-                    "Una herramienta moderna y gratuita con soporte para fotos, videos y música de TikTok sin marca de agua, YouTube, Instagram y exploración local.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
-                Text(
-                    "Apoya el desarrollo de Luna Fetch:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Button(
-                    onClick = { platform.openUrl("https://www.biglexj.com/donaciones") },
-                    modifier = Modifier.fillMaxWidth().height(46.dp),
-                    shape = RoundedCornerShape(50),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    Text("Donar (Yape / Plin / Web) 🤍", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                }
-                OutlinedButton(
-                    onClick = { platform.openUrl("https://buymeacoffee.com/biglexj") },
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text("Buy Me a Coffee ☕", style = MaterialTheme.typography.labelLarge)
-                }
-                OutlinedButton(
-                    onClick = { platform.openUrl("https://github.com/biglexj") },
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text("⭐ GitHub", style = MaterialTheme.typography.labelLarge)
-                }
-                OutlinedButton(
-                    onClick = {
-                        onDismiss()
-                        presenter.checkForUpdates(manual = true)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text("🔄 Buscar actualizaciones", style = MaterialTheme.typography.labelLarge)
-                }
-                if (state.updateMessage != null) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        state.updateMessage!!,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Aceptar", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            }
-        },
-    )
 }

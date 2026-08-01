@@ -1,4 +1,6 @@
-package com.biglexj.lunafetch.feature.components
+package com.biglexj.lunafetch.feature.logs
+
+import com.biglexj.lunafetch.feature.components.LunaCard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box

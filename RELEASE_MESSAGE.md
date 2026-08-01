@@ -1,9 +1,9 @@
-# 🌙 Luna Fetch 1.1.1
+# 🌙 Luna Fetch 1.1.2
 
-Optimización visual para modales en móviles (ancho al 80%), transición fluida sin parpadeos, renderizado limpio de Markdown y corrección del tema oscuro del sistema en Android.
+Unificación de Ajustes y Acerca de, rediseño del icono de engranaje, controladores del motor, temporizador de estado y guía de la extensión de navegador.
 
-- 📐 **Ancho de Modal al 80%**: Contenedor del diálogo optimizado al 80% de la pantalla en móviles (`usePlatformDefaultWidth = false`) con botones "Descargar" e "Instalar" adaptativos en una sola línea.
-- ⚡ **Transición Fluida entre Modales**: Cierre inmediato del cuadro "Acerca de" y sustitución en el mismo fotograma por el Modal Central sin pantallas vacías ni parpadeos.
-- 📜 **Renderizado Limpio en Markdown**: Parseador de notas de versión que elimina caracteres de formato plano (`#`, `**`, `-`) para presentar las novedades estilizadas con viñetas.
-- 🌙 **Estabilidad de Tema Oscuro en Android**: Corrección del bucle de verificación de tema en Android para seguir fielmente la configuración del sistema sin regresiones a modo claro.
-- 🛡️ **Ocultamiento de Banners Duplicados**: Desactivación del `UpdateBanner` superior mientras el Modal Central de actualización permanece activo.
+- ⚙️ **Modal de Ajustes Unificado**: Se unificaron las opciones del sistema, comprobador de controladores y sección "Acerca de Luna Fetch" en un solo modal responsivo (con icono de engranaje mecánico de 6 dientes).
+- 🚗 **Controladores del Motor**: Panel de estado e instalador/actualizador en tiempo real para los binarios de extracción y conversión (`yt-dlp`), desinfectando salidas crudas de consola a mensajes limpios de UI.
+- 📱 **Diseño Adaptativo Móvil**: Ajuste automático del modal al 80% de ancho en pantallas móviles con espaciado vertical cómodo para interacción táctil.
+- ⏱️ **Temporizador de Estado (3s)**: Ocultación automática a los 3 segundos del mensaje de comprobación de la app con animaciones suaves de entrada y salida (`AnimatedVisibility`), libre de banners flotantes duplicados.
+- 🧩 **Guía de Extensión de Navegador**: Registro automático del Native Messaging Host en Windows y creación de la guía `browser-extension/README.md` paso a paso para instalación en Chrome, Edge, Brave y Opera.

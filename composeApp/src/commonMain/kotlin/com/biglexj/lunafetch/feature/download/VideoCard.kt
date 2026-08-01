@@ -1,4 +1,7 @@
-package com.biglexj.lunafetch.feature.components
+package com.biglexj.lunafetch.feature.download
+
+import com.biglexj.lunafetch.feature.components.LunaCard
+import com.biglexj.lunafetch.feature.components.formatDuration
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

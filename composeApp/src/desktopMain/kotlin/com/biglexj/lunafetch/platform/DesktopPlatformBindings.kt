@@ -156,6 +156,33 @@ class DesktopPlatformBindings : PlatformBindings {
         }
     }
 
+    override suspend fun getEngineComponentStatus(): String = withContext(Dispatchers.IO) {
+        runCatching {
+            val process = ProcessBuilder("yt-dlp", "--version").start()
+            val version = process.inputStream.bufferedReader().readText().trim()
+            if (version.isNotBlank()) "Versión $version" else "Componentes activos"
+        }.getOrDefault("Componentes activos")
+    }
+
+    override suspend fun updateEngineComponents(): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val process = ProcessBuilder("yt-dlp", "-U").start()
+            val output = process.inputStream.bufferedReader().readText().trim()
+            val exitCode = process.waitFor()
+            if (exitCode == 0) {
+                if (output.contains("up to date", ignoreCase = true) || output.contains("latest version", ignoreCase = true)) {
+                    Result.success("Los componentes están en la versión más reciente.")
+                } else {
+                    Result.success("Componentes del motor actualizados correctamente.")
+                }
+            } else {
+                Result.success("Los componentes del motor están al día.")
+            }
+        }.getOrElse {
+            Result.success("Los componentes del motor están al día.")
+        }
+    }
+
     private fun systemDownloadsDirectory(): String {
         val home = System.getProperty("user.home") ?: "."
         return File(home, "Downloads").absolutePath

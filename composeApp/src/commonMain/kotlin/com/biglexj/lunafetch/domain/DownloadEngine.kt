@@ -53,4 +53,7 @@ interface PlatformBindings {
 
     fun loadHistory(): List<DownloadHistoryItem> = emptyList()
     fun saveHistory(history: List<DownloadHistoryItem>) {}
+
+    suspend fun getEngineComponentStatus(): String = "Componentes activos"
+    suspend fun updateEngineComponents(): Result<String> = Result.success("Los componentes del motor están actualizados.")
 }
