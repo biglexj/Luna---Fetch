@@ -12,6 +12,12 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.1.3] — Corrección del Lanzador Nativo en Windows y Estabilización In-App — 2026-08-01
+
+Luna Fetch 1.1.3 subsana la invocación del ejecutable de actualización en Windows al presionar el botón "Instalar". Se refactoriza el invocador de la plataforma de escritorio utilizando la ejecución directa de proceso nativo (`ProcessBuilder`), garantizando la apertura e instalación limpia del archivo ejecutable o MSI descargado sin depender de la API de AWT ShellExecute.
+
+Se consolida la unificación del menú de Ajustes y Acerca de en un modal responsivo adaptado al 80% de ancho en dispositivos móviles. Asimismo, se formaliza la arquitectura modular por subsistemas de dominio (`header`, `download`, `history`, `logs`, `update` y `components`) e integra la guía paso a paso para la instalación de la extensión de navegador en Chrome, Edge, Brave y Opera.
+
 ## [1.1.2] — Unificación de Ajustes y Acerca de, Rediseño Modular de Carpetas y Temporizador de Estado — 2026-08-01
 
 Luna Fetch 1.1.2 unifica el panel de "Acerca de Luna Fetch" dentro del modal de "Ajustes", eliminando la acumulación de botones independientes en la barra superior. Se rediseña la iconografía de Ajustes con un trazado de engranaje mecánico de 6 dientes trapezoidales y se añade un panel de actualización en tiempo real para los controladores del motor de extracción (`yt-dlp`), sanitizando las salidas de consola a mensajes limpios de interfaz.

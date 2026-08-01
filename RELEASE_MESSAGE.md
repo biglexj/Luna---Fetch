@@ -1,9 +1,9 @@
-# 🌙 Luna Fetch 1.1.2
+# 🌙 Luna Fetch 1.1.3
 
-Unificación de Ajustes y Acerca de, rediseño del icono de engranaje, controladores del motor, temporizador de estado y guía de la extensión de navegador.
+Corrección en la ejecución del auto-instalador ejecutable en Windows y estabilización completa de las actualizaciones in-app.
 
-- ⚙️ **Modal de Ajustes Unificado**: Se unificaron las opciones del sistema, comprobador de controladores y sección "Acerca de Luna Fetch" en un solo modal responsivo (con icono de engranaje mecánico de 6 dientes).
-- 🚗 **Controladores del Motor**: Panel de estado e instalador/actualizador en tiempo real para los binarios de extracción y conversión (`yt-dlp`), desinfectando salidas crudas de consola a mensajes limpios de UI.
-- 📱 **Diseño Adaptativo Móvil**: Ajuste automático del modal al 80% de ancho en pantallas móviles con espaciado vertical cómodo para interacción táctil.
-- ⏱️ **Temporizador de Estado (3s)**: Ocultación automática a los 3 segundos del mensaje de comprobación de la app con animaciones suaves de entrada y salida (`AnimatedVisibility`), libre de banners flotantes duplicados.
-- 🧩 **Guía de Extensión de Navegador**: Registro automático del Native Messaging Host en Windows y creación de la guía `browser-extension/README.md` paso a paso para instalación en Chrome, Edge, Brave y Opera.
+- 🛠️ **Lanzador Nativo en Windows**: Corrección del invocador del instalador en PC (`ProcessBuilder`) para ejecutar directamente el archivo descargado (`.exe` / `.msi`) al pulsar "Instalar", eliminando bloqueos en hilos de AWT.
+- ⚙️ **Modal de Ajustes Unificado**: Integración completa del diálogo "Acerca de" dentro de Ajustes con comprobación de versión y temporizador suave de 3 segundos (`AnimatedVisibility`).
+- 🏎️ **Controladores del Motor**: Panel de control e instalador/actualizador en tiempo real de `yt-dlp` con sanitización de registros a texto limpio de interfaz.
+- 📂 **Arquitectura Modular por Dominio**: Reorganización estructural de la capa UI en sub-carpetas especializadas (`header`, `download`, `history`, `logs`, `update` y `components`).
+- 🧩 **Extensión de Navegador**: Guía interactiva de instalación manual en Chrome, Edge, Brave y Opera (`browser-extension/README.md`) y registro en 1 clic del Native Host en Windows.

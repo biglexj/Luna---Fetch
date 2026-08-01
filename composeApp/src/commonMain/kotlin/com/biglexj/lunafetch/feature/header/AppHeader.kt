@@ -380,7 +380,7 @@ private fun SettingsDialog(
                 ) {
                     Text("Ajustes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        "v1.1.2",
+                        "v1.1.3",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,

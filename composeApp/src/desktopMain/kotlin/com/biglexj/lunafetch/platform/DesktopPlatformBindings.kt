@@ -127,11 +127,17 @@ class DesktopPlatformBindings : PlatformBindings {
     override fun installDownloadedApk(filePath: String) {
         val targetFile = File(filePath)
         if (!targetFile.exists()) return
+        val absPath = targetFile.absolutePath
+
+        val directRun = runCatching { ProcessBuilder(absPath).start() }
+        if (directRun.isSuccess) return
+
+        val cmdRun = runCatching { ProcessBuilder("cmd.exe", "/c", "start", "", absPath).start() }
+        if (cmdRun.isSuccess) return
+
         runCatching {
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+            if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().open(targetFile)
-            } else {
-                ProcessBuilder("cmd", "/c", "start", "\"\"", "\"${targetFile.absolutePath}\"").start()
             }
         }
     }

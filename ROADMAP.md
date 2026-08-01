@@ -24,6 +24,7 @@ Plan de trabajo, objetivos y prioridades del proyecto.
 
 ## 🟢 Completado
 
+- [x] **Versión 1.1.3**: Corrección del lanzador del instalador en PC (`ProcessBuilder`), estabilización de descargas e instalaciones nativas In-App en Windows y Android.
 - [x] **Versión 1.1.2**: Unificación de Ajustes y Acerca de en un solo modal responsivo, rediseño de engranaje mecánico, panel de estado e instalador de controladores del motor (`yt-dlp`), refactorización modular por dominio en `feature/` (`header`, `download`, `history`, `logs`, `update`, `components`), temporizador de 3s con animación para estado de la app y guía paso a paso `browser-extension/README.md`.
 - [x] **Corrección del Modal "Acerca de"**: Comprobación interactiva de actualizaciones desde el diálogo "Acerca de". Si no hay versión nueva disponible, el modal permanece abierto mostrando el mensaje informativo en pantalla y solo se cierra automáticamente cuando se detecta una nueva actualización para dar paso al modal central.
 - [x] **Versión 1.1.1**: Modal central de actualización al 80% de ancho en móviles, descarga resiliente HTTP 302/307, transición limpia entre modales y corrección de parpadeo de modo oscuro en Android.
