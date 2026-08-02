@@ -132,6 +132,13 @@ if ($Version -ne $currentVersion) {
     Set-Content -LiteralPath $propertiesPath -Value $properties -Encoding UTF8 -NoNewline
 }
 
+$appConfigPath = Join-Path $root "composeApp\src\commonMain\kotlin\com\biglexj\lunafetch\domain\AppConfig.kt"
+if (Test-Path -LiteralPath $appConfigPath) {
+    $appConfigContent = Get-Content -LiteralPath $appConfigPath -Raw -Encoding UTF8
+    $appConfigContent = $appConfigContent -replace 'const val APP_VERSION = "[^"]+"', "const val APP_VERSION = ""$Version"""
+    Set-Content -LiteralPath $appConfigPath -Value $appConfigContent -Encoding UTF8 -NoNewline
+}
+
 $jdk = Get-FullJdk
 $signTool = if ($SkipSigning) { $null } else { Get-WindowsSdkTool "signtool.exe" }
 $env:JAVA_HOME = $jdk

@@ -380,7 +380,7 @@ private fun SettingsDialog(
                 ) {
                     Text("Ajustes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        "v1.1.3",
+                        "v${com.biglexj.lunafetch.domain.AppConfig.APP_VERSION}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,

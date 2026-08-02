@@ -1,12 +1,11 @@
-# 🚀 ¡Nuevo Lanzamiento de Luna Fetch! — v1.1.4
+# 🚀 ¡Nuevo Lanzamiento de Luna Fetch! — v1.1.5
 
-¡Nos complace anunciar la versión **v1.1.4** de **Luna Fetch**! 🎉
+¡Nos complace anunciar la versión **v1.1.5** de **Luna Fetch**! 🎉
 
 ### 📝 Resumen
-Esta actualización adopta de forma integral los nuevos estándares de arquitectura para aplicaciones de escritorio: incluye la Garantía de Instancia Única (*Single-Instance Lock*) con bypass para desarrolladores, la memoria persistente del estado y tamaño de ventana entre sesiones y optimizaciones visuales en los avisos emergentes.
+Esta actualización corrige de forma definitiva el desplegado y reporte interno de versión en la interfaz gráfica, centralizando el número de versión a través de `AppConfig.APP_VERSION`.
 
 ### 🌟 Novedades Destacadas
-- 🔒 **Garantía de Instancia Única (Single-Instance Lock)**: Evita procesos duplicados e iconos repetidos en la bandeja de entrada (*System Tray*) al relanzar la app. Incluye bypass automático para entorno de desarrollo (`isDev`).
-- 📐 **Memoria de Ventana Persistente**: La aplicación recuerda su tamaño (ancho/alto), posición en pantalla y estado de maximizado (`isMaximized`) entre sesiones.
-- ⚡ **Auto-Actualización & Notificaciones**: Notificación flotante emergente Toast de 4 segundos centrada en la parte superior.
-- 💬 **Centro de Feedback**: Canal oficial de soporte e incidencias vinculado a GitHub Issues.
+- 🏷️ **Versión Dinámica Centralizada**: Eliminados los textos estáticos hardcodeados en la interfaz de Ajustes y en el motor de comprobación de actualizaciones (`AppConfig.APP_VERSION`).
+- ⚡ **Verificación In-App Exacta**: Elimina los falsos positivos donde la app notificaba "Nueva actualización disponible" aun estando en el último lanzamiento.
+- ⚙️ **Automatización de Builds**: `build-release.ps1` sincroniza automáticamente la versión en el código fuente Kotlin, artefactos ejecutable (.exe / .msi), paquetes Android y manifiestos de Winget.

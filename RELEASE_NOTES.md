@@ -16,6 +16,12 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.1.5] — Sincronización Dinámica de Versión y Corrección de UI de Ajustes — 2026-08-02
+
+Luna Fetch 1.1.5 introduce la centralización del número de versión mediante `AppConfig.APP_VERSION` en todo el código fuente Kotlin. Se corrige el bug donde la cabecera de la modal de Ajustes y el verificador de actualizaciones mantenían un string estático hardcodeado ("1.1.3"), lo cual provocaba avisos de actualización falsos positivos y una etiqueta de versión desfasada en la interfaz gráfica.
+
+A partir de esta versión, la actualización del número de versión en `gradle.properties` actualiza automáticamente de forma síncrona `AppConfig.kt`, la interfaz gráfica y los verificadores de GitHub Releases mediante `build-release.ps1`.
+
 ## [1.1.4] — Adopción de Estándares de Escritorio, Single-Instance Lock y Memoria de Ventana — 2026-08-02
 
 Luna Fetch 1.1.4 adopta los estándares de arquitectura de escritorio del ecosistema. Se implementa la Garantía de Instancia Única (Single-Instance Lock) mediante un socket de bucle local (`127.0.0.1:51235`), previniendo procesos duplicados e iconos repetidos en la bandeja de entrada (*System Tray*). Si la aplicación vuelve a lanzarse en producción, la instancia activa trae su ventana al frente y la nueva finaliza de inmediato; incluye bypass automático para el entorno de desarrollo (`isDev`).
