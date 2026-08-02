@@ -129,17 +129,28 @@ class DesktopPlatformBindings : PlatformBindings {
         if (!targetFile.exists()) return
         val absPath = targetFile.absolutePath
 
-        val directRun = runCatching { ProcessBuilder(absPath).start() }
-        if (directRun.isSuccess) return
+        // Liberar el Single-Instance Lock para permitir que la nueva instancia tome el puerto
+        SingleInstanceLock.release()
 
-        val cmdRun = runCatching { ProcessBuilder("cmd.exe", "/c", "start", "", absPath).start() }
-        if (cmdRun.isSuccess) return
+        // Determinar la ruta del ejecutable instalado actualmente para relanzarlo tras actualizar
+        val currentExePath = ProcessHandle.current().info().command().orElse(null)
+            ?.takeIf { File(it).exists() }
+            ?: File(System.getenv("LOCALAPPDATA") ?: ".", "Luna Fetch/Luna Fetch.exe").absolutePath
+
+        // Comando cmd desasociado: espera 2s a que la app antigua se cierre, ejecuta el instalador /passive y relanza Luna Fetch
+        val isMsi = absPath.endsWith(".msi", ignoreCase = true)
+        val installCmd = if (isMsi) {
+            "timeout /t 2 /nobreak > nul & msiexec /i \"$absPath\" /passive & start \"\" \"$currentExePath\""
+        } else {
+            "timeout /t 2 /nobreak > nul & start /wait \"\" \"$absPath\" /passive & start \"\" \"$currentExePath\""
+        }
 
         runCatching {
-            if (Desktop.isDesktopSupported()) {
-                Desktop.getDesktop().open(targetFile)
-            }
+            ProcessBuilder("cmd.exe", "/c", installCmd).start()
         }
+
+        // Finalizar el proceso actual inmediatamente para liberar los archivos ejecutable y de recursos
+        kotlin.system.exitProcess(0)
     }
 
     private val jsonSerializer = kotlinx.serialization.json.Json {

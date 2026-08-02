@@ -16,6 +16,12 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.1.6] — Actualización In-App de Fricción Cero con Cierre y Auto-Reinicio — 2026-08-02
+
+Luna Fetch 1.1.6 implementa el flujo completo de Actualizaciones In-App de Fricción Cero definido en el estándar de escritorio (`desktop_app_standards.md`). Al pulsar "Instalar y Reiniciar", la aplicación libera el bloqueo de instancia única (`SingleInstanceLock`), ejecuta el instalador silencioso en modo pasivo (`/passive`) en un proceso secundario desasociado y finaliza inmediatamente la instancia actual (`exitProcess(0)`).
+
+Una vez que el instalador de Windows (.exe o .msi) reemplaza los binarios en segundo plano, la nueva versión de Luna Fetch se abre automáticamente sin requerir interacción manual del usuario.
+
 ## [1.1.5] — Sincronización Dinámica de Versión y Corrección de UI de Ajustes — 2026-08-02
 
 Luna Fetch 1.1.5 introduce la centralización del número de versión mediante `AppConfig.APP_VERSION` en todo el código fuente Kotlin. Se corrige el bug donde la cabecera de la modal de Ajustes y el verificador de actualizaciones mantenían un string estático hardcodeado ("1.1.3"), lo cual provocaba avisos de actualización falsos positivos y una etiqueta de versión desfasada en la interfaz gráfica.

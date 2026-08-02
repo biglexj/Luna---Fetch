@@ -1,11 +1,11 @@
-# 🚀 ¡Nuevo Lanzamiento de Luna Fetch! — v1.1.5
+# 🚀 ¡Nuevo Lanzamiento de Luna Fetch! — v1.1.6
 
-¡Nos complace anunciar la versión **v1.1.5** de **Luna Fetch**! 🎉
+¡Nos complace anunciar la versión **v1.1.6** de **Luna Fetch**! 🎉
 
 ### 📝 Resumen
-Esta actualización corrige de forma definitiva el desplegado y reporte interno de versión en la interfaz gráfica, centralizando el número de versión a través de `AppConfig.APP_VERSION`.
+Esta actualización perfecciona el sistema de actualizaciones in-app ofreciendo una experiencia de **fricción cero**: la aplicación antigua se cierra sola al pulsar "Instalar y Reiniciar" y la nueva versión se vuelve a abrir automáticamente al terminar la instalación.
 
 ### 🌟 Novedades Destacadas
-- 🏷️ **Versión Dinámica Centralizada**: Eliminados los textos estáticos hardcodeados en la interfaz de Ajustes y en el motor de comprobación de actualizaciones (`AppConfig.APP_VERSION`).
-- ⚡ **Verificación In-App Exacta**: Elimina los falsos positivos donde la app notificaba "Nueva actualización disponible" aun estando en el último lanzamiento.
-- ⚙️ **Automatización de Builds**: `build-release.ps1` sincroniza automáticamente la versión en el código fuente Kotlin, artefactos ejecutable (.exe / .msi), paquetes Android y manifiestos de Winget.
+- ⚡ **Actualización e Instalación Automatizada**: Al pulsar "Instalar y Reiniciar", Luna Fetch libera los archivos, se cierra de inmediato y ejecuta el instalador silencioso.
+- 🔄 **Reinicio Automático In-App**: Una vez completada la instalación pasiva en segundo plano, la app se abre automáticamente sin requerir clics ni búsqueda de archivos en Descargas.
+- 🔒 **Sincronización con Single-Instance Lock**: Cierre limpio del puerto y socket local para permitir la instalación caliente y el relanzamiento síncrono.

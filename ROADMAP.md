@@ -34,6 +34,8 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 
 ## 🟢 Completado
 
+- [x] **v1.1.6**
+  - Flujo de actualización in-app de fricción cero: liberación de socket lock (`SingleInstanceLock`), ejecución pasiva de instalador y auto-reinicio automático de Luna Fetch.
 - [x] **v1.1.5**
   - Centralización dinámica de versión mediante `AppConfig.APP_VERSION`, corrección del bug de string hardcodeado "1.1.3" en la modal de Ajustes y en el comprobador de actualizaciones, y automatización síncrona en `build-release.ps1`.
 - [x] **v1.1.4**

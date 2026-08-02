@@ -12,10 +12,15 @@ Always use the next-generation models defined in the platform. Do NOT use legacy
 - **License**: MIT
 - **Author**: Biglex J (2026)
 
-## Reference Project (Golden Standard)
-Si necesitas referencias sobre la arquitectura, el lenguaje de diseño, los componentes de UI, el estilo de código o patrones de documentación, consulta el proyecto **Aurora Blog**:
-- **Raíz del Proyecto**: `d:\Proyectos\biglexj\Aurora---Blog` (especialmente su archivo [agent.md](file:///d:/Proyectos/biglexj/Aurora---Blog/agent.md))
-- **Documentación del Proyecto**: [docs](file:///d:/Proyectos/biglexj/Aurora---Blog/docs) (incluyendo la guía de diseño en [DESIGN.md](file:///d:/Proyectos/biglexj/Aurora---Blog/docs/es/frontend/Lenguaje%20de%20Dise%C3%B1o/DESIGN.md) y la estructura de directorios en [Arbol de Carpetas.md](file:///d:/Proyectos/biglexj/Aurora---Blog/docs/es/guides/Arbol%20de%20Carpetas.md))
+## Proyectos de Referencia & Red de Agentes del Ecosistema [CRÍTICO]
+Si necesitas referencias sobre la arquitectura, el lenguaje de diseño, los componentes de UI, el estilo de código, patrones de documentación o estándares entre agentes, consulta las reglas y proyectos líderes del ecosistema **biglexj**:
+
+- **Central de Agentes y Ecosistema (`Agents`)**: `d:\Proyectos\biglexj\Agents` (Normas centrales de arquitectura, personalidad e historia en [00 - CORE.md](file:///d:/Proyectos/biglexj/Agents/Core/00%20-%20CORE.md) y [03 - ECOSISTEMA.md](file:///d:/Proyectos/biglexj/Agents/Core/03%20-%20ECOSISTEMA.md)).
+- **Plantillas Maestras (`Scripts/templates`)**: `d:\Proyectos\biglexj\Scripts\templates` (Fuente de verdad oficial de plantillas para estandarizar archivos de agente y repositorio).
+- **Aurora Blog (Estándar Dorado Web & Docs)**: `d:\Proyectos\biglexj\Aurora---Blog` ([agent.md](file:///d:/Proyectos/biglexj/Aurora---Blog/agent.md) y guía de diseño [DESIGN.md](file:///d:/Proyectos/biglexj/Aurora---Blog/docs/es/frontend/Lenguaje%20de%20Dise%C3%B1o/DESIGN.md)).
+- **Luna Fetch (Estándar Auto-Updater, Single-Instance Lock & KMP)**: `d:\Proyectos\biglexj\Luna---Fetch` ([agent.md](file:///d:/Proyectos/biglexj/Luna---Fetch/agent.md) y reglas en [.agents/rules/](file:///d:/Proyectos/biglexj/Luna---Fetch/.agents/rules/)).
+- **LyraFlow (Estándar Transcripción & Asistente IA)**: `d:\Proyectos\biglexj\LyraFlow` ([agent.md](file:///d:/Proyectos/biglexj/LyraFlow/agent.md)).
+- **Ely-Tesia (Estándar Multi-instancia y Lectura)**: `d:\Proyectos\biglexj\Ely-Tesia` ([agent.md](file:///d:/Proyectos/biglexj/Ely-Tesia/agent.md)).
 
 ## Estructura de Carpetas & Lenguaje de Diseño [CRÍTICO]
 > La estructura de carpetas del proyecto está definida en [folder_structure.md](.agents/rules/folder_structure.md). Las plantillas maestras del entorno residen en `D:\Proyectos\biglexj\Scripts\templates`. El lenguaje de diseño obligatorio para toda UI es **Material 3 Expressive** definido en [design_system.md](.agents/rules/design_system.md). La lógica de auto-actualizador in-app está en [auto_updater.md](.agents/rules/auto_updater.md), los estándares de escritorio en [desktop_app_standards.md](.agents/rules/desktop_app_standards.md) y las convenciones de soporte y feedback en [feedback_center.md](.agents/rules/feedback_center.md). Estas reglas son **obligatorias y no negociables**.
