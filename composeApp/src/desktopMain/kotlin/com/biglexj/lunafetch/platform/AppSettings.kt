@@ -30,6 +30,37 @@ class AppSettings {
             applyAutoStart(v)
         }
 
+    /** Window dimensions, position and maximized state persistence (desktop_app_standards.md Rule 5). */
+    var windowWidth: Int
+        get() = prefs.getInt("windowWidth", 1040)
+        set(v) = prefs.putInt("windowWidth", v.coerceAtLeast(600))
+
+    var windowHeight: Int
+        get() = prefs.getInt("windowHeight", 780)
+        set(v) = prefs.putInt("windowHeight", v.coerceAtLeast(400))
+
+    var windowIsMaximized: Boolean
+        get() = prefs.getBoolean("windowIsMaximized", false)
+        set(v) = prefs.putBoolean("windowIsMaximized", v)
+
+    var windowPositionX: Int?
+        get() {
+            val raw = prefs.get("windowPositionX", null) ?: return null
+            return raw.toIntOrNull()
+        }
+        set(v) {
+            if (v != null) prefs.put("windowPositionX", v.toString()) else prefs.remove("windowPositionX")
+        }
+
+    var windowPositionY: Int?
+        get() {
+            val raw = prefs.get("windowPositionY", null) ?: return null
+            return raw.toIntOrNull()
+        }
+        set(v) {
+            if (v != null) prefs.put("windowPositionY", v.toString()) else prefs.remove("windowPositionY")
+        }
+
     /** Whether the native messaging host manifest is installed for Chrome/Edge. */
     val isNativeHostInstalled: Boolean
         get() {

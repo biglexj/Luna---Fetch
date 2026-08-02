@@ -18,10 +18,15 @@ Si necesitas referencias sobre la arquitectura, el lenguaje de diseño, los comp
 - **Documentación del Proyecto**: [docs](file:///d:/Proyectos/biglexj/Aurora---Blog/docs) (incluyendo la guía de diseño en [DESIGN.md](file:///d:/Proyectos/biglexj/Aurora---Blog/docs/es/frontend/Lenguaje%20de%20Dise%C3%B1o/DESIGN.md) y la estructura de directorios en [Arbol de Carpetas.md](file:///d:/Proyectos/biglexj/Aurora---Blog/docs/es/guides/Arbol%20de%20Carpetas.md))
 
 ## Estructura de Carpetas & Lenguaje de Diseño [CRÍTICO]
-> La estructura de carpetas está en [folder_structure.md](.agents/rules/folder_structure.md). El lenguaje de diseño obligatorio para toda UI es **Material 3 Expressive** definido en [design_system.md](.agents/rules/design_system.md). La lógica de autodescarga de actualizaciones está en [auto_updater.md](.agents/rules/auto_updater.md). Estas reglas son **obligatorias y no negociables**.
+> La estructura de carpetas del proyecto está definida en [folder_structure.md](.agents/rules/folder_structure.md). Las plantillas maestras del entorno residen en `D:\Proyectos\biglexj\Scripts\templates`. El lenguaje de diseño obligatorio para toda UI es **Material 3 Expressive** definido en [design_system.md](.agents/rules/design_system.md). La lógica de auto-actualizador in-app está en [auto_updater.md](.agents/rules/auto_updater.md), los estándares de escritorio en [desktop_app_standards.md](.agents/rules/desktop_app_standards.md) y las convenciones de soporte y feedback en [feedback_center.md](.agents/rules/feedback_center.md). Estas reglas son **obligatorias y no negociables**.
 
+- **Plantillas Maestras (`D:\Proyectos\biglexj\Scripts\templates`)**: Fuente de verdad de plantillas para estandarizar archivos (`agent.md`, `ROADMAP.md`, `TASKS.md`, `RELEASE_NOTES.md`, `RELEASE_MESSAGE.md`).
+- **Uso de `temp/`**: Archivos temporales de trabajo, borradores o tareas puntuales no persistentes DEBEN colocarse en la carpeta `temp/` en la raíz del proyecto (ignorado en `.gitignore`).
+- **Convención de Planes en `plan/`**: Todos los planes de implementación DEBEN guardarse en la carpeta `plan/` siguiendo el formato con fecha `plan/MM-DD_[nombre_del_plan].md` (ej. `plan/08-01_transcribe_audio_plan.md`).
 - **Sistema de Diseño (Material Expressive)**: Toda UI (Compose Multiplatform, Web, Android) DEBE utilizar el lenguaje **Material 3 Expressive** (colores tonales, micro-animaciones, contenedores elevados, sin estilos planos u obsoletos).
-- **Auto-Actualización**: Todos los proyectos DEBEN soportar la comprobación silenciosa y descarga directa de versiones desde GitHub Releases (`UpdateChecker`).
+- **Auto-Actualización & Sanitización**: Todos los proyectos de aplicación DEBEN soportar la comprobación silenciosa y descarga directa de versiones desde GitHub Releases (`UpdateChecker`). Las notas de versión deben sanitizarse limpiamente (`sanitizeReleaseNotes`) eliminando Markdown crudo. Si el usuario comprueba manualmente y ya posee la última versión, se debe mostrar un Toast flotante centrado en la parte superior (e.g. `✅ Estás en la última versión`).
+- **Garantía de Instancia Única (Single Instance Lock)**: Evitar duplicación de procesos en Windows Desktop JVM mediante `ServerSocket(127.0.0.1:PORT)` o `FileLock` traiendo la primera instancia al frente y cerrando la nueva con código 0.
+- **Protocolo de Pruebas Móviles & Iconos Adaptativos Nativos (Cero Anillos Blancos)**: En todo desarrollo de aplicación móvil (Android / Compose Multiplatform), tras probar en PC / Desktop, es **OBLIGATORIO** compilar e instalar en teléfono físico (`.\gradlew installDebug`) para validar la UI móvil táctil. Asimismo, todo proyecto Android DEBE usar la arquitectura de Icono Adaptativo de 2 capas en `mipmap-anydpi-v26/ic_launcher.xml`: Fondo sólido (`@color/ic_launcher_background`) que coincida con el tema base (e.g. `#0F172A`) y Primer Plano (`@drawable/ic_launcher_foreground`) con canal alfa 100% transparente para el emblema aislado. Queda strictly prohibido usar imágenes PNG cuadradas rígidas directamente en `AndroidManifest.xml` sin capa adaptativa, evitando que Android genere contenedores o marcos blancos alrededor del icono.
 - **Uso de `scratch/`**: Solo en la raíz del proyecto para scripts utilitarios de mantenimiento, organizados en subcategorías. **Prohibido** dentro de cualquier carpeta de código fuente (`composeApp/`, `src/`).
 - **Uso de `test/`**: Scripts de prueba temporales en `test/` de la raíz. Ignorado en `.gitignore`.
 
@@ -32,11 +37,12 @@ Si necesitas referencias sobre la arquitectura, el lenguaje de diseño, los comp
 
 ## Development Workflow & Planning (CRITICAL)
 - **Planning Mode**: Before executing complex changes, refactoring, or new features, the agent must create an `implementation_plan.md` in the task context or workspace and wait for the user's approval.
-- **Task Tracking**: Once approved, create `task.md` to track progress of task checklists.
+- **Task Tracking & TASKS.md**: Use `TASKS.md` for active development tasks, technical phases (`Fase 0`, `Fase 1`, ...) and verification checklists. Once a task is validated in `TASKS.md`, move it to `ROADMAP.md` under `## 🟢 Completado` (`- [x] **vX.X.X**`).
+- **Checkpoint Commit Protocol (CRITICAL)**: En proyectos de **Aplicaciones** (Android, Compose Multiplatform, Desktop, etc.), tan pronto como se concluya un release o versión oficial y se comience a trabajar en una nueva versión/ciclo (desde el primer momento en que se pica código), el agente DEBE crear periódicamente commits de resguardo (ej. `checkpoint: session YYYY-MM-DD - [tarea/hito]`) para ir salvaguardando todos los avances y prevenir pérdidas imprevistas.
 - **Verification**: Always verify code builds, and run unit tests or manual tests to verify code. Use `walkthrough.md` to document changes made.
 
 ## Customization Rules (.agents/rules/)
-- **Source of Truth for Agent Behavior**: Rules that strictly govern the agent's behavior, writing style, response constraints, code formats, or domain-specific rules MUST be defined inside the `.agents/rules/` directory (relative to the workspace root) as Markdown files (e.g., `base.md`, `folder_structure.md`, etc.) containing frontmatter (like `trigger: always_on`).
+- **Source of Truth for Agent Behavior**: Rules that strictly govern the agent's behavior, writing style, response constraints, code formats, or domain-specific rules MUST be defined inside the `.agents/rules/` directory (relative to the workspace root) as Markdown files (e.g., `folder_structure.md`, `design_system.md`, `auto_updater.md`, `desktop_app_standards.md`, `feedback_center.md`) containing frontmatter (like `trigger: always_on`).
 - **Character Limit (CRITICAL)**: Any custom rules file inside `.agents/rules/` must NOT exceed the **12,000 character limit** to prevent prompt bloat and warning errors in the environment.
 - **Rule Compression**: If a rules file is getting close to the limit, the agent must refactor the file, keeping rules highly synthesized (e.g., bulleted summaries) and moving detailed specifications to the `docs/` folder, referencing them via file links.
 - **Agent Hand-off**: The agent must look for existing rules in `.agents/rules/` at the start of any task, follow them strictly, and update them when requested by the user, keeping them clean, concise, and under the size cap.
@@ -44,15 +50,17 @@ Si necesitas referencias sobre la arquitectura, el lenguaje de diseño, los comp
 ## Documentation Maintenance Rules
 The agent must keep documentation clean and updated according to the following guidelines:
 
-### 1. ROADMAP.md
-- **Orden obligatorio**: Mantener siempre cuatro bloques: pendientes urgentes o normales arriba, planes intermedios después, descartados/en pausa como penúltimo bloque y completados al final. Al cambiar el estado de una tarea, moverla al bloque correspondiente; nunca eliminar una propuesta descartada si puede conservar contexto útil para retomarla.
-- **Urgente / Normal**: Tareas críticas, corrección de errores, refactorización de deuda técnica y requerimientos indispensables para el hito actual.
-- **Intermedio**: Tareas secundarias, mejoras de rendimiento o funcionalidades opcionales.
-- **Descartado / En pausa**: Propuestas fuera del plan activo que se conservan con su razón y contexto para una posible reevaluación.
-- **Completado**: Historial limpio de tareas finalizadas.
-- Mantener descripciones claras, concisas y estructuradas.
+### 1. ROADMAP.md & TASKS.md
+- **ROADMAP.md**: Hoja de ruta estratégica de producto con cuatro bloques obligatorios: pendientes activos arriba (`## 🔴 Pendientes activos`), ideas intermedias (`## 🟡 Intermedio`), descartados/en pausa (`## ⚪ Descartado / En Pausa`) e historial limpio de versiones completadas (`## 🟢 Completado` -> `- [x] **vX.X.X**`).
+- **TASKS.md**: Documento dinámico de seguimiento técnico de tareas del sprint activo, fases técnicas (`Fase 0`, `Fase 1`, ...) y checklist de verificación y pruebas.
+- **Flujo de Tareas**: Las tareas en desarrollo y verificación viven en `TASKS.md`. Una vez validada una tarea, pasa al historial de versiones completadas en `ROADMAP.md`.
 
 ### 2. RELEASE_NOTES.md
+- **Protocolo de Verificación de Versión en GitHub ("Lanzar actualización") [CRÍTICO]**: Al recibir la indicación del usuario de *"Lanzar actualización"* o iniciar un proceso de publicación:
+  1. El agente DEBE consultar obligatoriamente las versiones y tags publicados en GitHub / remoto (`gh release list` o `git ls-remote --tags`).
+  2. Si la versión local (`versionName` / `versionCode`) coincide con una versión que ya ha sido publicada de forma remota en GitHub o `biglexj.com` (sin importar si fue subida hace minutos o días), es **OBLIGATORIO Y DE LEY** incrementar a la siguiente versión de parche (ej. de `1.1.3` a `1.1.4` e incrementar `versionCode`).
+  3. **Prohibición de Sobrescritura**: NUNCA se debe sobrescribir, re-etiquetar (`git tag -f`) ni reemplazar una versión que ya ha sido publicada públicamente. Toda versión subida a la nube es inmutable y requiere avanzar de versión.
+- **Sanitización de Notas (CRÍTICO)**: Los mensajes de las notas de lanzamiento deben ser completamente limpios y profesionales. DEBEN eliminar cualquier referencia a rutas locales de archivos del entorno de desarrollo (ej. `d:\Proyectos\...`), nombres de variables o archivos de depuración internos, referencias a instrucciones del agente o volcados de consola técnicos. Deben estar redactados desde la perspectiva del usuario y del producto final.
 - **Extensión proporcional (CRÍTICO)**: La cantidad de párrafos debe responder al alcance real, no a una cuota fija: 1 para un hito pequeño, 2 cuando existen dos cambios relevantes, 3 como extensión habitual, 4 para hitos relativamente grandes y hasta 5 para lanzamientos de gran alcance. Cada párrafo debe agrupar un cambio principal y evitar listas detalladas de archivos.
 - **No duplicar versiones**: Si una versión ya está registrada localmente pero aún no se ha hecho push a Git, añadir los nuevos cambios bajo la misma versión activa en lugar de crear una nueva versión de parche.
 - **Límite de Parches (Regla del .9)**: Nunca pasar de una versión de parche `.9` (por ejemplo, de `1.0.9` pasar a `1.1.0` en lugar de `1.0.10`).
@@ -64,6 +72,14 @@ The agent must keep documentation clean and updated according to the following g
   - Resumen rápido del lanzamiento.
   - Novedades destacadas (lista corta con viñetas).
 
+## Official Support, Donation & About Rules [CRÍTICO]
+Toda aplicación del ecosistema (Compose Multiplatform, Web, Android, Desktop, etc.) DEBE incluir una sección o insignia de "Acerca de la Aplicación" con su correspondiente modal/diálogo informativo y botones de apoyo oficial adaptados al lenguaje de interfaz del proyecto:
+- **Badge / Enlace "Acerca de"**: Ubicado en el pie de página o barra lateral/configuración de la interfaz. Al pulsar, despliega información de versión, autoría (`biglexj`), licencia y un mensaje de agradecimiento al usuario.
+- **Botón Donación Directa (Principal / Local e Internacional)**: Apoyo directo en `https://www.biglexj.com/donaciones` (Yape, Plin, transferencias locales e internacionales).
+- **Botón Buy Me a Coffee (Internacional)**: Apoyo global mediante `https://buymeacoffee.com/biglexj`.
+- **Botón GitHub**: Enlace al perfil oficial `https://github.com/biglexj`.
+
 ## Official Support & Donation Links
 - **Buy Me a Coffee**: `https://buymeacoffee.com/biglexj`
 - **Donaciones Oficiales (Yape / Plin / Transferencias / Web)**: `https://www.biglexj.com/donaciones`
+- **Perfil de GitHub**: `https://github.com/biglexj`

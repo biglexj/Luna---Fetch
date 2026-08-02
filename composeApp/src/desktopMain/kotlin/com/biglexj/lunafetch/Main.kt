@@ -19,11 +19,21 @@ import lunafetch.composeapp.generated.resources.Res
 import lunafetch.composeapp.generated.resources.luna_fetch_icon
 import org.jetbrains.compose.resources.painterResource
 
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
+import com.biglexj.lunafetch.platform.AppSettings
+import com.biglexj.lunafetch.platform.SingleInstanceLock
+
 fun main(args: Array<String>) {
     // ── Native Messaging Host mode (launched by the browser) ────────────────
     if (args.contains("--native-host")) {
         NativeMessagingHost.run()
         return
+    }
+
+    // ── Single Instance Lock Guarantee (desktop_app_standards.md) ───────────
+    if (!SingleInstanceLock.acquireOrBringToFront()) {
+        kotlin.system.exitProcess(0)
     }
 
     // ── Normal GUI mode ─────────────────────────────────────────────────────
@@ -35,9 +45,50 @@ fun main(args: Array<String>) {
     application {
         val bindings = remember { DesktopPlatformBindings() }
         val presenter = remember(bindings) { LunaFetchPresenter(bindings) }
+        val appSettings = remember { AppSettings() }
         var isVisible by remember { mutableStateOf(!isAutostart) }
 
         val icon = painterResource(Res.drawable.luna_fetch_icon)
+
+        // ── Window State Persistence (desktop_app_standards.md Rule 5) ────────
+        val initialPlacement = if (appSettings.windowIsMaximized) WindowPlacement.Maximized else WindowPlacement.Floating
+        val initialPosition = run {
+            val px = appSettings.windowPositionX
+            val py = appSettings.windowPositionY
+            if (px != null && py != null && px >= 0 && py >= 0) {
+                WindowPosition(px.dp, py.dp)
+            } else {
+                WindowPosition.PlatformDefault
+            }
+        }
+        val windowState = rememberWindowState(
+            placement = initialPlacement,
+            position = initialPosition,
+            width = appSettings.windowWidth.dp,
+            height = appSettings.windowHeight.dp,
+        )
+
+        fun saveWindowState() {
+            if (windowState.placement == WindowPlacement.Maximized) {
+                appSettings.windowIsMaximized = true
+            } else {
+                appSettings.windowIsMaximized = false
+                appSettings.windowWidth = windowState.size.width.value.toInt()
+                appSettings.windowHeight = windowState.size.height.value.toInt()
+                val pos = windowState.position
+                if (pos is WindowPosition.Absolute) {
+                    appSettings.windowPositionX = pos.x.value.toInt()
+                    appSettings.windowPositionY = pos.y.value.toInt()
+                }
+            }
+        }
+
+        // Listen for focus requests from duplicate launches to unminimize/bring app window to front
+        remember {
+            SingleInstanceLock.listenForFocusRequests {
+                isVisible = true
+            }
+        }
 
         // Start local socket server so the browser extension can query qualities and trigger silent downloads
         remember {
@@ -67,17 +118,25 @@ fun main(args: Array<String>) {
                 tooltip = "Luna Fetch",
                 onOpenApp = { isVisible = true },
                 onOpenDownloadsFolder = { bindings.openOutput(bindings.defaultDestination) },
-                onQuitApp = ::exitApplication,
+                onQuitApp = {
+                    saveWindowState()
+                    SingleInstanceLock.release()
+                    exitApplication()
+                },
             )
         }
 
         Window(
             onCloseRequest = {
-                if (bindings.isMinimizeToTrayEnabled == true) isVisible = false else exitApplication()
+                saveWindowState()
+                if (bindings.isMinimizeToTrayEnabled == true) isVisible = false else {
+                    SingleInstanceLock.release()
+                    exitApplication()
+                }
             },
             title = "Luna Fetch",
             icon = icon,
-            state = rememberWindowState(width = 1040.dp, height = 780.dp),
+            state = windowState,
             visible = isVisible,
         ) {
             LunaFetchApp(

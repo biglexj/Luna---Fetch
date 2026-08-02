@@ -91,7 +91,7 @@ class LunaFetchPresenter(
                     )
                 }
                 autoClearUpdateMessageJob = scope.launch {
-                    kotlinx.coroutines.delay(3000L)
+                    kotlinx.coroutines.delay(4000L)
                     _state.update { it.copy(updateMessage = null) }
                 }
             }

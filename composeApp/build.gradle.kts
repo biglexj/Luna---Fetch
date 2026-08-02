@@ -142,6 +142,7 @@ android {
 compose.desktop {
     application {
         mainClass = "com.biglexj.lunafetch.MainKt"
+        jvmArgs("-Dlunafetch.dev=true")
         val currentJavaHome = System.getenv("JAVA_HOME") ?: System.getProperty("java.home")
         val jpackageExists = File(currentJavaHome, "bin/jpackage.exe").exists() || File(currentJavaHome, "bin/jpackage").exists()
         if (!jpackageExists) {

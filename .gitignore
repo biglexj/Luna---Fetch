@@ -33,5 +33,6 @@ mcp/
 brain/
 /scratch/
 /test/
+/temp/
 implementation_plan.md
 walkthrough.md

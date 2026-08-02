@@ -1,9 +1,12 @@
-# 🌙 Luna Fetch 1.1.3
+# 🚀 ¡Nuevo Lanzamiento de Luna Fetch! — v1.1.4
 
-Corrección en la ejecución del auto-instalador ejecutable en Windows y estabilización completa de las actualizaciones in-app.
+¡Nos complace anunciar la versión **v1.1.4** de **Luna Fetch**! 🎉
 
-- 🛠️ **Lanzador Nativo en Windows**: Corrección del invocador del instalador en PC (`ProcessBuilder`) para ejecutar directamente el archivo descargado (`.exe` / `.msi`) al pulsar "Instalar", eliminando bloqueos en hilos de AWT.
-- ⚙️ **Modal de Ajustes Unificado**: Integración completa del diálogo "Acerca de" dentro de Ajustes con comprobación de versión y temporizador suave de 3 segundos (`AnimatedVisibility`).
-- 🏎️ **Controladores del Motor**: Panel de control e instalador/actualizador en tiempo real de `yt-dlp` con sanitización de registros a texto limpio de interfaz.
-- 📂 **Arquitectura Modular por Dominio**: Reorganización estructural de la capa UI en sub-carpetas especializadas (`header`, `download`, `history`, `logs`, `update` y `components`).
-- 🧩 **Extensión de Navegador**: Guía interactiva de instalación manual en Chrome, Edge, Brave y Opera (`browser-extension/README.md`) y registro en 1 clic del Native Host en Windows.
+### 📝 Resumen
+Esta actualización adopta de forma integral los nuevos estándares de arquitectura para aplicaciones de escritorio: incluye la Garantía de Instancia Única (*Single-Instance Lock*) con bypass para desarrolladores, la memoria persistente del estado y tamaño de ventana entre sesiones y optimizaciones visuales en los avisos emergentes.
+
+### 🌟 Novedades Destacadas
+- 🔒 **Garantía de Instancia Única (Single-Instance Lock)**: Evita procesos duplicados e iconos repetidos en la bandeja de entrada (*System Tray*) al relanzar la app. Incluye bypass automático para entorno de desarrollo (`isDev`).
+- 📐 **Memoria de Ventana Persistente**: La aplicación recuerda su tamaño (ancho/alto), posición en pantalla y estado de maximizado (`isMaximized`) entre sesiones.
+- ⚡ **Auto-Actualización & Notificaciones**: Notificación flotante emergente Toast de 4 segundos centrada en la parte superior.
+- 💬 **Centro de Feedback**: Canal oficial de soporte e incidencias vinculado a GitHub Issues.
