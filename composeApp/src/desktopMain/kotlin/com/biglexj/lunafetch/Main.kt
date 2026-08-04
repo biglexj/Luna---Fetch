@@ -55,10 +55,15 @@ fun main(args: Array<String>) {
         val initialPosition = run {
             val px = appSettings.windowPositionX
             val py = appSettings.windowPositionY
-            if (px != null && py != null && px >= 0 && py >= 0) {
-                WindowPosition(px.dp, py.dp)
+            if (px != null && py != null) {
+                val screenSize = java.awt.Toolkit.getDefaultToolkit().screenSize
+                if (px in 0..(screenSize.width - 100) && py in 0..(screenSize.height - 100)) {
+                    WindowPosition(px.dp, py.dp)
+                } else {
+                    WindowPosition(androidx.compose.ui.Alignment.Center)
+                }
             } else {
-                WindowPosition.PlatformDefault
+                WindowPosition(androidx.compose.ui.Alignment.Center)
             }
         }
         val windowState = rememberWindowState(

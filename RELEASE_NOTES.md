@@ -16,6 +16,14 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.1.7] — Auto-pegado Inteligente, Placeholder Reactivo, Layout Responsivo e Instalador de 1 solo Clic — 2026-08-04
+
+Luna Fetch 1.1.7 introduce el auto-pegado inteligente de enlaces de YouTube (o plataformas soportadas) al abrir la aplicación si el portapapeles contiene una URL válida. El cuadro de entrada de enlace ahora oculta su texto de ayuda (*"Pega acá la URL..."*) tan pronto como recibe el foco o cursor del usuario.
+
+Se añade un layout responsivo adaptativo que se divide en 2 filas en pantallas compactas o con escalado de fuente elevado, incorporando el nuevo botón dedicado `📋 Pegar` junto a `Analizar`. Además, en Android las notificaciones flotantes emergentes respetan dinámicamente el área del *status bar* y recorte de la cámara (*camera punch hole*).
+
+En Windows, el instalador ejecutable (`.exe` y `.msi`) se optimiza para un flujo de instalación rápida de **1 solo clic** (`dirChooser = false`), instalándose directamente por usuario (`perUserInstall = true`) sin requerir permisos de administrador ni cuadros de elevación de UAC.
+
 ## [1.1.6] — Actualización In-App de Fricción Cero con Cierre y Auto-Reinicio — 2026-08-02
 
 Luna Fetch 1.1.6 implementa el flujo completo de Actualizaciones In-App de Fricción Cero definido en el estándar de escritorio (`desktop_app_standards.md`). Al pulsar "Instalar y Reiniciar", la aplicación libera el bloqueo de instancia única (`SingleInstanceLock`), ejecuta el instalador silencioso en modo pasivo (`/passive`) en un proceso secundario desasociado y finaliza inmediatamente la instancia actual (`exitProcess(0)`).

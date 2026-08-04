@@ -17,9 +17,19 @@ object SingleInstanceLock {
 
     fun acquireOrBringToFront(): Boolean {
         // Bypass obligatorio en modo desarrollo (isDev) según desktop_app_standards.md
-        val isDev = System.getProperty("lunafetch.dev") == "true" ||
-                    System.getProperty("idea.active") != null ||
-                    System.getProperty("sun.java.command")?.contains("Gradle", ignoreCase = true) == true
+        val execPath = ProcessHandle.current().info().command().orElse("").lowercase()
+        val isInstalledExe = (execPath.endsWith("lunafetch.exe") || execPath.endsWith("luna fetch.exe")) &&
+                (execPath.contains("appdata") || execPath.contains("program files"))
+
+        val isDev = !isInstalledExe ||
+                System.getProperty("lunafetch.dev") == "true" ||
+                System.getProperty("idea.active") != null ||
+                System.getProperty("sun.java.command")?.let {
+                    it.contains("MainKt", ignoreCase = true) ||
+                    it.contains("Gradle", ignoreCase = true) ||
+                    it.contains("idea", ignoreCase = true)
+                } == true
+
         if (isDev) {
             return true
         }

@@ -143,22 +143,33 @@ compose.desktop {
     application {
         mainClass = "com.biglexj.lunafetch.MainKt"
         jvmArgs("-Dlunafetch.dev=true")
-        val currentJavaHome = System.getenv("JAVA_HOME") ?: System.getProperty("java.home")
-        val jpackageExists = File(currentJavaHome, "bin/jpackage.exe").exists() || File(currentJavaHome, "bin/jpackage").exists()
-        if (!jpackageExists) {
-            listOf(
-                "C:\\Program Files\\Microsoft\\jdk-17.0.19.10-hotspot",
-                "C:\\Program Files\\Eclipse Adoptium\\jdk-25.0.3.9-hotspot"
-            ).firstOrNull { File(it, "bin/jpackage.exe").exists() }?.let {
-                javaHome = it
-            }
+        val validJpackageJdk = run {
+            val envJavaHome = System.getenv("JAVA_HOME")
+            if (!envJavaHome.isNullOrBlank() && File(envJavaHome, "bin/jpackage.exe").exists()) return@run envJavaHome
+            val sysJavaHome = System.getProperty("java.home")
+            if (!sysJavaHome.isNullOrBlank() && File(sysJavaHome, "bin/jpackage.exe").exists()) return@run sysJavaHome
+            
+            val candidates = listOf(
+                File("C:/Program Files/Microsoft/jdk-17.0.19.10-hotspot"),
+                File("C:/Program Files/Eclipse Adoptium/jdk-25.0.3.9-hotspot"),
+            )
+            candidates.firstOrNull { File(it, "bin/jpackage.exe").exists() }?.absolutePath
+                ?: listOf(File("C:/Program Files/Microsoft"), File("C:/Program Files/Eclipse Adoptium"), File("C:/Program Files/Java")).asSequence()
+                    .filter { it.isDirectory }
+                    .flatMap { it.listFiles()?.asSequence() ?: emptySequence() }
+                    .firstOrNull { File(it, "bin/jpackage.exe").exists() }
+                    ?.absolutePath
+        }
+        validJpackageJdk?.let {
+            javaHome = it
         }
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb, TargetFormat.Rpm)
             packageName = "LunaFetch"
             packageVersion = appVersion
             vendor = "biglexj"
-            description = "Descarga videos y audio con una interfaz multiplataforma"
+            description = "Luna Fetch — Descarga videos y audio en alta calidad"
+            copyright = "Copyright © 2026 Biglex J. Todos los derechos reservados."
 
             windows {
                 iconFile.set(rootProject.file("icon/icon.ico"))
@@ -168,7 +179,7 @@ compose.desktop {
                 shortcut = true
                 menu = true
                 menuGroup = "Luna Fetch"
-                dirChooser = true
+                dirChooser = false
                 perUserInstall = true
             }
 

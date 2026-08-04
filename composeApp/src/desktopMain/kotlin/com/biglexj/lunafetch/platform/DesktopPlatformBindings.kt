@@ -56,6 +56,15 @@ class DesktopPlatformBindings : PlatformBindings {
         }
     }
 
+    override fun readClipboardText(): String? {
+        return runCatching {
+            val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+            if (clipboard.isDataFlavorAvailable(java.awt.datatransfer.DataFlavor.stringFlavor)) {
+                clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String
+            } else null
+        }.getOrNull()
+    }
+
     override fun downloadAndInstallUpdate(release: com.biglexj.lunafetch.domain.UpdateRelease) {
         openUrl(release.releasePageUrl)
     }

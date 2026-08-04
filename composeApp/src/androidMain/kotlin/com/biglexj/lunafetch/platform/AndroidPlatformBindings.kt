@@ -56,6 +56,13 @@ class AndroidPlatformBindings(
         }
     }
 
+    override fun readClipboardText(): String? {
+        return runCatching {
+            val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+            clipboard?.primaryClip?.getItemAt(0)?.text?.toString()
+        }.getOrNull()
+    }
+
     override suspend fun checkUpdate(): com.biglexj.lunafetch.domain.UpdateRelease? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val preferredAbi = android.os.Build.SUPPORTED_ABIS.firstOrNull()
         runCatching {

@@ -30,6 +30,7 @@ interface PlatformBindings {
     fun rememberDestination(destination: String)
     fun openOutput(path: String)
     fun openUrl(url: String) {}
+    fun readClipboardText(): String? = null
 
     suspend fun checkUpdate(): UpdateRelease? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         runCatching {

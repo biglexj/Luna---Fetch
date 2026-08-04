@@ -87,7 +87,7 @@ fun LunaFetchApp(
                                     modifier = Modifier.weight(1f).verticalScroll(scroll),
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
                                 ) {
-                                    LinkCard(state, presenter)
+                                    LinkCard(state, presenter, platform)
                                     VideoCard(state, presenter)
                                     HistoryCard(state, presenter, platform)
                                 }
@@ -117,7 +117,8 @@ fun LunaFetchApp(
                     exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { -it }),
                     modifier = Modifier
                         .align(androidx.compose.ui.Alignment.TopCenter)
-                        .padding(top = 16.dp),
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
+                        .padding(top = 12.dp),
                 ) {
                     if (toastMsg != null) {
                         Surface(
@@ -142,7 +143,7 @@ fun LunaFetchApp(
 
 @Composable
 private fun MainCards(state: LunaFetchState, presenter: LunaFetchPresenter, platform: PlatformBindings) {
-    LinkCard(state, presenter)
+    LinkCard(state, presenter, platform)
     VideoCard(state, presenter)
     DownloadOptionsCard(state, presenter, platform)
     DownloadStatusCard(state, presenter)
