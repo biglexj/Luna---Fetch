@@ -191,14 +191,3 @@ compose.desktop {
         }
     }
 }
-
-tasks.matching { it.name.startsWith("package") }.configureEach {
-    doFirst {
-        val resDir = file("build/compose/tmp/resources")
-        resDir.mkdirs()
-        val pkgWinDir = file("../package/windows")
-        if (pkgWinDir.exists()) {
-            pkgWinDir.copyRecursively(resDir, overwrite = true)
-        }
-    }
-}
