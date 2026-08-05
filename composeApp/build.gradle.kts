@@ -179,7 +179,7 @@ compose.desktop {
                 shortcut = true
                 menu = true
                 menuGroup = "Luna Fetch"
-                dirChooser = false
+                dirChooser = true
                 perUserInstall = true
             }
 
@@ -188,6 +188,17 @@ compose.desktop {
                 menuGroup = "Utility"
                 appCategory = "AudioVideo"
             }
+        }
+    }
+}
+
+val pkgWinDir = file("../package/windows")
+tasks.matching { it.name.startsWith("package") }.configureEach {
+    doFirst {
+        val resDir = file("build/compose/tmp/resources")
+        resDir.mkdirs()
+        if (pkgWinDir.exists()) {
+            pkgWinDir.copyRecursively(resDir, overwrite = true)
         }
     }
 }

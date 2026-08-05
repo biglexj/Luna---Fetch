@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+    <Product Id="*" Name="Luna Fetch" Language="1034" Version="1.1.7" Manufacturer="biglexj" UpgradeCode="ea999172-1299-4930-93c9-90ea30707c17">
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perUser" SummaryCodepage="1252" Comments="Luna Fetch — Descargador de Video y Audio" />
+
+        <MediaTemplate EmbedCab="yes" />
+
+        <!-- 3-Click Setup Wizard with Spanish Dialogs -->
+        <Property Id="WIXUI_INSTALLDIR" Value="APPLICATIONFOLDER" />
+        <UIRef Id="WixUI_InstallDir" />
+
+        <!-- Custom Installer Banners and Branding -->
+        <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+        <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
+
+        <!-- Directory Structure -->
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="LocalAppDataFolder">
+                <Directory Id="APPLICATIONFOLDER" Name="LunaFetch">
+                    <Directory Id="JPackageInstallDir" Name="." />
+                </Directory>
+            </Directory>
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="Luna Fetch"/>
+            </Directory>
+            <Directory Id="DesktopFolder" Name="Desktop" />
+        </Directory>
+
+        <!-- Shortcuts -->
+        <DirectoryRef Id="ApplicationProgramsFolder">
+            <Component Id="ApplicationShortcut" Guid="7d8841a1-7711-4f3d-9d41-3b791448b111">
+                <Shortcut Id="ApplicationStartMenuShortcut"
+                          Name="Luna Fetch"
+                          Description="Luna Fetch — Descarga videos y audio en alta calidad"
+                          Target="[APPLICATIONFOLDER]LunaFetch.exe"
+                          WorkingDirectory="APPLICATIONFOLDER"
+                          Icon="LunaFetch.ico"/>
+                <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+                <RegistryValue Root="HKCU" Key="Software\biglexj\LunaFetch" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="DesktopFolder">
+            <Component Id="ApplicationShortcutDesktop" Guid="9f1122a2-8822-5f4d-ae52-4c892559c222">
+                <Shortcut Id="ApplicationDesktopShortcut"
+                          Name="Luna Fetch"
+                          Description="Luna Fetch — Descarga videos y audio en alta calidad"
+                          Target="[APPLICATIONFOLDER]LunaFetch.exe"
+                          WorkingDirectory="APPLICATIONFOLDER"
+                          Icon="LunaFetch.ico"/>
+                <RegistryValue Root="HKCU" Key="Software\biglexj\LunaFetch" Name="desktop_shortcut" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
+        <Icon Id="LunaFetch.ico" SourceFile="LunaFetch.ico"/>
+        <Property Id="ARPPRODUCTICON" Value="LunaFetch.ico" />
+        <Property Id="ARPHELPLINK" Value="https://github.com/biglexj/Luna---Fetch" />
+        <Property Id="ARPURLINFOABOUT" Value="https://github.com/biglexj/Luna---Fetch" />
+        <Property Id="ARPNOREPAIR" Value="1" />
+
+        <Feature Id="MainFeature" Title="Luna Fetch" Level="1">
+            <ComponentGroupRef Id="Files" />
+            <ComponentRef Id="ApplicationShortcut" />
+            <ComponentRef Id="ApplicationShortcutDesktop" />
+        </Feature>
+    </Product>
+</Wix>
