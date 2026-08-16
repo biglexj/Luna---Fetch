@@ -53,6 +53,7 @@ fun HistoryCard(
         Spacer(Modifier.height(8.dp))
         state.history.forEach { item ->
             val isLocal = platform.isLocalPathAccessible(item.path)
+            val isFromOtherDevice = item.originDevice.isNotBlank() && item.originDevice != platform.deviceName
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -75,12 +76,19 @@ fun HistoryCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        if (!isLocal && item.originDevice.isNotBlank() && item.originDevice != platform.deviceName) {
+                        if (isFromOtherDevice) {
                             Text(
                                 "• 💻 ${item.originDevice}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold,
+                            )
+                        } else if (!isLocal && item.path.isNotBlank()) {
+                            Text(
+                                "• ⚠️ Archivo movido o eliminado",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                                fontWeight = FontWeight.Normal,
                             )
                         }
                     }
@@ -92,7 +100,7 @@ fun HistoryCard(
                     if (item.url.isNotBlank()) {
                         HistoryActionButton(
                             icon = "🌐",
-                            tooltip = "Ver en la web",
+                            tooltip = "Ver enlace original en la web",
                             onClick = { platform.openUrl(item.url) },
                         )
                     }
@@ -109,12 +117,9 @@ fun HistoryCard(
                         )
                     } else if (item.url.isNotBlank()) {
                         HistoryActionButton(
-                            icon = "⬇️",
-                            tooltip = "Descargar en este equipo",
-                            onClick = {
-                                presenter.setUrl(item.url)
-                                presenter.analyze()
-                            },
+                            icon = if (isFromOtherDevice) "⬇️" else "🔄",
+                            tooltip = if (isFromOtherDevice) "Descargar en este equipo" else "Volver a descargar (archivo no encontrado)",
+                            onClick = { presenter.redownloadHistoryItem(item) },
                         )
                     }
                     HistoryActionButton(

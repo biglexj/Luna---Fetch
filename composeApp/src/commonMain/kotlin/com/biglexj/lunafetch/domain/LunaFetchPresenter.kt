@@ -457,6 +457,14 @@ class LunaFetchPresenter(
         state.value.completedOutput?.let(::playInPrisma)
     }
 
+    fun redownloadHistoryItem(item: DownloadHistoryItem) {
+        if (item.url.isBlank()) return
+        showToast("🔄 Iniciando descarga de nuevo: ${item.title}")
+        val formatName = if (item.formatLabel.contains("Audio", ignoreCase = true) || item.formatLabel.contains("MP3", ignoreCase = true) || item.formatLabel.contains("M4A", ignoreCase = true)) "mp3" else "mp4"
+        val qualityName = item.formatLabel.substringAfter("·", "").trim().takeIf { it.isNotBlank() }
+        startDirectDownload(item.url, formatName = formatName, requestedQuality = qualityName)
+    }
+
     fun handleSynapseAction(action: com.biglexj.lunafetch.domain.synapse.SynapseAction) {
         when (action) {
             is com.biglexj.lunafetch.domain.synapse.SynapseAction.EnqueueDownload -> {
