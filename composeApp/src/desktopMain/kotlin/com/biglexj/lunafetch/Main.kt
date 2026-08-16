@@ -59,7 +59,8 @@ fun main(args: Array<String>) {
         val bindings = remember { DesktopPlatformBindings() }
         val presenter = remember(bindings) { LunaFetchPresenter(bindings) }
         val appSettings = remember { AppSettings() }
-        var isVisible by remember { mutableStateOf(!isAutostart) }
+        val isDev = SingleInstanceLock.isDevMode()
+        var isVisible by remember { mutableStateOf(if (isDev) true else !isAutostart) }
 
         val icon = painterResource(Res.drawable.luna_fetch_icon)
 
@@ -70,7 +71,7 @@ fun main(args: Array<String>) {
             val py = appSettings.windowPositionY
             if (px != null && py != null) {
                 val screenSize = java.awt.Toolkit.getDefaultToolkit().screenSize
-                if (px in 0..(screenSize.width - 100) && py in 0..(screenSize.height - 100)) {
+                if (px in 0..(screenSize.width - 200) && py in 0..(screenSize.height - 200)) {
                     WindowPosition(px.dp, py.dp)
                 } else {
                     WindowPosition(androidx.compose.ui.Alignment.Center)
@@ -85,6 +86,10 @@ fun main(args: Array<String>) {
             width = appSettings.windowWidth.dp,
             height = appSettings.windowHeight.dp,
         )
+
+        LaunchedEffect(Unit) {
+            println("[LunaFetch] Window visible = $isVisible, placement = $initialPlacement, isDev = $isDev")
+        }
 
         fun saveWindowState() {
             if (windowState.placement == WindowPlacement.Maximized) {
