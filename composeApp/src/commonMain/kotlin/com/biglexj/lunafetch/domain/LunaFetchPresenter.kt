@@ -69,13 +69,13 @@ class LunaFetchPresenter(
         },
         onHistorySyncReceived = { remoteItems ->
             val local = state.value.history
-            val existingIds = local.map { it.id }.toSet()
-            val newItems = remoteItems.filter { it.id !in existingIds }
-            val merged = (newItems + local).sortedByDescending { it.timestampMs }.take(40)
-            platform.saveHistory(merged)
-            _state.update { it.copy(history = merged) }
-            showToast("🔄 Historial sincronizado (${newItems.size} nuevos elementos).")
-            merged
+            val combined = (remoteItems + local)
+                .distinctBy { it.url.ifBlank { it.id } }
+                .sortedByDescending { it.timestampMs }
+                .take(10)
+            platform.saveHistory(combined)
+            _state.update { it.copy(history = combined) }
+            combined
         }
     )
 
@@ -90,7 +90,28 @@ class LunaFetchPresenter(
         lanDiscovery.start()
         scope.launch {
             lanDiscovery.discoveredDevices.collect { peers ->
+                val prevPeers = state.value.discoveredPeers
                 _state.update { it.copy(discoveredPeers = peers) }
+                // Sincronización automática silenciosa al detectar un nuevo dispositivo en la red
+                val newPeers = peers.filter { p -> prevPeers.none { it.id == p.id } }
+                newPeers.forEach { newPeer ->
+                    scope.launch {
+                        runCatching {
+                            val res = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanClient.syncHistory(
+                                peer = newPeer,
+                                localHistory = state.value.history,
+                                sourceDeviceName = platform.deviceName,
+                            )
+                            res.onSuccess { merged ->
+                                val limited = merged.distinctBy { it.url.ifBlank { it.id } }
+                                    .sortedByDescending { it.timestampMs }
+                                    .take(10)
+                                platform.saveHistory(limited)
+                                _state.update { it.copy(history = limited) }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -408,8 +429,23 @@ class LunaFetchPresenter(
                     originDevice = platform.deviceName,
                 )
                 _state.update {
-                    val updatedHistory = (listOf(newItem) + it.history).take(20)
+                    val filtered = it.history.filter { item -> item.url != newItem.url }
+                    val updatedHistory = (listOf(newItem) + filtered).take(10)
                     platform.saveHistory(updatedHistory)
+
+                    // Auto-sincronizar con los peers descubiertos en la red
+                    it.discoveredPeers.forEach { peer ->
+                        scope.launch {
+                            runCatching {
+                                com.biglexj.lunafetch.domain.synapse.lan.SynapseLanClient.syncHistory(
+                                    peer = peer,
+                                    localHistory = updatedHistory,
+                                    sourceDeviceName = platform.deviceName,
+                                )
+                            }
+                        }
+                    }
+
                     it.copy(
                         isDownloading = false,
                         progress = DownloadProgress(100.0, phase = DownloadPhase.Completed),
@@ -530,9 +566,12 @@ class LunaFetchPresenter(
                 sourceDeviceName = platform.deviceName,
             )
             res.onSuccess { merged ->
-                platform.saveHistory(merged)
-                _state.update { it.copy(history = merged) }
-                showToast("✅ Historial sincronizado con ${peer.name} (${merged.size} elementos).")
+                val limited = merged.distinctBy { it.url.ifBlank { it.id } }
+                    .sortedByDescending { it.timestampMs }
+                    .take(10)
+                platform.saveHistory(limited)
+                _state.update { it.copy(history = limited) }
+                showToast("✅ Historial sincronizado con ${peer.name} (${limited.size} elementos).")
             }.onFailure { err ->
                 showToast("❌ Error en sincronización con ${peer.name}: ${err.message}")
             }
