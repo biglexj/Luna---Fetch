@@ -34,6 +34,9 @@ data class LunaFetchState(
     val updateDownloadedFilePath: String? = null,
     val updateError: String? = null,
     val toastMessage: String? = null,
+    val discoveredPeers: List<com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice> = emptyList(),
+    val selectedTargetPeer: com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice? = null,
+    val isSendingToPeer: Boolean = false,
 )
 
 class LunaFetchPresenter(
@@ -46,9 +49,50 @@ class LunaFetchPresenter(
     private var updateJob: Job? = null
     private var autoClearUpdateMessageJob: Job? = null
 
+    private val localDeviceId = "luna_${(platform.deviceName + platform.deviceOs).hashCode().toString(16)}"
+
+    private val lanDiscovery = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanDiscovery(
+        localDevice = com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice(
+            id = localDeviceId,
+            name = platform.deviceName,
+            type = platform.deviceType,
+            ip = "127.0.0.1",
+            port = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanServer.LAN_PORT,
+            os = platform.deviceOs,
+        )
+    )
+
+    private val lanServer = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanServer(
+        onRemoteDownloadReceived = { req ->
+            showToast("📥 Descarga remota desde ${req.sourceDevice}...")
+            startDirectDownload(req.url, req.mediaType, req.quality)
+        },
+        onHistorySyncReceived = { remoteItems ->
+            val local = state.value.history
+            val existingIds = local.map { it.id }.toSet()
+            val newItems = remoteItems.filter { it.id !in existingIds }
+            val merged = (newItems + local).sortedByDescending { it.timestampMs }.take(40)
+            platform.saveHistory(merged)
+            _state.update { it.copy(history = merged) }
+            showToast("🔄 Historial sincronizado (${newItems.size} nuevos elementos).")
+            merged
+        }
+    )
+
     init {
         refreshHistory()
         checkForUpdates()
+        startLanServices()
+    }
+
+    private fun startLanServices() {
+        lanServer.start()
+        lanDiscovery.start()
+        scope.launch {
+            lanDiscovery.discoveredDevices.collect { peers ->
+                _state.update { it.copy(discoveredPeers = peers) }
+            }
+        }
     }
 
     fun refreshHistory() {
@@ -430,6 +474,54 @@ class LunaFetchPresenter(
             }
             is com.biglexj.lunafetch.domain.synapse.SynapseAction.Focus -> {
                 // Gestionado en la capa de ventana
+            }
+        }
+    }
+
+    fun selectTargetPeer(peer: com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice?) {
+        _state.update { it.copy(selectedTargetPeer = peer) }
+    }
+
+    fun pushDownloadToPeer(peer: com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice) {
+        val url = state.value.url.trim()
+        if (!isSupportedUrl(url)) {
+            _state.update { it.copy(error = "Escribe una URL válida antes de enviar.") }
+            return
+        }
+        scope.launch {
+            _state.update { it.copy(isSendingToPeer = true) }
+            val format = state.value.selectedFormat
+            val quality = state.value.selectedQuality.displayName
+            val res = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanClient.pushDownload(
+                peer = peer,
+                url = url,
+                mediaType = if (format.isAudio) "audio" else "video",
+                quality = quality,
+                sourceDeviceName = platform.deviceName,
+            )
+            _state.update { it.copy(isSendingToPeer = false) }
+            res.onSuccess {
+                showToast("🚀 Enlace enviado a ${peer.name} para descargar.")
+            }.onFailure { err ->
+                showToast("❌ Error al enviar a ${peer.name}: ${err.message}")
+            }
+        }
+    }
+
+    fun syncHistoryWithPeer(peer: com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice) {
+        scope.launch {
+            showToast("🔄 Sincronizando historial con ${peer.name}...")
+            val res = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanClient.syncHistory(
+                peer = peer,
+                localHistory = state.value.history,
+                sourceDeviceName = platform.deviceName,
+            )
+            res.onSuccess { merged ->
+                platform.saveHistory(merged)
+                _state.update { it.copy(history = merged) }
+                showToast("✅ Historial sincronizado con ${peer.name} (${merged.size} elementos).")
+            }.onFailure { err ->
+                showToast("❌ Error en sincronización con ${peer.name}: ${err.message}")
             }
         }
     }

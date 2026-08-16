@@ -14,6 +14,16 @@ class AndroidPlatformBindings(
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences("lunafetch", Context.MODE_PRIVATE)
     override val engine: DownloadEngine = AndroidDownloadEngine(appContext)
+
+    override val deviceName: String
+        get() = "${android.os.Build.MANUFACTURER.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }} ${android.os.Build.MODEL}"
+
+    override val deviceType: String
+        get() = "mobile"
+
+    override val deviceOs: String
+        get() = "android"
+
     override val defaultDestination: String
         get() = preferences.getString("downloadTree", "").orEmpty()
 

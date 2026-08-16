@@ -16,6 +16,10 @@ interface PlatformBindings {
     val engine: DownloadEngine
     val defaultDestination: String
 
+    val deviceName: String get() = "Dispositivo Luna"
+    val deviceType: String get() = "desktop"
+    val deviceOs: String get() = "windows"
+
     // Desktop-only settings; null means "not applicable on this platform"
     val isAutoStartEnabled: Boolean? get() = null
     val isMinimizeToTrayEnabled: Boolean? get() = null

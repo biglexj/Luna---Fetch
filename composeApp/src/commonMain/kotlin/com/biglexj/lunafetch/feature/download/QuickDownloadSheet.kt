@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
@@ -83,7 +84,22 @@ fun QuickDownloadSheet(
                             },
                             modifier = Modifier.fillMaxWidth().height(52.dp),
                             enabled = !state.isDownloading,
-                        ) { Text(if (state.isDownloading) "Descargando…" else if (video.isCollection) "Descargar colección" else "Iniciar descarga") }
+                        ) { Text(if (state.isDownloading) "Descargando…" else if (video.isCollection) "Descargar colección" else "Iniciar descarga local") }
+
+                        if (state.discoveredPeers.isNotEmpty()) {
+                            state.discoveredPeers.forEach { peer ->
+                                OutlinedButton(
+                                    onClick = {
+                                        presenter.pushDownloadToPeer(peer)
+                                        onDismiss()
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                    shape = RoundedCornerShape(50),
+                                ) {
+                                    Text("🚀 Mandar a descargar a ${peer.name}", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 }
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }

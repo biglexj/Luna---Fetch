@@ -14,6 +14,20 @@ class DesktopPlatformBindings : PlatformBindings {
     private val preferences = Preferences.userRoot().node("com/biglexj/lunafetch")
     private val settings = AppSettings()
     override val engine: DownloadEngine = DesktopDownloadEngine()
+
+    override val deviceName: String
+        get() = runCatching { java.net.InetAddress.getLocalHost().hostName }.getOrDefault("Luna PC")
+
+    override val deviceType: String
+        get() = if (System.getProperty("os.name")?.lowercase()?.contains("mac") == true) "laptop" else "desktop"
+
+    override val deviceOs: String
+        get() = when {
+            System.getProperty("os.name")?.lowercase()?.contains("win") == true -> "windows"
+            System.getProperty("os.name")?.lowercase()?.contains("linux") == true -> "linux"
+            else -> "desktop"
+        }
+
     override val isAutoStartEnabled: Boolean get() = settings.autoStart
     override val isMinimizeToTrayEnabled: Boolean get() = settings.minimizeToTray
     override val isNativeHostInstalled: Boolean get() = settings.isNativeHostInstalled

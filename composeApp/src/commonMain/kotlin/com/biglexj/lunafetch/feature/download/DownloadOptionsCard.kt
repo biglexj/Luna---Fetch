@@ -109,18 +109,83 @@ fun DownloadOptionsCard(
             overflow = TextOverflow.Ellipsis,
         )
     }
+
+    if (state.discoveredPeers.isNotEmpty()) {
+        Spacer(Modifier.height(14.dp))
+        Text("Dispositivo de Descarga (Aurora LAN)", style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val isLocal = state.selectedTargetPeer == null
+            OutlinedButton(
+                onClick = { presenter.selectTargetPeer(null) },
+                modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (isLocal) 2.dp else 1.dp,
+                    color = if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                ),
+            ) {
+                Text(
+                    "📍 Este equipo",
+                    fontWeight = if (isLocal) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            state.discoveredPeers.forEach { peer ->
+                val isSelected = state.selectedTargetPeer?.id == peer.id
+                OutlinedButton(
+                    onClick = { presenter.selectTargetPeer(peer) },
+                    modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 2.dp else 1.dp,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                ) {
+                    Text(
+                        "${peer.icon} ${peer.name}",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+    }
+
     Spacer(Modifier.height(14.dp))
-    Button(
-        onClick = presenter::download,
-        modifier = Modifier.fillMaxWidth().height(54.dp),
-        enabled = state.video != null && !state.isDownloading,
-        shape = RoundedCornerShape(50),
-    ) {
-        Text(
-            if (state.downloadCollection) "Descargar colección"
-            else "Descargar ${state.selectedFormat.extension.uppercase()}",
-            fontWeight = FontWeight.Bold,
-        )
+
+    val selectedPeer = state.selectedTargetPeer
+    if (selectedPeer != null) {
+        Button(
+            onClick = { presenter.pushDownloadToPeer(selectedPeer) },
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            enabled = !state.isSendingToPeer && state.url.isNotBlank(),
+            shape = RoundedCornerShape(50),
+        ) {
+            Text(
+                if (state.isSendingToPeer) "Enviando enlace…" else "🚀 Mandar a descargar a ${selectedPeer.name}",
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    } else {
+        Button(
+            onClick = presenter::download,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            enabled = state.video != null && !state.isDownloading,
+            shape = RoundedCornerShape(50),
+        ) {
+            Text(
+                if (state.downloadCollection) "Descargar colección"
+                else "Descargar ${state.selectedFormat.extension.uppercase()}",
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
 }
 

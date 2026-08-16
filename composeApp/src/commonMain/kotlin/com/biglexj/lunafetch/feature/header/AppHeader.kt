@@ -88,7 +88,11 @@ fun AppHeader(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
-                    SettingsButton(platform, presenter)
+                    if (state.discoveredPeers.isNotEmpty()) {
+                        LanMeshBadge(state, presenter)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    SettingsButton(platform, presenter, state)
                     Spacer(Modifier.width(8.dp))
                     ThemeModeButton(mode, onThemeSelected)
                 }
@@ -109,7 +113,11 @@ fun AppHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                SettingsButton(platform, presenter)
+                if (state.discoveredPeers.isNotEmpty()) {
+                    LanMeshBadge(state, presenter)
+                    Spacer(Modifier.width(10.dp))
+                }
+                SettingsButton(platform, presenter, state)
                 Spacer(Modifier.width(8.dp))
                 ThemeModeButton(mode, onThemeSelected)
             }
@@ -118,9 +126,53 @@ fun AppHeader(
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
 }
 
+@Composable
+private fun LanMeshBadge(state: LunaFetchState, presenter: LunaFetchPresenter) {
+    var showMenu by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(
+            onClick = { showMenu = true },
+            shape = RoundedCornerShape(50),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier.height(38.dp),
+        ) {
+            Text(
+                "📶 ${state.discoveredPeers.size} en red",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        androidx.compose.material3.DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+            modifier = Modifier.clip(RoundedCornerShape(16.dp)),
+        ) {
+            state.discoveredPeers.forEach { peer ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text("${peer.icon} ${peer.name}", fontWeight = FontWeight.Bold)
+                            Text("IP: ${peer.ip} • Sincronizar historial", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                    onClick = {
+                        showMenu = false
+                        presenter.syncHistoryWithPeer(peer)
+                    },
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsButton(platform: PlatformBindings, presenter: LunaFetchPresenter) {
+private fun SettingsButton(
+    platform: PlatformBindings,
+    presenter: LunaFetchPresenter,
+    state: LunaFetchState,
+) {
     var showDialog by remember { mutableStateOf(false) }
     val label = "Ajustes"
 
@@ -334,6 +386,47 @@ private fun SettingsDialog(
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold,
                             )
+                        }
+                    }
+
+                    // Sección Red Local (Aurora Synapse LAN)
+                    Column(verticalArrangement = Arrangement.spacedBy(if (isMobile) 6.dp else 4.dp)) {
+                        Text(
+                            "Red Local (Aurora Synapse LAN)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "Dispositivo actual: ${platform.deviceName} (${platform.deviceOs})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (state.discoveredPeers.isEmpty()) {
+                            Text(
+                                "Buscando otros dispositivos Luna en tu red Wi-Fi…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            )
+                        } else {
+                            state.discoveredPeers.forEach { peer ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("${peer.icon} ${peer.name}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                        Text("IP: ${peer.ip} • Puerto: ${peer.port}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    OutlinedButton(
+                                        onClick = { presenter.syncHistoryWithPeer(peer) },
+                                        shape = RoundedCornerShape(50),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                                    ) {
+                                        Text("🔄 Sincronizar", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            }
                         }
                     }
 
