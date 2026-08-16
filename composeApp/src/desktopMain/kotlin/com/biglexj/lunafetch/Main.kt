@@ -147,7 +147,7 @@ fun main(args: Array<String>) {
         }
 
         // Modern System Tray Menu with Fluent dark theme & turquoise hover accents
-        remember {
+        androidx.compose.runtime.DisposableEffect(Unit) {
             val trayImage = runCatching {
                 val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("composeResources/lunafetch.composeapp.generated.resources/drawable/luna_fetch_icon.png")
                     ?: Thread.currentThread().contextClassLoader.getResourceAsStream("drawable/luna_fetch_icon.png")
@@ -166,14 +166,19 @@ fun main(args: Array<String>) {
                 image = trayImage,
                 tooltip = "Luna Fetch",
                 onOpenApp = { isVisible = true },
-                onOpenDownloadsFolder = { bindings.openOutput(bindings.defaultDestination) },
+                onOpenDownloadsFolder = { bindings.openDestinationFolder(bindings.defaultDestination) },
                 onQuitApp = {
                     saveWindowState()
                     synapseServer.stop()
                     SingleInstanceLock.release()
+                    ModernTrayManager.removeTray()
                     exitApplication()
                 },
             )
+
+            onDispose {
+                ModernTrayManager.removeTray()
+            }
         }
 
         Window(
@@ -182,6 +187,7 @@ fun main(args: Array<String>) {
                 if (bindings.isMinimizeToTrayEnabled == true) isVisible = false else {
                     synapseServer.stop()
                     SingleInstanceLock.release()
+                    ModernTrayManager.removeTray()
                     exitApplication()
                 }
             },

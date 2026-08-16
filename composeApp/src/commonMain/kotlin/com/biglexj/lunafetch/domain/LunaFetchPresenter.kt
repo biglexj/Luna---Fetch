@@ -69,13 +69,13 @@ class LunaFetchPresenter(
         },
         onHistorySyncReceived = { remoteItems ->
             val local = state.value.history
-            val combined = (remoteItems + local)
-                .distinctBy { it.url.ifBlank { it.id } }
+            val merged = (remoteItems + local)
+                .distinctBy { if (it.url.isNotBlank()) "${it.url}_${it.formatLabel}" else it.id }
                 .sortedByDescending { it.timestampMs }
                 .take(10)
-            platform.saveHistory(combined)
-            _state.update { it.copy(history = combined) }
-            combined
+            platform.saveHistory(merged)
+            _state.update { it.copy(history = merged) }
+            merged
         }
     )
 
@@ -88,9 +88,14 @@ class LunaFetchPresenter(
     private fun startLanServices() {
         lanServer.start()
         lanDiscovery.start()
-        scope.launch(Dispatchers.IO) {
+        scope.launch {
             lanDiscovery.discoveredDevices.collect { peers ->
+                val prevPeers = state.value.discoveredPeers
                 _state.update { it.copy(discoveredPeers = peers) }
+                val newPeers = peers.filter { p -> prevPeers.none { it.id == p.id } }
+                for (peer in newPeers) {
+                    syncHistoryWithPeer(peer, silent = true)
+                }
             }
         }
     }
@@ -108,7 +113,7 @@ class LunaFetchPresenter(
     }
 
     fun checkForUpdates(manual: Boolean = false) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch {
             val release = platform.checkUpdate()
             val currentVersion = AppConfig.APP_VERSION
             if (release != null && UpdateChecker.isNewerVersion(currentVersion, release.version)) {
@@ -124,14 +129,16 @@ class LunaFetchPresenter(
                     )
                 }
             } else if (manual) {
+                autoClearUpdateMessageJob?.cancel()
+                val msg = if (release != null) "✅ ¡Estás en la última versión!" else "⚠️ No se pudo comprobar las actualizaciones."
                 _state.update {
                     it.copy(
                         availableUpdate = null,
                         showUpdateModal = false,
-                        updateMessage = "✅ ¡Estás en la última versión ($currentVersion)!",
+                        updateMessage = msg,
+                        toastMessage = null,
                     )
                 }
-                autoClearUpdateMessageJob?.cancel()
                 autoClearUpdateMessageJob = scope.launch {
                     kotlinx.coroutines.delay(4000L)
                     _state.update { it.copy(updateMessage = null) }
@@ -405,11 +412,11 @@ class LunaFetchPresenter(
                     url = video.url,
                     originDevice = platform.deviceName,
                 )
-                val filtered = current.history.filter { item -> item.url != newItem.url }
-                val updatedHistory = (listOf(newItem) + filtered).take(10)
-                platform.saveHistory(updatedHistory)
-
                 _state.update {
+                    val updatedHistory = (listOf(newItem) + it.history)
+                        .distinctBy { h -> if (h.url.isNotBlank()) "${h.url}_${h.formatLabel}" else h.id }
+                        .take(10)
+                    platform.saveHistory(updatedHistory)
                     it.copy(
                         isDownloading = false,
                         progress = DownloadProgress(100.0, phase = DownloadPhase.Completed),
@@ -417,6 +424,7 @@ class LunaFetchPresenter(
                         history = updatedHistory,
                     )
                 }
+                autoBroadcastHistorySync()
             } catch (cancelled: CancellationException) {
                 _state.update {
                     it.copy(isDownloading = false, progress = DownloadProgress(0.0, phase = DownloadPhase.Cancelled))
@@ -521,24 +529,32 @@ class LunaFetchPresenter(
         }
     }
 
-    fun syncHistoryWithPeer(peer: com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice) {
+    fun syncHistoryWithPeer(peer: com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice, silent: Boolean = false) {
         scope.launch {
-            showToast("🔄 Sincronizando historial con ${peer.name}...")
+            if (!silent) showToast("🔄 Sincronizando historial con ${peer.name}...")
             val res = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanClient.syncHistory(
                 peer = peer,
                 localHistory = state.value.history,
                 sourceDeviceName = platform.deviceName,
             )
-            res.onSuccess { merged ->
-                val limited = merged.distinctBy { it.url.ifBlank { it.id } }
+            res.onSuccess { remoteMerged ->
+                val combined = (remoteMerged + state.value.history)
+                    .distinctBy { if (it.url.isNotBlank()) "${it.url}_${it.formatLabel}" else it.id }
                     .sortedByDescending { it.timestampMs }
                     .take(10)
-                platform.saveHistory(limited)
-                _state.update { it.copy(history = limited) }
-                showToast("✅ Historial sincronizado con ${peer.name} (${limited.size} elementos).")
+                platform.saveHistory(combined)
+                _state.update { it.copy(history = combined) }
+                if (!silent) showToast("✅ Historial sincronizado con ${peer.name} (${combined.size} elementos).")
             }.onFailure { err ->
-                showToast("❌ Error en sincronización con ${peer.name}: ${err.message}")
+                if (!silent) showToast("❌ Error en sincronización con ${peer.name}: ${err.message}")
             }
+        }
+    }
+
+    private fun autoBroadcastHistorySync() {
+        val activePeers = state.value.discoveredPeers
+        for (peer in activePeers) {
+            syncHistoryWithPeer(peer, silent = true)
         }
     }
 

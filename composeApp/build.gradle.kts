@@ -142,7 +142,7 @@ android {
 compose.desktop {
     application {
         mainClass = "com.biglexj.lunafetch.MainKt"
-        jvmArgs("-Dlunafetch.dev=true", "--enable-native-access=ALL-UNNAMED")
+        jvmArgs("-Dlunafetch.dev=true")
         val validJpackageJdk = run {
             val envJavaHome = System.getenv("JAVA_HOME")
             if (!envJavaHome.isNullOrBlank() && File(envJavaHome, "bin/jpackage.exe").exists()) return@run envJavaHome
@@ -198,6 +198,5 @@ compose.desktop {
 tasks.withType<JavaExec> {
     if (name == "run") {
         systemProperty("lunafetch.dev", "true")
-        jvmArgs("--enable-native-access=ALL-UNNAMED")
     }
 }
