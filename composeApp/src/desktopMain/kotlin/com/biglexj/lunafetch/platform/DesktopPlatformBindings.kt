@@ -58,17 +58,44 @@ class DesktopPlatformBindings : PlatformBindings {
 
     override fun openOutput(path: String) {
         val target = File(path)
-        val openTarget = if (target.exists()) target else target.parentFile
-        if (openTarget != null && openTarget.exists()) {
-            val opened = runCatching {
-                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
-                    Desktop.getDesktop().open(openTarget)
-                    true
-                } else false
-            }.getOrDefault(false)
+        if (!target.exists()) return
+        val opened = runCatching {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(target)
+                true
+            } else false
+        }.getOrDefault(false)
 
-            if (!opened) {
-                runCatching { ProcessBuilder("xdg-open", openTarget.absolutePath).start() }
+        if (!opened) {
+            val os = System.getProperty("os.name", "").lowercase()
+            runCatching {
+                if (os.contains("win")) ProcessBuilder("cmd.exe", "/c", "start", "", target.absolutePath).start()
+                else if (os.contains("mac")) ProcessBuilder("open", target.absolutePath).start()
+                else ProcessBuilder("xdg-open", target.absolutePath).start()
+            }
+        }
+    }
+
+    override fun openDestinationFolder(destination: String) {
+        val target = File(destination)
+        val os = System.getProperty("os.name", "").lowercase()
+        runCatching {
+            if (os.contains("win")) {
+                if (target.isFile && target.exists()) {
+                    ProcessBuilder("explorer.exe", "/select,", target.absolutePath).start()
+                } else {
+                    val folder = if (target.isDirectory) target else target.parentFile ?: target
+                    ProcessBuilder("explorer.exe", folder.absolutePath).start()
+                }
+            } else if (os.contains("mac")) {
+                if (target.isFile && target.exists()) {
+                    ProcessBuilder("open", "-R", target.absolutePath).start()
+                } else {
+                    ProcessBuilder("open", (target.parentFile ?: target).absolutePath).start()
+                }
+            } else {
+                val folder = if (target.isDirectory) target else target.parentFile ?: target
+                ProcessBuilder("xdg-open", folder.absolutePath).start()
             }
         }
     }

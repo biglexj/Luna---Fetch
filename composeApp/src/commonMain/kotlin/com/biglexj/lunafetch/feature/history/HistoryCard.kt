@@ -105,7 +105,7 @@ fun HistoryCard(
                         HistoryActionButton(
                             icon = "📁",
                             tooltip = "Abrir ubicación",
-                            onClick = { platform.openOutput(item.path) },
+                            onClick = { platform.openDestinationFolder(item.path) },
                         )
                     } else if (item.url.isNotBlank()) {
                         HistoryActionButton(

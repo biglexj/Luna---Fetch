@@ -106,7 +106,10 @@ fun QuickDownloadSheet(
                             shape = RoundedCornerShape(50),
                         ) {
                             Text(
-                                if (state.isDownloading) "Descargando…" else if (video.isCollection) "Descargar colección" else "📍 Iniciar descarga local",
+                                if (state.isDownloading) "Descargando…"
+                                else if (video.isCollection) "Descargar colección"
+                                else if (state.discoveredPeers.isNotEmpty()) "📍 Iniciar descarga local"
+                                else "Descargar ${state.selectedFormat.extension.uppercase()}",
                                 fontWeight = FontWeight.Bold,
                             )
                         }

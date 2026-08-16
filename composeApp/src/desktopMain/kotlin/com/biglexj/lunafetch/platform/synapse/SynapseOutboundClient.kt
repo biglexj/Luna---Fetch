@@ -46,7 +46,7 @@ object SynapseOutboundClient {
 
         val ipcSuccess = runCatching {
             Socket(InetAddress.getByName("127.0.0.1"), PRISMA_PORT).use { socket ->
-                socket.soTimeout = 2000
+                socket.soTimeout = 1500
                 val writer = socket.getOutputStream().bufferedWriter()
                 writer.write(jsonPayload + "\n")
                 writer.flush()
@@ -56,26 +56,20 @@ object SynapseOutboundClient {
 
         if (ipcSuccess) return true
 
-        // 2. Si no está en ejecución, invocar mediante Deep Link registrado ante el sistema operativo
-        val encodedPath = runCatching { URLEncoder.encode(canonicalPath, "UTF-8") }.getOrDefault(canonicalPath)
-        val prismaUri = "prisma://open?path=$encodedPath&autoplay=$autoPlay"
-
-        val uriSuccess = runCatching {
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                Desktop.getDesktop().browse(URI(prismaUri))
-                true
-            } else false
-        }.getOrDefault(false)
-
-        if (uriSuccess) return true
-
-        // 3. Fallback: Abrir con el visor/reproductor nativo del SO
+        // 2. Si Prisma no está corriendo, reproducir inmediatamente con el reproductor multimedia del sistema
         return runCatching {
             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
                 Desktop.getDesktop().open(file)
                 true
             } else {
-                ProcessBuilder("xdg-open", canonicalPath).start()
+                val os = System.getProperty("os.name", "").lowercase()
+                if (os.contains("win")) {
+                    ProcessBuilder("cmd.exe", "/c", "start", "", canonicalPath).start()
+                } else if (os.contains("mac")) {
+                    ProcessBuilder("open", canonicalPath).start()
+                } else {
+                    ProcessBuilder("xdg-open", canonicalPath).start()
+                }
                 true
             }
         }.getOrDefault(false)

@@ -172,7 +172,7 @@ fun DownloadOptionsCard(
 
     Spacer(Modifier.height(14.dp))
 
-    val selectedPeer = state.selectedTargetPeer
+    val selectedPeer = state.selectedTargetPeer?.takeIf { peer -> state.discoveredPeers.any { it.id == peer.id } }
     if (selectedPeer != null) {
         Button(
             onClick = { presenter.pushDownloadToPeer(selectedPeer) },
