@@ -107,6 +107,14 @@ class SynapseLanDiscovery(
             val json = LanBeaconPacket.toJson(beacon)
             val bytes = json.toByteArray(Charsets.UTF_8)
 
+            // Ráfaga inicial para descubrimiento instantáneo al abrir la app o QuickDownload
+            repeat(3) {
+                if (isActive && isRunning) {
+                    broadcastPacket(bytes)
+                    delay(350L)
+                }
+            }
+
             while (isActive && isRunning) {
                 broadcastPacket(bytes)
                 delay(BEACON_INTERVAL_MS)

@@ -68,53 +68,57 @@ fun SettingsDialog(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                 ) {
-                    // ── 1. Preferencias del Sistema ─────────────────────────────
-                    Text(
-                        "Sistema y Ventana",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                    // ── 1. Preferencias del Sistema (Solo Desktop) ─────────────
+                    val hasSystemSettings = platform.isAutoStartEnabled != null || platform.isMinimizeToTrayEnabled != null || platform.isNativeHostInstalled != null
 
-                    if (platform.isAutoStartEnabled != null) {
-                        SettingsRow(
-                            title = "Iniciar con Windows",
-                            subtitle = "Abre Luna Fetch automáticamente al encender el equipo.",
-                            checked = autoStart,
-                            onCheckedChange = { autoStart = it; platform.setAutoStart(it) },
+                    if (hasSystemSettings) {
+                        Text(
+                            "Sistema y Ventana",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
                         )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-                    }
 
-                    if (platform.isMinimizeToTrayEnabled != null) {
-                        SettingsRow(
-                            title = "Minimizar en lugar de cerrar",
-                            subtitle = "Al pulsar ✕, la app se oculta en la bandeja del sistema.",
-                            checked = minimizeToTray,
-                            onCheckedChange = { minimizeToTray = it; platform.setMinimizeToTray(it) },
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-                    }
+                        if (platform.isAutoStartEnabled != null) {
+                            SettingsRow(
+                                title = "Iniciar con Windows",
+                                subtitle = "Abre Luna Fetch automáticamente al encender el equipo.",
+                                checked = autoStart,
+                                onCheckedChange = { autoStart = it; platform.setAutoStart(it) },
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                        }
 
-                    if (platform.isNativeHostInstalled != null) {
-                        SettingsRow(
-                            title = "Extensión de navegador",
-                            subtitle = if (nativeInstalled)
-                                "Host registrado en Windows. Abre la página para agregar la extensión a Chrome/Edge."
-                            else
-                                "Registra el host para que Chrome/Edge puedan comunicarse con Luna Fetch.",
-                            checked = nativeInstalled,
-                            onCheckedChange = {
-                                nativeInstalled = it
-                                if (it) {
-                                    platform.installNativeHost()
-                                    platform.openUrl("https://github.com/biglexj/Luna---Fetch/tree/main/browser-extension#readme")
-                                } else {
-                                    platform.uninstallNativeHost()
-                                }
-                            },
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                        if (platform.isMinimizeToTrayEnabled != null) {
+                            SettingsRow(
+                                title = "Minimizar en lugar de cerrar",
+                                subtitle = "Al pulsar ✕, la app se oculta en la bandeja del sistema.",
+                                checked = minimizeToTray,
+                                onCheckedChange = { minimizeToTray = it; platform.setMinimizeToTray(it) },
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                        }
+
+                        if (platform.isNativeHostInstalled != null) {
+                            SettingsRow(
+                                title = "Extensión de navegador",
+                                subtitle = if (nativeInstalled)
+                                    "Host registrado en Windows. Abre la página para agregar la extensión a Chrome/Edge."
+                                else
+                                    "Registra el host para que Chrome/Edge puedan comunicarse con Luna Fetch.",
+                                checked = nativeInstalled,
+                                onCheckedChange = {
+                                    nativeInstalled = it
+                                    if (it) {
+                                        platform.installNativeHost()
+                                        platform.openUrl("https://github.com/biglexj/Luna---Fetch/tree/main/browser-extension#readme")
+                                    } else {
+                                        platform.uninstallNativeHost()
+                                    }
+                                },
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                        }
                     }
 
                     // ── 2. Red Local (Aurora Synapse LAN) ───────────────────────

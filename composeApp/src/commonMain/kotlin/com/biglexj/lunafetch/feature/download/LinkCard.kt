@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
@@ -50,116 +51,58 @@ fun LinkCard(
     Text("Enlace de descarga", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(10.dp))
 
-    BoxWithConstraints {
-        val isCompact = maxWidth < 520.dp
-
-        if (isCompact) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                OutlinedTextField(
-                    value = state.url,
-                    onValueChange = presenter::setUrl,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { isFocused = it.isFocused },
-                    enabled = !state.isAnalyzing && !state.isDownloading,
-                    singleLine = true,
-                    placeholder = if (!isFocused) {
-                        {
-                            Text(
-                                "Pega acá la URL (YouTube, TikTok, Instagram...)",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            )
-                        }
-                    } else null,
-                    shape = RoundedCornerShape(20.dp),
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            val clip = platform.readClipboardText()?.trim().orEmpty()
-                            if (clip.isNotBlank()) {
-                                presenter.setUrl(clip)
-                                presenter.showToast("URL pegada desde el portapapeles")
-                            } else {
-                                presenter.showToast("El portapapeles está vacío")
-                            }
-                        },
-                        enabled = !state.isAnalyzing && !state.isDownloading,
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(50),
-                    ) {
-                        Text("📋 Pegar", fontWeight = FontWeight.Bold)
-                    }
-
-                    Button(
-                        onClick = presenter::analyze,
-                        enabled = !state.isAnalyzing && !state.isDownloading && state.url.isNotBlank(),
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(50),
-                    ) {
-                        Text(if (state.isAnalyzing) "Analizando…" else "Analizar", fontWeight = FontWeight.Bold)
-                    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            value = state.url,
+            onValueChange = presenter::setUrl,
+            modifier = Modifier
+                .weight(1f)
+                .onFocusChanged { isFocused = it.isFocused },
+            enabled = !state.isAnalyzing && !state.isDownloading,
+            singleLine = true,
+            placeholder = if (!isFocused) {
+                {
+                    Text(
+                        "Pega el enlace (YouTube, TikTok...)",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    )
                 }
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = state.url,
-                    onValueChange = presenter::setUrl,
-                    modifier = Modifier
-                        .weight(1f)
-                        .onFocusChanged { isFocused = it.isFocused },
-                    enabled = !state.isAnalyzing && !state.isDownloading,
-                    singleLine = true,
-                    placeholder = if (!isFocused) {
-                        {
-                            Text(
-                                "Pega acá la URL (YouTube, TikTok, Instagram...)",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            )
-                        }
-                    } else null,
-                    shape = RoundedCornerShape(20.dp),
-                )
+            } else null,
+            shape = RoundedCornerShape(20.dp),
+        )
 
-                OutlinedButton(
-                    onClick = {
-                        val clip = platform.readClipboardText()?.trim().orEmpty()
-                        if (clip.isNotBlank()) {
-                            presenter.setUrl(clip)
-                            presenter.showToast("URL pegada desde el portapapeles")
-                        } else {
-                            presenter.showToast("El portapapeles está vacío")
-                        }
-                    },
-                    enabled = !state.isAnalyzing && !state.isDownloading,
-                    modifier = Modifier.height(56.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text("📋 Pegar", fontWeight = FontWeight.Bold)
+        OutlinedButton(
+            onClick = {
+                val clip = platform.readClipboardText()?.trim().orEmpty()
+                if (clip.isNotBlank()) {
+                    presenter.setUrl(clip)
+                    presenter.showToast("URL pegada desde el portapapeles")
+                } else {
+                    presenter.showToast("El portapapeles está vacío")
                 }
+            },
+            enabled = !state.isAnalyzing && !state.isDownloading,
+            modifier = Modifier.height(56.dp),
+            shape = RoundedCornerShape(50),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp),
+        ) {
+            Text("📋 Pegar", fontWeight = FontWeight.Bold)
+        }
 
-                Button(
-                    onClick = presenter::analyze,
-                    enabled = !state.isAnalyzing && !state.isDownloading && state.url.isNotBlank(),
-                    modifier = Modifier.height(56.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text(if (state.isAnalyzing) "Analizando…" else "Analizar", fontWeight = FontWeight.Bold)
-                }
-            }
+        Button(
+            onClick = presenter::analyze,
+            enabled = !state.isAnalyzing && !state.isDownloading && state.url.isNotBlank(),
+            modifier = Modifier.height(56.dp),
+            shape = RoundedCornerShape(50),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+        ) {
+            Text(if (state.isAnalyzing) "Analizando…" else "Analizar", fontWeight = FontWeight.Bold)
         }
     }
 

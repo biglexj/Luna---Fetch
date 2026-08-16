@@ -15,6 +15,15 @@ class AndroidPlatformBindings(
     private val preferences = appContext.getSharedPreferences("lunafetch", Context.MODE_PRIVATE)
     override val engine: DownloadEngine = AndroidDownloadEngine(appContext)
 
+    init {
+        runCatching {
+            val wifi = appContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
+            val lock = wifi?.createMulticastLock("LunaSynapseMulticastLock")
+            lock?.setReferenceCounted(true)
+            lock?.acquire()
+        }
+    }
+
     override val deviceName: String
         get() = "${android.os.Build.MANUFACTURER.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }} ${android.os.Build.MODEL}"
 
