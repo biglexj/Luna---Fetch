@@ -61,20 +61,15 @@ fun main(args: Array<String>) {
         val appSettings = remember { AppSettings() }
         var isVisible by remember { mutableStateOf(!isAutostart) }
 
-        val icon = painterResource(Res.drawable.luna_fetch_icon)
+        val icon = runCatching { painterResource(Res.drawable.luna_fetch_icon) }.getOrNull()
 
         // ── Window State Persistence (desktop_app_standards.md Rule 5) ────────
         val initialPlacement = if (appSettings.windowIsMaximized) WindowPlacement.Maximized else WindowPlacement.Floating
         val initialPosition = run {
             val px = appSettings.windowPositionX
             val py = appSettings.windowPositionY
-            if (px != null && py != null) {
-                val screenSize = java.awt.Toolkit.getDefaultToolkit().screenSize
-                if (px in 0..(screenSize.width - 100) && py in 0..(screenSize.height - 100)) {
-                    WindowPosition(px.dp, py.dp)
-                } else {
-                    WindowPosition(androidx.compose.ui.Alignment.Center)
-                }
+            if (px != null && py != null && px > 0 && py > 0) {
+                WindowPosition(px.dp, py.dp)
             } else {
                 WindowPosition(androidx.compose.ui.Alignment.Center)
             }

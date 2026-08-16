@@ -54,7 +54,10 @@ class LunaSocketServer(
     fun start() {
         scope.launch {
             runCatching {
-                val ss = ServerSocket(PORT, 10, java.net.InetAddress.getByName("127.0.0.1"))
+                val ss = ServerSocket().apply {
+                    reuseAddress = true
+                    bind(java.net.InetSocketAddress(java.net.InetAddress.getByName("127.0.0.1"), PORT), 10)
+                }
                 serverSocket = ss
                 while (!ss.isClosed) {
                     runCatching { handleClient(ss.accept()) }
