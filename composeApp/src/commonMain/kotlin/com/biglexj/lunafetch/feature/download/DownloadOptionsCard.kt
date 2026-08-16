@@ -123,15 +123,21 @@ fun DownloadOptionsCard(
                 onClick = { presenter.selectTargetPeer(null) },
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 shape = RoundedCornerShape(16.dp),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (isLocal) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                    contentColor = if (isLocal) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
                 border = androidx.compose.foundation.BorderStroke(
-                    width = if (isLocal) 2.dp else 1.dp,
-                    color = if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    width = if (isLocal) 1.5.dp else 1.dp,
+                    color = if (isLocal) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                 ),
             ) {
                 Text(
                     "📍 Este equipo",
-                    fontWeight = if (isLocal) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isLocal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    fontWeight = if (isLocal) FontWeight.Bold else FontWeight.Medium,
                 )
             }
 
@@ -141,17 +147,23 @@ fun DownloadOptionsCard(
                     onClick = { presenter.selectTargetPeer(peer) },
                     modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                     shape = RoundedCornerShape(16.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                        contentColor = if (isSelected) MaterialTheme.colorScheme.primary
+                                       else MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
                     border = androidx.compose.foundation.BorderStroke(
-                        width = if (isSelected) 2.dp else 1.dp,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                     ),
                 ) {
                     Text(
                         "${peer.icon} ${peer.name}",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     )
                 }
             }

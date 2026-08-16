@@ -33,6 +33,8 @@ interface PlatformBindings {
     fun destinationLabel(destination: String): String
     fun rememberDestination(destination: String)
     fun openOutput(path: String)
+    fun openDestinationFolder(destination: String) { openOutput(destination) }
+    fun isLocalPathAccessible(path: String): Boolean = false
     fun openInPrisma(filePath: String): Boolean = false
     fun openUrl(url: String) {}
     fun readClipboardText(): String? = null

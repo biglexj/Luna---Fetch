@@ -63,8 +63,27 @@ fun QuickDownloadSheet(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(MediaFormat.Mp3, MediaFormat.Mp4).forEach { format ->
                                 val selected = state.selectedFormat == format
-                                if (selected) Button(onClick = { }, modifier = Modifier.weight(1f), enabled = false) { Text(format.displayName) }
-                                else OutlinedButton(onClick = { presenter.selectFormat(format) }, modifier = Modifier.weight(1f)) { Text(format.displayName) }
+                                OutlinedButton(
+                                    onClick = { presenter.selectFormat(format) },
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                        containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                                                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                                        contentColor = if (selected) MaterialTheme.colorScheme.primary
+                                                       else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = if (selected) 1.5.dp else 1.dp,
+                                        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                    ),
+                                ) {
+                                    Text(
+                                        format.displayName,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    )
+                                }
                             }
                         }
                         Text("Calidad", style = MaterialTheme.typography.labelLarge)
@@ -84,7 +103,13 @@ fun QuickDownloadSheet(
                             },
                             modifier = Modifier.fillMaxWidth().height(52.dp),
                             enabled = !state.isDownloading,
-                        ) { Text(if (state.isDownloading) "Descargando…" else if (video.isCollection) "Descargar colección" else "Iniciar descarga local") }
+                            shape = RoundedCornerShape(50),
+                        ) {
+                            Text(
+                                if (state.isDownloading) "Descargando…" else if (video.isCollection) "Descargar colección" else "📍 Iniciar descarga local",
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
 
                         if (state.discoveredPeers.isNotEmpty()) {
                             state.discoveredPeers.forEach { peer ->
@@ -95,6 +120,14 @@ fun QuickDownloadSheet(
                                     },
                                     modifier = Modifier.fillMaxWidth().height(48.dp),
                                     shape = RoundedCornerShape(50),
+                                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                                        contentColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = 1.5.dp,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                    ),
                                 ) {
                                     Text("🚀 Mandar a descargar a ${peer.name}", fontWeight = FontWeight.Bold)
                                 }

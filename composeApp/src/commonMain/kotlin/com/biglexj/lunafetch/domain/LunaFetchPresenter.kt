@@ -312,7 +312,7 @@ class LunaFetchPresenter(
     fun startDirectDownload(rawUrl: String, formatName: String = "mp4", requestedQuality: String? = null) {
         val url = TikTokUtils.sanitizeUrl(rawUrl)
         if (!isSupportedUrl(url)) return
-        val format = if (formatName.equals("mp3", ignoreCase = true)) MediaFormat.Mp3 else MediaFormat.Mp4
+        val format = if (formatName.contains("audio", ignoreCase = true) || formatName.contains("mp3", ignoreCase = true) || formatName.contains("m4a", ignoreCase = true)) MediaFormat.Mp3 else MediaFormat.Mp4
         
         setUrl(url)
         selectFormat(format)
@@ -405,6 +405,7 @@ class LunaFetchPresenter(
                     formatLabel = "${current.selectedFormat.displayName} · ${current.selectedQuality.displayName}",
                     path = result.openPath ?: "",
                     url = video.url,
+                    originDevice = platform.deviceName,
                 )
                 _state.update {
                     val updatedHistory = (listOf(newItem) + it.history).take(20)
@@ -442,6 +443,10 @@ class LunaFetchPresenter(
 
     fun playInPrisma(filePath: String) {
         if (filePath.isBlank()) return
+        if (!platform.isLocalPathAccessible(filePath)) {
+            showToast("Este archivo fue descargado en otro equipo (${platform.deviceName}) y no está disponible localmente.")
+            return
+        }
         val success = platform.openInPrisma(filePath)
         if (!success) {
             platform.openOutput(filePath)

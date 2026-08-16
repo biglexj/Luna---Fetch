@@ -73,6 +73,11 @@ class DesktopPlatformBindings : PlatformBindings {
         }
     }
 
+    override fun isLocalPathAccessible(path: String): Boolean {
+        if (path.isBlank()) return false
+        return runCatching { File(path).exists() }.getOrDefault(false)
+    }
+
     override fun openInPrisma(filePath: String): Boolean {
         return com.biglexj.lunafetch.platform.synapse.SynapseOutboundClient.openMediaInPrisma(filePath)
     }

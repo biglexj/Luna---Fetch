@@ -51,16 +51,84 @@ class AndroidPlatformBindings(
         preferences.edit().putString("downloadTree", destination).apply()
     }
 
+    override fun isLocalPathAccessible(path: String): Boolean {
+        if (path.isBlank()) return false
+        // Si es una ruta típica de Windows (ej. D:\ o C:\), definitivamente no es local en Android
+        if (path.matches(Regex("^[a-zA-Z]:[/\\\\].*"))) return false
+        return runCatching {
+            if (path.startsWith("content://")) {
+                val uri = Uri.parse(path)
+                appContext.contentResolver.openInputStream(uri)?.use { true } ?: false
+            } else {
+                val f = java.io.File(path)
+                f.exists() && f.length() > 0
+            }
+        }.getOrDefault(false)
+    }
+
     override fun openOutput(path: String) {
-        val uri = Uri.parse(path)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, appContext.contentResolver.getType(uri) ?: "*/*")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (path.isBlank() || !isLocalPathAccessible(path)) return
+        runCatching {
+            val uri: Uri
+            val mimeType: String
+            if (path.startsWith("content://")) {
+                uri = Uri.parse(path)
+                mimeType = appContext.contentResolver.getType(uri) ?: "*/*"
+            } else {
+                val file = java.io.File(path)
+                uri = androidx.core.content.FileProvider.getUriForFile(
+                    appContext,
+                    "${appContext.packageName}.fileprovider",
+                    file,
+                )
+                val ext = file.extension.lowercase()
+                mimeType = when (ext) {
+                    "mp4", "mkv", "webm", "avi", "mov", "3gp" -> "video/*"
+                    "mp3", "m4a", "wav", "flac", "aac", "ogg", "opus" -> "audio/*"
+                    else -> "*/*"
+                }
+            }
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = Intent.createChooser(intent, "Reproducir o abrir con").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            appContext.startActivity(chooser)
+        }.onFailure {
+            runCatching {
+                appContext.startActivity(
+                    Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
         }
-        runCatching { appContext.startActivity(intent) }.onFailure {
-            appContext.startActivity(
-                Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+    }
+
+    override fun openDestinationFolder(destination: String) {
+        if (destination.isBlank()) return
+        runCatching {
+            if (destination.startsWith("content://")) {
+                val uri = Uri.parse(destination)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "vnd.android.document/root")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                appContext.startActivity(intent)
+            } else {
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(Uri.parse("content://media/external/file"), "*/*")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                appContext.startActivity(intent)
+            }
+        }.onFailure {
+            runCatching {
+                appContext.startActivity(
+                    Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
         }
     }
 

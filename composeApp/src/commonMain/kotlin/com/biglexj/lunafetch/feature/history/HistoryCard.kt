@@ -52,6 +52,7 @@ fun HistoryCard(
         }
         Spacer(Modifier.height(8.dp))
         state.history.forEach { item ->
+            val isLocal = platform.isLocalPathAccessible(item.path)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -65,11 +66,24 @@ fun HistoryCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        item.formatLabel,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            item.formatLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (!isLocal && item.originDevice.isNotBlank() && item.originDevice != platform.deviceName) {
+                            Text(
+                                "• 💻 ${item.originDevice}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
                 }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -82,16 +96,25 @@ fun HistoryCard(
                             onClick = { platform.openUrl(item.url) },
                         )
                     }
-                    if (item.path.isNotBlank()) {
+                    if (isLocal) {
                         HistoryActionButton(
                             icon = "▶️",
-                            tooltip = "Reproducir en Prisma",
+                            tooltip = "Reproducir",
                             onClick = { presenter.playInPrisma(item.path) },
                         )
                         HistoryActionButton(
                             icon = "📁",
                             tooltip = "Abrir ubicación",
                             onClick = { platform.openOutput(item.path) },
+                        )
+                    } else if (item.url.isNotBlank()) {
+                        HistoryActionButton(
+                            icon = "⬇️",
+                            tooltip = "Descargar en este equipo",
+                            onClick = {
+                                presenter.setUrl(item.url)
+                                presenter.analyze()
+                            },
                         )
                     }
                     HistoryActionButton(

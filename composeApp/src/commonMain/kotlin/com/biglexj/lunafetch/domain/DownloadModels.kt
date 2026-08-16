@@ -30,6 +30,7 @@ data class DownloadHistoryItem(
     val path: String,
     val url: String = "",
     val timestampMs: Long = System.currentTimeMillis(),
+    val originDevice: String = "",
 )
 
 enum class MediaFormat(
