@@ -149,9 +149,18 @@ fun main(args: Array<String>) {
         // Modern System Tray Menu with Fluent dark theme & turquoise hover accents
         remember {
             val trayImage = runCatching {
-                val bytes = kotlinx.coroutines.runBlocking { Res.readBytes("drawable/luna_fetch_icon.png") }
-                javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(bytes))
-            }.getOrNull() ?: java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+                val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("composeResources/lunafetch.composeapp.generated.resources/drawable/luna_fetch_icon.png")
+                    ?: Thread.currentThread().contextClassLoader.getResourceAsStream("drawable/luna_fetch_icon.png")
+                    ?: DesktopPlatformBindings::class.java.getResourceAsStream("/drawable/luna_fetch_icon.png")
+                if (stream != null) {
+                    stream.use { javax.imageio.ImageIO.read(it) }
+                } else null
+            }.getOrNull() ?: java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB).apply {
+                val g = createGraphics()
+                g.color = java.awt.Color(0x06, 0xB6, 0xD4)
+                g.fillOval(2, 2, 12, 12)
+                g.dispose()
+            }
 
             ModernTrayManager.setupTray(
                 image = trayImage,
