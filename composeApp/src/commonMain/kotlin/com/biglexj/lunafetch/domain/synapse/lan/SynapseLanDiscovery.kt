@@ -86,6 +86,19 @@ class SynapseLanDiscovery(
                                 lastSeenMs = System.currentTimeMillis(),
                             )
                             updateDevice(device)
+
+                            // Handshake HTTP de retorno para descubrimiento bidireccional garantizado
+                            thread(isDaemon = true, name = "LunaSynapsePingHandshake") {
+                                runCatching {
+                                    val url = java.net.URL("http://${device.ip}:${device.port}/api/v1/synapse/ping?source=${java.net.URLEncoder.encode(localDevice.name, "UTF-8")}&os=${localDevice.os}")
+                                    val conn = url.openConnection() as java.net.HttpURLConnection
+                                    conn.connectTimeout = 2000
+                                    conn.readTimeout = 2000
+                                    conn.requestMethod = "GET"
+                                    conn.responseCode
+                                    conn.disconnect()
+                                }
+                            }
                         }
                     }
                 }
@@ -93,6 +106,11 @@ class SynapseLanDiscovery(
                 // Socket cerrado o puerto en uso
             }
         }
+    }
+
+    fun registerDirectPeer(device: SynapseDevice) {
+        if (device.name.equals(localDevice.name, ignoreCase = true) || isLocalHostAddress(device.ip)) return
+        updateDevice(device)
     }
 
     private fun isLocalHostAddress(ip: String): Boolean {

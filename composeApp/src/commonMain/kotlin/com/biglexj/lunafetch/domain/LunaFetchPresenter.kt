@@ -76,6 +76,9 @@ class LunaFetchPresenter(
             platform.saveHistory(merged)
             _state.update { it.copy(history = merged) }
             merged
+        },
+        onPeerDiscovered = { peer ->
+            lanDiscovery.registerDirectPeer(peer)
         }
     )
 

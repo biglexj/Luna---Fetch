@@ -18,6 +18,7 @@ class SynapseLanServer(
     val port: Int = LAN_PORT,
     private val onRemoteDownloadReceived: (PushDownloadRequest) -> Unit,
     private val onHistorySyncReceived: (List<DownloadHistoryItem>) -> List<DownloadHistoryItem>,
+    private val onPeerDiscovered: (SynapseDevice) -> Unit = {},
 ) {
     companion object {
         const val LAN_PORT = 49288
@@ -88,10 +89,42 @@ class SynapseLanServer(
                     String(buffer, 0, read)
                 } else ""
 
+                val clientIp = socket.inetAddress?.hostAddress.orEmpty().substringBefore("%")
+
                 when {
+                    method == "GET" && path.startsWith("/api/v1/synapse/ping") -> {
+                        val source = path.substringAfter("source=", "").substringBefore("&").takeIf { it.isNotBlank() }
+                            ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
+                            ?: "Dispositivo Luna"
+                        val os = path.substringAfter("os=", "").substringBefore("&").ifBlank { "mobile" }
+                        val peer = SynapseDevice(
+                            id = "luna_${source.hashCode().toString(16)}",
+                            name = source,
+                            type = if (os == "android") "mobile" else "desktop",
+                            ip = clientIp,
+                            port = LAN_PORT,
+                            os = os,
+                            lastSeenMs = System.currentTimeMillis(),
+                        )
+                        onPeerDiscovered(peer)
+                        sendJsonResponse(writer, 200, LanGenericResponse(true, "PONG"))
+                    }
                     method == "POST" && path.startsWith("/api/v1/synapse/push-download") -> {
                         val req = PushDownloadRequest.fromJson(body)
                         if (req != null) {
+                            if (req.sourceDevice.isNotBlank() && clientIp.isNotBlank()) {
+                                onPeerDiscovered(
+                                    SynapseDevice(
+                                        id = "luna_${req.sourceDevice.hashCode().toString(16)}",
+                                        name = req.sourceDevice,
+                                        type = "mobile",
+                                        ip = clientIp,
+                                        port = LAN_PORT,
+                                        os = "android",
+                                        lastSeenMs = System.currentTimeMillis(),
+                                    )
+                                )
+                            }
                             onRemoteDownloadReceived(req)
                             sendJsonResponse(writer, 200, LanGenericResponse(true, "Descarga recibida correctamente en este dispositivo."))
                         } else {
@@ -101,6 +134,19 @@ class SynapseLanServer(
                     method == "POST" && path.startsWith("/api/v1/synapse/sync-history") -> {
                         val req = LanHistorySyncRequest.fromJson(body)
                         if (req != null) {
+                            if (req.sourceDevice.isNotBlank() && clientIp.isNotBlank()) {
+                                onPeerDiscovered(
+                                    SynapseDevice(
+                                        id = "luna_${req.sourceDevice.hashCode().toString(16)}",
+                                        name = req.sourceDevice,
+                                        type = "mobile",
+                                        ip = clientIp,
+                                        port = LAN_PORT,
+                                        os = "android",
+                                        lastSeenMs = System.currentTimeMillis(),
+                                    )
+                                )
+                            }
                             val merged = onHistorySyncReceived(req.historyItems)
                             val respJson = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(DownloadHistoryItem.serializer()), merged)
                             sendRawResponse(writer, 200, "application/json", respJson)
