@@ -88,8 +88,8 @@ class SynapseLanDiscovery(
                             )
                             updateDevice(device)
 
-                            // Handshake HTTP de retorno para descubrimiento bidireccional garantizado
-                            thread(isDaemon = true, name = "LunaSynapsePingHandshake") {
+                            // Handshake HTTP de retorno en corrutina segura (pool de IO)
+                            scope.launch(Dispatchers.IO) {
                                 runCatching {
                                     val url = java.net.URL("http://${device.ip}:${device.port}/api/v1/synapse/ping?source=${java.net.URLEncoder.encode(localDevice.name, "UTF-8")}&os=${localDevice.os}")
                                     val conn = url.openConnection() as java.net.HttpURLConnection
