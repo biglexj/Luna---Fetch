@@ -60,9 +60,10 @@ class SynapseLanDiscovery(
     private fun startListening() {
         thread(isDaemon = true, name = "LunaSynapseLanDiscoveryListener") {
             try {
-                val socket = DatagramSocket(BEACON_PORT, InetAddress.getByName("0.0.0.0")).apply {
-                    broadcast = true
+                val socket = DatagramSocket(null).apply {
                     reuseAddress = true
+                    broadcast = true
+                    bind(java.net.InetSocketAddress(InetAddress.getByName("0.0.0.0"), BEACON_PORT))
                 }
                 listenerSocket = socket
                 val buffer = ByteArray(2048)

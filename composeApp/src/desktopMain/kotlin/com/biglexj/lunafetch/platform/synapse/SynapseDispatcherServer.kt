@@ -48,7 +48,10 @@ class SynapseDispatcherServer(
 
     fun startListening(): Boolean {
         return runCatching {
-            val ss = ServerSocket(port, 20, InetAddress.getByName("127.0.0.1"))
+            val ss = ServerSocket().apply {
+                reuseAddress = true
+                bind(java.net.InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 20)
+            }
             serverSocket = ss
 
             thread(isDaemon = true, name = "LunaSynapseDispatcherListener") {

@@ -147,35 +147,39 @@ fun main(args: Array<String>) {
         }
 
         // Modern System Tray Menu with Fluent dark theme & turquoise hover accents
-        androidx.compose.runtime.DisposableEffect(Unit) {
-            val trayImage = runCatching {
-                val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("composeResources/lunafetch.composeapp.generated.resources/drawable/luna_fetch_icon.png")
-                    ?: Thread.currentThread().contextClassLoader.getResourceAsStream("drawable/luna_fetch_icon.png")
-                    ?: DesktopPlatformBindings::class.java.getResourceAsStream("/drawable/luna_fetch_icon.png")
-                if (stream != null) {
-                    stream.use { javax.imageio.ImageIO.read(it) }
-                } else null
-            }.getOrNull() ?: java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB).apply {
-                val g = createGraphics()
-                g.color = java.awt.Color(0x06, 0xB6, 0xD4)
-                g.fillOval(2, 2, 12, 12)
-                g.dispose()
+        LaunchedEffect(Unit) {
+            javax.swing.SwingUtilities.invokeLater {
+                val trayImage = runCatching {
+                    val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("composeResources/lunafetch.composeapp.generated.resources/drawable/luna_fetch_icon.png")
+                        ?: Thread.currentThread().contextClassLoader.getResourceAsStream("drawable/luna_fetch_icon.png")
+                        ?: DesktopPlatformBindings::class.java.getResourceAsStream("/drawable/luna_fetch_icon.png")
+                    if (stream != null) {
+                        stream.use { javax.imageio.ImageIO.read(it) }
+                    } else null
+                }.getOrNull() ?: java.awt.image.BufferedImage(16, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB).apply {
+                    val g = createGraphics()
+                    g.color = java.awt.Color(0x06, 0xB6, 0xD4)
+                    g.fillOval(2, 2, 12, 12)
+                    g.dispose()
+                }
+
+                ModernTrayManager.setupTray(
+                    image = trayImage,
+                    tooltip = "Luna Fetch",
+                    onOpenApp = { isVisible = true },
+                    onOpenDownloadsFolder = { bindings.openDestinationFolder(bindings.defaultDestination) },
+                    onQuitApp = {
+                        saveWindowState()
+                        synapseServer.stop()
+                        SingleInstanceLock.release()
+                        ModernTrayManager.removeTray()
+                        exitApplication()
+                    },
+                )
             }
+        }
 
-            ModernTrayManager.setupTray(
-                image = trayImage,
-                tooltip = "Luna Fetch",
-                onOpenApp = { isVisible = true },
-                onOpenDownloadsFolder = { bindings.openDestinationFolder(bindings.defaultDestination) },
-                onQuitApp = {
-                    saveWindowState()
-                    synapseServer.stop()
-                    SingleInstanceLock.release()
-                    ModernTrayManager.removeTray()
-                    exitApplication()
-                },
-            )
-
+        androidx.compose.runtime.DisposableEffect(Unit) {
             onDispose {
                 ModernTrayManager.removeTray()
             }

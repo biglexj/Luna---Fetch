@@ -31,7 +31,10 @@ class SynapseLanServer(
     fun start(): Boolean {
         if (isRunning) return true
         return runCatching {
-            val ss = ServerSocket(port, 25, InetAddress.getByName("0.0.0.0"))
+            val ss = ServerSocket().apply {
+                reuseAddress = true
+                bind(java.net.InetSocketAddress(InetAddress.getByName("0.0.0.0"), port), 25)
+            }
             serverSocket = ss
             isRunning = true
 
