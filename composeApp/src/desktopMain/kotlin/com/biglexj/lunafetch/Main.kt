@@ -214,7 +214,6 @@ fun main(args: Array<String>) {
                     stream?.use { javax.imageio.ImageIO.read(it) }?.let { window.iconImage = it }
                 }
                 java.awt.EventQueue.invokeLater {
-                    window.isVisible = true
                     window.toFront()
                     window.requestFocus()
                     runCatching {
