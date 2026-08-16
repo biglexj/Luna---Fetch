@@ -90,28 +90,7 @@ class LunaFetchPresenter(
         lanDiscovery.start()
         scope.launch {
             lanDiscovery.discoveredDevices.collect { peers ->
-                val prevPeers = state.value.discoveredPeers
                 _state.update { it.copy(discoveredPeers = peers) }
-                // Sincronización automática silenciosa al detectar un nuevo dispositivo en la red
-                val newPeers = peers.filter { p -> prevPeers.none { it.id == p.id } }
-                newPeers.forEach { newPeer ->
-                    scope.launch {
-                        runCatching {
-                            val res = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanClient.syncHistory(
-                                peer = newPeer,
-                                localHistory = state.value.history,
-                                sourceDeviceName = platform.deviceName,
-                            )
-                            res.onSuccess { merged ->
-                                val limited = merged.distinctBy { it.url.ifBlank { it.id } }
-                                    .sortedByDescending { it.timestampMs }
-                                    .take(10)
-                                platform.saveHistory(limited)
-                                _state.update { it.copy(history = limited) }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -428,24 +407,11 @@ class LunaFetchPresenter(
                     url = video.url,
                     originDevice = platform.deviceName,
                 )
+                val filtered = current.history.filter { item -> item.url != newItem.url }
+                val updatedHistory = (listOf(newItem) + filtered).take(10)
+                platform.saveHistory(updatedHistory)
+
                 _state.update {
-                    val filtered = it.history.filter { item -> item.url != newItem.url }
-                    val updatedHistory = (listOf(newItem) + filtered).take(10)
-                    platform.saveHistory(updatedHistory)
-
-                    // Auto-sincronizar con los peers descubiertos en la red
-                    it.discoveredPeers.forEach { peer ->
-                        scope.launch {
-                            runCatching {
-                                com.biglexj.lunafetch.domain.synapse.lan.SynapseLanClient.syncHistory(
-                                    peer = peer,
-                                    localHistory = updatedHistory,
-                                    sourceDeviceName = platform.deviceName,
-                                )
-                            }
-                        }
-                    }
-
                     it.copy(
                         isDownloading = false,
                         progress = DownloadProgress(100.0, phase = DownloadPhase.Completed),
