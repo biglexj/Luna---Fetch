@@ -88,7 +88,7 @@ class LunaFetchPresenter(
     private fun startLanServices() {
         lanServer.start()
         lanDiscovery.start()
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
             lanDiscovery.discoveredDevices.collect { peers ->
                 _state.update { it.copy(discoveredPeers = peers) }
             }
@@ -108,7 +108,7 @@ class LunaFetchPresenter(
     }
 
     fun checkForUpdates(manual: Boolean = false) {
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
             val release = platform.checkUpdate()
             val currentVersion = AppConfig.APP_VERSION
             if (release != null && UpdateChecker.isNewerVersion(currentVersion, release.version)) {
@@ -124,16 +124,14 @@ class LunaFetchPresenter(
                     )
                 }
             } else if (manual) {
-                autoClearUpdateMessageJob?.cancel()
-                val msg = if (release != null) "✅ ¡Estás en la última versión!" else "⚠️ No se pudo comprobar las actualizaciones."
                 _state.update {
                     it.copy(
                         availableUpdate = null,
                         showUpdateModal = false,
-                        updateMessage = msg,
-                        toastMessage = null,
+                        updateMessage = "✅ ¡Estás en la última versión ($currentVersion)!",
                     )
                 }
+                autoClearUpdateMessageJob?.cancel()
                 autoClearUpdateMessageJob = scope.launch {
                     kotlinx.coroutines.delay(4000L)
                     _state.update { it.copy(updateMessage = null) }

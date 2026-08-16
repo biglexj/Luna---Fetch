@@ -59,28 +59,18 @@ fun main(args: Array<String>) {
         val bindings = remember { DesktopPlatformBindings() }
         val presenter = remember(bindings) { LunaFetchPresenter(bindings) }
         val appSettings = remember { AppSettings() }
-        val isDev = SingleInstanceLock.isDevMode()
-        var isVisible by remember { mutableStateOf(if (isDev) true else !isAutostart) }
+        var isVisible by remember { mutableStateOf(!isAutostart) }
 
-        val appIcon = remember {
-            runCatching {
-                val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("composeResources/lunafetch.composeapp.generated.resources/drawable/luna_fetch_icon.png")
-                    ?: Thread.currentThread().contextClassLoader.getResourceAsStream("drawable/luna_fetch_icon.png")
-                    ?: DesktopPlatformBindings::class.java.getResourceAsStream("/drawable/luna_fetch_icon.png")
-                stream?.use { androidx.compose.ui.res.loadImageBitmap(it) }?.let {
-                    androidx.compose.ui.graphics.painter.BitmapPainter(it)
-                }
-            }.getOrNull()
-        }
+        val icon = painterResource(Res.drawable.luna_fetch_icon)
 
         // ── Window State Persistence (desktop_app_standards.md Rule 5) ────────
-        val initialPlacement = if (!isDev && appSettings.windowIsMaximized) WindowPlacement.Maximized else WindowPlacement.Floating
-        val initialPosition = if (!isDev) {
+        val initialPlacement = if (appSettings.windowIsMaximized) WindowPlacement.Maximized else WindowPlacement.Floating
+        val initialPosition = run {
             val px = appSettings.windowPositionX
             val py = appSettings.windowPositionY
             if (px != null && py != null) {
                 val screenSize = java.awt.Toolkit.getDefaultToolkit().screenSize
-                if (px in 0..(screenSize.width - 200) && py in 0..(screenSize.height - 200)) {
+                if (px in 0..(screenSize.width - 100) && py in 0..(screenSize.height - 100)) {
                     WindowPosition(px.dp, py.dp)
                 } else {
                     WindowPosition(androidx.compose.ui.Alignment.Center)
@@ -88,19 +78,13 @@ fun main(args: Array<String>) {
             } else {
                 WindowPosition(androidx.compose.ui.Alignment.Center)
             }
-        } else {
-            WindowPosition(androidx.compose.ui.Alignment.Center)
         }
         val windowState = rememberWindowState(
             placement = initialPlacement,
             position = initialPosition,
-            width = if (isDev) 1040.dp else appSettings.windowWidth.dp,
-            height = if (isDev) 780.dp else appSettings.windowHeight.dp,
+            width = appSettings.windowWidth.dp,
+            height = appSettings.windowHeight.dp,
         )
-
-        LaunchedEffect(Unit) {
-            println("[LunaFetch] Window visible = $isVisible, placement = $initialPlacement, isDev = $isDev")
-        }
 
         fun saveWindowState() {
             if (windowState.placement == WindowPlacement.Maximized) {
@@ -201,30 +185,11 @@ fun main(args: Array<String>) {
                     exitApplication()
                 }
             },
-            title = if (isDev) "Luna Fetch [Dev]" else "Luna Fetch",
-            icon = null,
+            title = "Luna Fetch",
+            icon = icon,
             state = windowState,
             visible = isVisible,
         ) {
-            androidx.compose.runtime.DisposableEffect(window) {
-                runCatching {
-                    val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("composeResources/lunafetch.composeapp.generated.resources/drawable/luna_fetch_icon.png")
-                        ?: Thread.currentThread().contextClassLoader.getResourceAsStream("drawable/luna_fetch_icon.png")
-                        ?: DesktopPlatformBindings::class.java.getResourceAsStream("/drawable/luna_fetch_icon.png")
-                    stream?.use { javax.imageio.ImageIO.read(it) }?.let { window.iconImage = it }
-                }
-                java.awt.EventQueue.invokeLater {
-                    window.toFront()
-                    window.requestFocus()
-                    runCatching {
-                        val hwnd = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Native.getWindowPointer(window))
-                        com.sun.jna.platform.win32.User32.INSTANCE.ShowWindow(hwnd, com.sun.jna.platform.win32.WinUser.SW_RESTORE)
-                        com.sun.jna.platform.win32.User32.INSTANCE.SetForegroundWindow(hwnd)
-                    }
-                }
-                onDispose { }
-            }
-
             LunaFetchApp(
                 platform = bindings,
                 presenter = presenter,
