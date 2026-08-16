@@ -88,8 +88,6 @@ fun AppHeader(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
-                    HistoryButton(presenter, state, platform)
-                    Spacer(Modifier.width(8.dp))
                     SettingsButton(platform, presenter)
                     Spacer(Modifier.width(8.dp))
                     ThemeModeButton(mode, onThemeSelected)
@@ -111,8 +109,6 @@ fun AppHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                HistoryButton(presenter, state, platform)
-                Spacer(Modifier.width(8.dp))
                 SettingsButton(platform, presenter)
                 Spacer(Modifier.width(8.dp))
                 ThemeModeButton(mode, onThemeSelected)
@@ -120,148 +116,6 @@ fun AppHeader(
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HistoryButton(presenter: LunaFetchPresenter, state: LunaFetchState, platform: PlatformBindings) {
-    var showDialog by remember { mutableStateOf(false) }
-    val label = "Historial de descargas"
-
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = { PlainTooltip { Text(label) } },
-        state = rememberTooltipState(),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                .clickable(role = Role.Button, onClickLabel = label, onClick = { showDialog = true }),
-            contentAlignment = Alignment.Center,
-        ) {
-            Canvas(modifier = Modifier.size(20.dp)) {
-                val color = androidx.compose.ui.graphics.Color(0xFF8A8A8A)
-                val sw = 1.8.dp.toPx()
-                val r = size.minDimension / 2f
-                drawCircle(color = color, radius = r, center = center, style = Stroke(sw))
-                drawLine(color = color, start = center, end = Offset(center.x, center.y - r * 0.55f), strokeWidth = sw, cap = StrokeCap.Round)
-                drawLine(color = color, start = center, end = Offset(center.x + r * 0.45f, center.y), strokeWidth = sw, cap = StrokeCap.Round)
-            }
-        }
-    }
-
-    if (showDialog) {
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            presenter.refreshHistory()
-        }
-        HistoryDialog(state = state, presenter = presenter, platform = platform, onDismiss = { showDialog = false })
-    }
-}
-
-@Composable
-private fun HistoryDialog(
-    state: LunaFetchState,
-    presenter: LunaFetchPresenter,
-    platform: PlatformBindings,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 560.dp),
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Historial de descargas",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (state.history.isNotEmpty()) {
-                    TextButton(
-                        onClick = presenter::clearHistory,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    ) {
-                        Text("Limpiar todo", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-        },
-        text = {
-            if (state.history.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        "No hay descargas recientes.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    state.history.forEach { item ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    item.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    item.formatLabel,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            if (item.url.isNotBlank()) {
-                                OutlinedButton(
-                                    onClick = { platform.openUrl(item.url) },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                ) {
-                                    Text("🌐 Web", style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                            if (item.path.isNotBlank()) {
-                                OutlinedButton(
-                                    onClick = { platform.openOutput(item.path) },
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                ) {
-                                    Text("Abrir", style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                            IconButton(
-                                onClick = { presenter.removeFromHistory(item.id) },
-                                modifier = Modifier.size(32.dp),
-                            ) {
-                                Text("🗑️", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cerrar") }
-        },
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

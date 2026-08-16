@@ -61,52 +61,90 @@ class AppSettings {
             if (v != null) prefs.put("windowPositionY", v.toString()) else prefs.remove("windowPositionY")
         }
 
-    /** Whether the native messaging host manifest is installed for Chrome/Edge. */
+    private val isWindows = System.getProperty("os.name")?.lowercase()?.contains("win") == true
+
+    /** Whether the native messaging host manifest is installed for Chrome/Edge/Chromium. */
     val isNativeHostInstalled: Boolean
         get() {
-            val key = "HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.biglexj.lunafetch"
-            return runCatching {
-                val proc = Runtime.getRuntime().exec(arrayOf("reg", "query", key))
-                proc.waitFor() == 0
-            }.getOrDefault(false)
+            if (isWindows) {
+                val key = "HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.biglexj.lunafetch"
+                return runCatching {
+                    val proc = Runtime.getRuntime().exec(arrayOf("reg", "query", key))
+                    proc.waitFor() == 0
+                }.getOrDefault(false)
+            } else {
+                val userHome = System.getProperty("user.home") ?: return false
+                val chromeHost = File(userHome, ".config/google-chrome/NativeMessagingHosts/com.biglexj.lunafetch.json")
+                val chromiumHost = File(userHome, ".config/chromium/NativeMessagingHosts/com.biglexj.lunafetch.json")
+                return chromeHost.exists() || chromiumHost.exists()
+            }
         }
 
     /**
-     * Writes the native messaging host JSON manifest and registers it in the
-     * Windows registry for Chrome and Edge.
+     * Writes the native messaging host JSON manifest and registers it for browsers.
      *
-     * @param exePath  Absolute path to LunaFetch.exe (the host executable).
+     * @param exePath Absolute path to the host executable.
      */
     fun installNativeHost(exePath: String) {
-        val manifestDir = File(System.getenv("APPDATA") ?: System.getProperty("user.home"), "LunaFetch")
-        manifestDir.mkdirs()
-        val manifest = File(manifestDir, "com.biglexj.lunafetch.json")
-        manifest.writeText("""
+        val userHome = System.getProperty("user.home") ?: "."
+        val escapedExePath = if (isWindows) exePath.replace("\\", "\\\\") else exePath
+        val manifestContent = """
             {
               "name": "com.biglexj.lunafetch",
               "description": "Luna Fetch native messaging host",
-              "path": "${ exePath.replace("\\", "\\\\") }",
+              "path": "$escapedExePath",
               "type": "stdio",
               "allowed_origins": [
                 "chrome-extension://",
                 "edge-extension://"
               ]
             }
-        """.trimIndent())
+        """.trimIndent()
 
-        for (browser in listOf("Google\\Chrome", "Microsoft\\Edge")) {
-            val key = "HKCU\\Software\\$browser\\NativeMessagingHosts\\com.biglexj.lunafetch"
-            Runtime.getRuntime().exec(
-                arrayOf("reg", "add", key, "/ve", "/t", "REG_SZ", "/d", manifest.absolutePath, "/f")
+        if (isWindows) {
+            val manifestDir = File(System.getenv("APPDATA") ?: userHome, "LunaFetch")
+            manifestDir.mkdirs()
+            val manifest = File(manifestDir, "com.biglexj.lunafetch.json")
+            manifest.writeText(manifestContent)
+
+            for (browser in listOf("Google\\Chrome", "Microsoft\\Edge")) {
+                val key = "HKCU\\Software\\$browser\\NativeMessagingHosts\\com.biglexj.lunafetch"
+                Runtime.getRuntime().exec(
+                    arrayOf("reg", "add", key, "/ve", "/t", "REG_SZ", "/d", manifest.absolutePath, "/f")
+                )
+            }
+        } else {
+            val targetDirs = listOf(
+                File(userHome, ".config/google-chrome/NativeMessagingHosts"),
+                File(userHome, ".config/chromium/NativeMessagingHosts"),
+                File(userHome, ".config/BraveSoftware/Brave-Browser/NativeMessagingHosts"),
+                File(userHome, ".config/microsoft-edge/NativeMessagingHosts")
             )
+            for (dir in targetDirs) {
+                dir.mkdirs()
+                File(dir, "com.biglexj.lunafetch.json").writeText(manifestContent)
+            }
         }
         prefs.putBoolean("nativeHostInstalled", true)
     }
 
     fun uninstallNativeHost() {
-        for (browser in listOf("Google\\Chrome", "Microsoft\\Edge")) {
-            val key = "HKCU\\Software\\$browser\\NativeMessagingHosts\\com.biglexj.lunafetch"
-            runCatching { Runtime.getRuntime().exec(arrayOf("reg", "delete", key, "/f")) }
+        if (isWindows) {
+            for (browser in listOf("Google\\Chrome", "Microsoft\\Edge")) {
+                val key = "HKCU\\Software\\$browser\\NativeMessagingHosts\\com.biglexj.lunafetch"
+                runCatching { Runtime.getRuntime().exec(arrayOf("reg", "delete", key, "/f")) }
+            }
+        } else {
+            val userHome = System.getProperty("user.home") ?: "."
+            val targetDirs = listOf(
+                File(userHome, ".config/google-chrome/NativeMessagingHosts"),
+                File(userHome, ".config/chromium/NativeMessagingHosts"),
+                File(userHome, ".config/BraveSoftware/Brave-Browser/NativeMessagingHosts"),
+                File(userHome, ".config/microsoft-edge/NativeMessagingHosts")
+            )
+            for (dir in targetDirs) {
+                File(dir, "com.biglexj.lunafetch.json").takeIf { it.exists() }?.delete()
+            }
         }
         prefs.putBoolean("nativeHostInstalled", false)
     }
@@ -115,19 +153,45 @@ class AppSettings {
         runCatching {
             val exePath = ProcessHandle.current().info().command().orElse(null) ?: return
             // Ignore java runner during development
-            if (exePath.endsWith("java.exe", ignoreCase = true) || exePath.endsWith("javaw.exe", ignoreCase = true)) {
+            if (exePath.endsWith("java.exe", ignoreCase = true) || exePath.endsWith("javaw.exe", ignoreCase = true) ||
+                exePath.endsWith("/java", ignoreCase = true)) {
                 return
             }
-            val key = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-            val valueName = "LunaFetch"
-            if (enable) {
-                Runtime.getRuntime().exec(
-                    arrayOf("reg", "add", key, "/v", valueName, "/t", "REG_SZ", "/d", "\"$exePath\" --autostart", "/f")
-                )
+            if (isWindows) {
+                val key = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+                val valueName = "LunaFetch"
+                if (enable) {
+                    Runtime.getRuntime().exec(
+                        arrayOf("reg", "add", key, "/v", valueName, "/t", "REG_SZ", "/d", "\"$exePath\" --autostart", "/f")
+                    )
+                } else {
+                    Runtime.getRuntime().exec(
+                        arrayOf("reg", "delete", key, "/v", valueName, "/f")
+                    )
+                }
             } else {
-                Runtime.getRuntime().exec(
-                    arrayOf("reg", "delete", key, "/v", valueName, "/f")
-                )
+                val userHome = System.getProperty("user.home") ?: return
+                val autostartDir = File(userHome, ".config/autostart")
+                val desktopFile = File(autostartDir, "lunafetch.desktop")
+                if (enable) {
+                    autostartDir.mkdirs()
+                    desktopFile.writeText(
+                        """
+                        [Desktop Entry]
+                        Type=Application
+                        Name=Luna Fetch
+                        Exec="$exePath" --autostart
+                        Icon=lunafetch
+                        Comment=Luna Fetch Media Downloader
+                        Terminal=false
+                        Categories=AudioVideo;Utility;
+                        """.trimIndent()
+                    )
+                } else {
+                    if (desktopFile.exists()) {
+                        desktopFile.delete()
+                    }
+                }
             }
         }
     }

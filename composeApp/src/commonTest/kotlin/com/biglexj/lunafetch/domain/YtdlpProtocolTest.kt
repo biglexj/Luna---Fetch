@@ -63,6 +63,9 @@ class YtdlpProtocolTest {
     @Test
     fun extractsFinalPath() {
         assertEquals("D:/Downloads/video.mp4", YtdlpProtocol.outputPath("LUNAFETCH_FILE|D:/Downloads/video.mp4"))
+        assertEquals("D:\\Videos\\video.mp4", YtdlpProtocol.outputPath("[Merger] Merging formats into \"D:\\Videos\\video.mp4\""))
+        assertEquals("D:\\Videos\\clip.mp4", YtdlpProtocol.outputPath("[download] Destination: D:\\Videos\\clip.mp4"))
+        assertEquals("D:\\Videos\\song.mp3", YtdlpProtocol.outputPath("[download] D:\\Videos\\song.mp3 has already been downloaded"))
     }
 
     @Test

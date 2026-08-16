@@ -3,6 +3,7 @@ package com.biglexj.lunafetch.feature.download
 import com.biglexj.lunafetch.feature.components.LunaCard
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -140,20 +141,54 @@ fun <T> Selector(
             enabled = enabled,
             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
             shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(
+                width = if (expanded) 2.dp else 1.dp,
+                color = if (expanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f),
+            ),
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(selected, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    selected,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surface)
+                .clip(RoundedCornerShape(16.dp)),
         ) {
             options.forEach { option ->
+                val text = optionLabel(option)
+                val isCurrent = text == selected
                 DropdownMenuItem(
-                    text = { Text(optionLabel(option), fontWeight = FontWeight.Medium) },
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (isCurrent) {
+                                Text(
+                                    "✓",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    },
                     onClick = {
                         expanded = false
                         onSelected(option)

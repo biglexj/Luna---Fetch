@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Luna Fetch
+GenericName=Media Downloader
+Comment=Descarga videos y audio en alta calidad
+Exec=AppRun %U
+Icon=lunafetch
+Terminal=false
+Categories=AudioVideo;Utility;Network;
+MimeType=x-scheme-handler/lunafetch;
+StartupWMClass=com-biglexj-lunafetch-MainKt

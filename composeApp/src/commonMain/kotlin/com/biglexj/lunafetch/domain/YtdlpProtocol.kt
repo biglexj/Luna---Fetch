@@ -45,10 +45,36 @@ object YtdlpProtocol {
         return null
     }
 
-    fun outputPath(line: String): String? = line.trim()
-        .takeIf { it.startsWith(OutputPrefix) }
-        ?.removePrefix(OutputPrefix)
-        ?.takeIf { it.isNotBlank() }
+    fun outputPath(line: String): String? {
+        val clean = line.trim()
+        if (clean.startsWith(OutputPrefix)) {
+            return clean.removePrefix(OutputPrefix).takeIf { it.isNotBlank() }
+        }
+        val mergerMatch = Regex("""\[Merger\]\s+Merging formats into ["']?([^"']+)["']?""", RegexOption.IGNORE_CASE).find(clean)
+        if (mergerMatch != null) {
+            return mergerMatch.groupValues[1].trim()
+        }
+        val destMatch = Regex("""\[download\]\s+Destination:\s+([^\r\n]+)""", RegexOption.IGNORE_CASE).find(clean)
+        if (destMatch != null) {
+            val path = destMatch.groupValues[1].trim().removeSurrounding("\"").removeSurrounding("'")
+            if (!path.endsWith(".part", true) && !path.contains(".f1") && !path.contains(".f2") && !path.contains(".f3")) {
+                return path
+            }
+        }
+        val alreadyMatch = Regex("""\[download\]\s+(.+?)\s+has already been downloaded""", RegexOption.IGNORE_CASE).find(clean)
+        if (alreadyMatch != null) {
+            return alreadyMatch.groupValues[1].trim().removeSurrounding("\"").removeSurrounding("'")
+        }
+        val extractMatch = Regex("""\[ExtractAudio\]\s+Destination:\s+([^\r\n]+)""", RegexOption.IGNORE_CASE).find(clean)
+        if (extractMatch != null) {
+            return extractMatch.groupValues[1].trim().removeSurrounding("\"").removeSurrounding("'")
+        }
+        val fixupMatch = Regex("""\[Fixup[a-zA-Z0-9]+\]\s+Fixing[a-zA-Z0-9\s]*in ["']?([^"']+)["']?""", RegexOption.IGNORE_CASE).find(clean)
+        if (fixupMatch != null) {
+            return fixupMatch.groupValues[1].trim()
+        }
+        return null
+    }
 
     fun buildAnalyzeArguments(url: String): List<String> = listOf(
         "--ignore-config",
@@ -69,6 +95,8 @@ object YtdlpProtocol {
                 "download:${ProgressPrefix}%(progress._percent_str)s|%(progress._total_bytes_str)s|%(progress._speed_str)s|%(progress._eta_str)s",
                 "--print",
                 "after_move:${OutputPrefix}%(filepath)s",
+                "--print",
+                "filename:${OutputPrefix}%(filename)s",
                 "-f",
                 request.quality.formatSelector,
             ),

@@ -1,5 +1,6 @@
 package com.biglexj.lunafetch
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,8 +22,11 @@ import org.jetbrains.compose.resources.painterResource
 
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
+import com.biglexj.lunafetch.domain.synapse.SynapseAction
+import com.biglexj.lunafetch.domain.synapse.SynapseUriParser
 import com.biglexj.lunafetch.platform.AppSettings
 import com.biglexj.lunafetch.platform.SingleInstanceLock
+import com.biglexj.lunafetch.platform.synapse.SynapseDispatcherServer
 
 fun main(args: Array<String>) {
     // ── Native Messaging Host mode (launched by the browser) ────────────────
@@ -31,16 +35,25 @@ fun main(args: Array<String>) {
         return
     }
 
-    // ── Single Instance Lock Guarantee (desktop_app_standards.md) ───────────
-    if (!SingleInstanceLock.acquireOrBringToFront()) {
+    // ── Single Instance Lock & Aurora Synapse Dispatch Guarantee ────────────
+    if (!SingleInstanceLock.acquireOrTransfer(args)) {
         kotlin.system.exitProcess(0)
     }
 
-    // ── Normal GUI mode ─────────────────────────────────────────────────────
-    val initialUrl = args.firstOrNull { it.startsWith("--download-url=") }
-        ?.removePrefix("--download-url=")
-
+    // ── Normal GUI mode / First Instance ────────────────────────────────────
+    val directUri = args.firstOrNull { it.startsWith("luna://", true) || it.startsWith("aurora-synapse://", true) }
+    val initialUrl = args.firstOrNull { it.startsWith("--download-url=") }?.removePrefix("--download-url=")
     val isAutostart = args.contains("--autostart")
+
+    val initialSynapseAction = when {
+        directUri != null -> SynapseUriParser.parse(directUri)
+        args.contains("--synapse-action") -> {
+            val idx = args.indexOf("--synapse-action")
+            if (idx != -1 && idx + 1 < args.size) SynapseUriParser.parse(args[idx + 1]) else null
+        }
+        initialUrl != null -> SynapseAction.EnqueueDownload(url = initialUrl)
+        else -> null
+    }
 
     application {
         val bindings = remember { DesktopPlatformBindings() }
@@ -88,10 +101,32 @@ fun main(args: Array<String>) {
             }
         }
 
-        // Listen for focus requests from duplicate launches to unminimize/bring app window to front
+        // ── Aurora Synapse Dispatcher Server (127.0.0.1:49282) ───────────────
+        val synapseServer = remember {
+            SynapseDispatcherServer(
+                port = SynapseDispatcherServer.SYNAPSE_PORT,
+                onActionReceived = { action ->
+                    presenter.handleSynapseAction(action)
+                },
+                onBringToFront = {
+                    isVisible = true
+                },
+            ).also { it.startListening() }
+        }
+
+        // Listen for legacy lock requests (127.0.0.1:51235)
         remember {
-            SingleInstanceLock.listenForFocusRequests {
+            SingleInstanceLock.listenForLegacyRequests { payload ->
+                val action = SynapseUriParser.parse(payload) ?: SynapseAction.Focus
                 isVisible = true
+                presenter.handleSynapseAction(action)
+            }
+        }
+
+        // Process initial action if launched with URI or Synapse argument
+        LaunchedEffect(initialSynapseAction) {
+            initialSynapseAction?.let { action ->
+                presenter.handleSynapseAction(action)
             }
         }
 
@@ -125,6 +160,7 @@ fun main(args: Array<String>) {
                 onOpenDownloadsFolder = { bindings.openOutput(bindings.defaultDestination) },
                 onQuitApp = {
                     saveWindowState()
+                    synapseServer.stop()
                     SingleInstanceLock.release()
                     exitApplication()
                 },
@@ -135,6 +171,7 @@ fun main(args: Array<String>) {
             onCloseRequest = {
                 saveWindowState()
                 if (bindings.isMinimizeToTrayEnabled == true) isVisible = false else {
+                    synapseServer.stop()
                     SingleInstanceLock.release()
                     exitApplication()
                 }

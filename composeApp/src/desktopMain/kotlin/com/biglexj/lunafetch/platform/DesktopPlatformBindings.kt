@@ -45,14 +45,35 @@ class DesktopPlatformBindings : PlatformBindings {
     override fun openOutput(path: String) {
         val target = File(path)
         val openTarget = if (target.exists()) target else target.parentFile
-        if (openTarget != null && openTarget.exists() && Desktop.isDesktopSupported()) {
-            Desktop.getDesktop().open(openTarget)
+        if (openTarget != null && openTarget.exists()) {
+            val opened = runCatching {
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                    Desktop.getDesktop().open(openTarget)
+                    true
+                } else false
+            }.getOrDefault(false)
+
+            if (!opened) {
+                runCatching { ProcessBuilder("xdg-open", openTarget.absolutePath).start() }
+            }
         }
     }
 
+    override fun openInPrisma(filePath: String): Boolean {
+        return com.biglexj.lunafetch.platform.synapse.SynapseOutboundClient.openMediaInPrisma(filePath)
+    }
+
     override fun openUrl(url: String) {
-        if (url.isNotBlank() && Desktop.isDesktopSupported()) {
-            runCatching { Desktop.getDesktop().browse(java.net.URI(url)) }
+        if (url.isBlank()) return
+        val opened = runCatching {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                Desktop.getDesktop().browse(java.net.URI(url))
+                true
+            } else false
+        }.getOrDefault(false)
+
+        if (!opened) {
+            runCatching { ProcessBuilder("xdg-open", url).start() }
         }
     }
 

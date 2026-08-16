@@ -2,6 +2,7 @@ package com.biglexj.lunafetch.feature.download
 
 import com.biglexj.lunafetch.feature.components.LunaCard
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,7 +55,10 @@ fun DownloadStatusCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
             }
         } else if (progress.phase == DownloadPhase.Completed && state.completedOutput != null) {
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = presenter::openCompletedOutput) { Text("Abrir resultado") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = presenter::playCompletedInPrisma) { Text("▶ Reproducir en Prisma") }
+                TextButton(onClick = presenter::openCompletedOutput) { Text("Abrir resultado") }
+            }
         }
     }
 }

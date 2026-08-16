@@ -184,10 +184,19 @@ compose.desktop {
             }
 
             linux {
+                iconFile.set(rootProject.file("icon/300x300.png"))
                 shortcut = true
                 menuGroup = "Utility"
                 appCategory = "AudioVideo"
+                debPackageVersion = appVersion
+                rpmPackageVersion = appVersion
             }
         }
+    }
+}
+
+tasks.withType<JavaExec> {
+    if (name == "run") {
+        systemProperty("lunafetch.dev", "true")
     }
 }

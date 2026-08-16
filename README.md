@@ -47,11 +47,17 @@ Generar APK de depuración:
 
 ## Distribución
 
+### Windows y Android
 ```powershell
-.\build-release.ps1 -LocalOnly -SkipSigning
+.\scripts\build\build-release.ps1 -LocalOnly -SkipSigning
 ```
 
-El build local genera EXE, MSI, tres APK de depuración por arquitectura y `SHA256SUMS.txt` dentro de `release/`. Una publicación oficial requiere el certificado de Windows y la firma Android descrita en [Docs/packaging.md](Docs/packaging.md); publica EXE, MSI y APK para ARM64, ARM32 y x86_64. MSIX y Microsoft Store están fuera de la distribución del proyecto.
+### Linux (Arch Linux, AppImage, DEB)
+```bash
+./scripts/build/build-linux.sh
+```
+
+El build local de Windows genera EXE, MSI, tres APK de depuración por arquitectura y `SHA256SUMS.txt` dentro de `release/`. En Linux genera paquetes `.pkg.tar.zst` (Arch), `.AppImage` y `.deb`. Una publicación oficial requiere el certificado de Windows y la firma Android descrita en [docs/packaging.md](docs/packaging.md); publica EXE, MSI y APK para ARM64, ARM32 y x86_64. MSIX y Microsoft Store están fuera de la distribución del proyecto.
 
 ## Licencias
 

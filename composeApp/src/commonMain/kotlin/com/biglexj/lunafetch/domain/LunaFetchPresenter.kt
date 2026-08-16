@@ -396,6 +396,44 @@ class LunaFetchPresenter(
 
     fun openCompletedOutput() = state.value.completedOutput?.let(platform::openOutput)
 
+    fun playInPrisma(filePath: String) {
+        if (filePath.isBlank()) return
+        val success = platform.openInPrisma(filePath)
+        if (!success) {
+            platform.openOutput(filePath)
+        }
+    }
+
+    fun playCompletedInPrisma() {
+        state.value.completedOutput?.let(::playInPrisma)
+    }
+
+    fun handleSynapseAction(action: com.biglexj.lunafetch.domain.synapse.SynapseAction) {
+        when (action) {
+            is com.biglexj.lunafetch.domain.synapse.SynapseAction.EnqueueDownload -> {
+                if (action.silent) {
+                    showToast("📥 Descargando desde Aurora Synapse...")
+                }
+                val format = if (action.mediaType.equals("audio", ignoreCase = true)) MediaFormat.Mp3 else MediaFormat.Mp4
+                startDirectDownload(action.url, format.extension, action.quality)
+            }
+            is com.biglexj.lunafetch.domain.synapse.SynapseAction.AnalyzeUrl -> {
+                setUrl(action.url)
+                analyze()
+                showToast("🔍 Analizando enlace con Synapse...")
+            }
+            is com.biglexj.lunafetch.domain.synapse.SynapseAction.OpenFolder -> {
+                platform.openOutput(action.path ?: state.value.destination)
+            }
+            is com.biglexj.lunafetch.domain.synapse.SynapseAction.PlayInPrisma -> {
+                playInPrisma(action.filePath)
+            }
+            is com.biglexj.lunafetch.domain.synapse.SynapseAction.Focus -> {
+                // Gestionado en la capa de ventana
+            }
+        }
+    }
+
     private fun appendLog(line: String) {
         if (line.isBlank()) return
         _state.update { current -> current.copy(logs = (current.logs + line).takeLast(400)) }

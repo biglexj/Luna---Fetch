@@ -77,8 +77,14 @@ fun HistoryCard(
                 }
                 if (item.path.isNotBlank()) {
                     OutlinedButton(
+                        onClick = { presenter.playInPrisma(item.path) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text("▶ Reproducir", style = MaterialTheme.typography.labelMedium)
+                    }
+                    OutlinedButton(
                         onClick = { platform.openOutput(item.path) },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                     ) {
                         Text("Abrir", style = MaterialTheme.typography.labelMedium)
                     }

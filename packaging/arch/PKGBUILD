@@ -1,0 +1,71 @@
+# Maintainer: biglexj <https://github.com/biglexj>
+pkgname=lunafetch-bin
+pkgver=1.1.7
+pkgrel=1
+pkgdesc="Descarga videos y audio en alta calidad desde una interfaz moderna multiplataforma"
+arch=('x86_64')
+url="https://github.com/biglexj/Luna---Fetch"
+license=('MIT')
+depends=('yt-dlp' 'ffmpeg' 'glibc' 'gcc-libs' 'gtk3' 'libxtst')
+optdepends=(
+    'google-chrome: soporte de descarga silenciosa con extensión'
+    'chromium: soporte de descarga silenciosa con extensión'
+    'brave-bin: soporte de descarga silenciosa con extensión'
+)
+provides=('lunafetch')
+conflicts=('lunafetch')
+options=('!strip')
+
+package() {
+    # Ubicación del distributable generado por Gradle createDistributable
+    local dist_dir="${srcdir}/../../composeApp/build/compose/binaries/main/app"
+    if [ ! -d "${dist_dir}" ]; then
+        dist_dir="${srcdir}/../../composeApp/build/compose/binaries/main-release/app"
+    fi
+    if [ ! -d "${dist_dir}" ]; then
+        echo "Error: No se encontró el directorio de distribución de Compose Desktop." >&2
+        echo "Ejecuta primero: ./gradlew :composeApp:createDistributable" >&2
+        return 1
+    fi
+
+    # 1. Copiar bundle completo a /opt/lunafetch
+    install -dm755 "${pkgdir}/opt/lunafetch"
+    cp -r "${dist_dir}/"* "${pkgdir}/opt/lunafetch/"
+    chmod +x "${pkgdir}/opt/lunafetch/bin/LunaFetch" 2>/dev/null || true
+
+    # 2. Crear symlink en /usr/bin
+    install -dm755 "${pkgdir}/usr/bin"
+    ln -sf "/opt/lunafetch/bin/LunaFetch" "${pkgdir}/usr/bin/lunafetch"
+
+    # 3. Instalar icono
+    install -dm755 "${pkgdir}/usr/share/icons/hicolor/300x300/apps"
+    install -dm755 "${pkgdir}/usr/share/pixmaps"
+    local icon_source="${srcdir}/../../icon/300x300.png"
+    if [ -f "${icon_source}" ]; then
+        install -Dm644 "${icon_source}" "${pkgdir}/usr/share/icons/hicolor/300x300/apps/lunafetch.png"
+        install -Dm644 "${icon_source}" "${pkgdir}/usr/share/pixmaps/lunafetch.png"
+    fi
+
+    # 4. Instalar acceso de escritorio (.desktop)
+    install -dm755 "${pkgdir}/usr/share/applications"
+    cat <<EOF > "${pkgdir}/usr/share/applications/lunafetch.desktop"
+[Desktop Entry]
+Type=Application
+Name=Luna Fetch
+GenericName=Media Downloader
+Comment=Descarga videos y audio en alta calidad con soporte yt-dlp y extensión web
+Exec=/opt/lunafetch/bin/LunaFetch %U
+Icon=lunafetch
+Terminal=false
+Categories=AudioVideo;Utility;Network;
+MimeType=x-scheme-handler/lunafetch;
+StartupWMClass=com-biglexj-lunafetch-MainKt
+EOF
+    chmod 644 "${pkgdir}/usr/share/applications/lunafetch.desktop"
+
+    # 5. Instalar Licencia
+    local license_source="${srcdir}/../../LICENSE"
+    if [ -f "${license_source}" ]; then
+        install -Dm644 "${license_source}" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    fi
+}
