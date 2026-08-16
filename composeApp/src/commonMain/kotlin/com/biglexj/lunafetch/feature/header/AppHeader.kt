@@ -15,35 +15,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PlainTooltip
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,8 +43,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.biglexj.lunafetch.core.theme.ThemeMode
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
@@ -76,7 +60,7 @@ fun AppHeader(
     state: LunaFetchState,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        if (maxWidth < 520.dp) {
+        if (maxWidth < 560.dp) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -90,10 +74,12 @@ fun AppHeader(
                     )
                     if (state.discoveredPeers.isNotEmpty()) {
                         LanMeshBadge(state, presenter)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
                     }
-                    SettingsButton(platform, presenter, state)
-                    Spacer(Modifier.width(8.dp))
+                    AboutUpdatesButton(platform, presenter)
+                    Spacer(Modifier.width(6.dp))
+                    SettingsButton(platform, presenter)
+                    Spacer(Modifier.width(6.dp))
                     ThemeModeButton(mode, onThemeSelected)
                 }
                 Text(
@@ -117,7 +103,9 @@ fun AppHeader(
                     LanMeshBadge(state, presenter)
                     Spacer(Modifier.width(10.dp))
                 }
-                SettingsButton(platform, presenter, state)
+                AboutUpdatesButton(platform, presenter)
+                Spacer(Modifier.width(8.dp))
+                SettingsButton(platform, presenter)
                 Spacer(Modifier.width(8.dp))
                 ThemeModeButton(mode, onThemeSelected)
             }
@@ -168,13 +156,52 @@ private fun LanMeshBadge(state: LunaFetchState, presenter: LunaFetchPresenter) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsButton(
-    platform: PlatformBindings,
-    presenter: LunaFetchPresenter,
-    state: LunaFetchState,
-) {
+private fun AboutUpdatesButton(platform: PlatformBindings, presenter: LunaFetchPresenter) {
     var showDialog by remember { mutableStateOf(false) }
-    val label = "Ajustes"
+    val label = "Acerca de & Actualizaciones"
+
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                .clickable(role = Role.Button, onClickLabel = label, onClick = { showDialog = true }),
+            contentAlignment = Alignment.Center,
+        ) {
+            Canvas(modifier = Modifier.size(20.dp)) {
+                val color = androidx.compose.ui.graphics.Color(0xFF8A8A8A)
+                val sw = 1.8.dp.toPx()
+                // Círculo exterior
+                drawCircle(color = color, style = Stroke(sw))
+                // Punto de la 'i'
+                drawCircle(color = color, radius = 1.3.dp.toPx(), center = Offset(center.x, center.y - 4.2.dp.toPx()))
+                // Cuerpo de la 'i'
+                drawLine(
+                    color = color,
+                    start = Offset(center.x, center.y - 1.2.dp.toPx()),
+                    end = Offset(center.x, center.y + 4.8.dp.toPx()),
+                    strokeWidth = sw,
+                    cap = StrokeCap.Round,
+                )
+            }
+        }
+    }
+
+    if (showDialog) {
+        AboutUpdatesDialog(platform, presenter, onDismiss = { showDialog = false })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsButton(platform: PlatformBindings, presenter: LunaFetchPresenter) {
+    var showDialog by remember { mutableStateOf(false) }
+    val label = "Configuración"
 
     TooltipBox(
         positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
@@ -232,315 +259,6 @@ private fun SettingsButton(
     }
 }
 
-@Composable
-private fun SettingsDialog(
-    platform: PlatformBindings,
-    presenter: LunaFetchPresenter,
-    onDismiss: () -> Unit,
-) {
-    val state by presenter.state.collectAsState()
-    var autoStart       by remember { mutableStateOf(platform.isAutoStartEnabled ?: false) }
-    var minimizeToTray  by remember { mutableStateOf(platform.isMinimizeToTrayEnabled ?: false) }
-    var nativeInstalled by remember { mutableStateOf(platform.isNativeHostInstalled ?: false) }
-
-    var componentStatus by remember { mutableStateOf("") }
-    var componentMessage by remember { mutableStateOf<String?>(null) }
-    var isUpdatingComponents by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
-    val handleDismiss = {
-        presenter.clearUpdateMessage()
-        onDismiss()
-    }
-
-    LaunchedEffect(Unit) {
-        componentStatus = platform.getEngineComponentStatus()
-        presenter.clearUpdateMessage()
-    }
-
-    LaunchedEffect(state.showUpdateModal, state.availableUpdate) {
-        if (state.showUpdateModal && state.availableUpdate != null) {
-            handleDismiss()
-        }
-    }
-
-    BoxWithConstraints {
-        val isMobile = maxWidth < 520.dp
-        val dialogModifier = if (isMobile) {
-            Modifier.widthIn(max = 440.dp).fillMaxWidth(0.80f)
-        } else {
-            Modifier.widthIn(max = 500.dp).fillMaxWidth(0.92f)
-        }
-        val mainSpacing = if (isMobile) 12.dp else 8.dp
-        val dividerPadding = if (isMobile) 4.dp else 2.dp
-
-        AlertDialog(
-            onDismissRequest = handleDismiss,
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-            modifier = dialogModifier,
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("Ajustes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(
-                        "v${com.biglexj.lunafetch.domain.AppConfig.APP_VERSION}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(mainSpacing),
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                ) {
-                    if (platform.isAutoStartEnabled != null) {
-                        SettingsRow(
-                            title = "Iniciar con Windows",
-                            subtitle = "Abre Luna Fetch automáticamente al encender el equipo.",
-                            checked = autoStart,
-                            onCheckedChange = { autoStart = it; platform.setAutoStart(it) },
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-                    }
-                    if (platform.isMinimizeToTrayEnabled != null) {
-                        SettingsRow(
-                            title = "Minimizar en lugar de cerrar",
-                            subtitle = "Al pulsar ✕, la app se oculta en la bandeja del sistema.",
-                            checked = minimizeToTray,
-                            onCheckedChange = { minimizeToTray = it; platform.setMinimizeToTray(it) },
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-                    }
-                    if (platform.isNativeHostInstalled != null) {
-                        SettingsRow(
-                            title = "Extensión de navegador",
-                            subtitle = if (nativeInstalled)
-                                "Host registrado en Windows. Abre la página para agregar la extensión a Chrome/Edge."
-                            else
-                                "Registra el host para que Chrome/Edge puedan comunicarse con Luna Fetch.",
-                            checked = nativeInstalled,
-                            onCheckedChange = {
-                                nativeInstalled = it
-                                if (it) {
-                                    platform.installNativeHost()
-                                    platform.openUrl("https://github.com/biglexj/Luna---Fetch/tree/main/browser-extension#readme")
-                                } else {
-                                    platform.uninstallNativeHost()
-                                }
-                            },
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-                    }
-
-                    // Controladores del motor (versiones/actualizaciones de binarios)
-                    Column(verticalArrangement = Arrangement.spacedBy(if (isMobile) 6.dp else 4.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text(
-                                    "Controladores del motor",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    if (componentStatus.isNotBlank()) "Estado: $componentStatus" else "Componentes de extracción y conversión.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    isUpdatingComponents = true
-                                    componentMessage = null
-                                    scope.launch {
-                                        val res = platform.updateEngineComponents()
-                                        componentMessage = res.getOrDefault("Componentes al día")
-                                        componentStatus = platform.getEngineComponentStatus()
-                                        isUpdatingComponents = false
-                                    }
-                                },
-                                enabled = !isUpdatingComponents,
-                                shape = RoundedCornerShape(50),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                                modifier = Modifier.height(34.dp),
-                            ) {
-                                if (isUpdatingComponents) {
-                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Text("🔄 Actualizar", style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                        }
-                        if (componentMessage != null) {
-                            Text(
-                                componentMessage!!,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-
-                    // Sección Red Local (Aurora Synapse LAN)
-                    Column(verticalArrangement = Arrangement.spacedBy(if (isMobile) 6.dp else 4.dp)) {
-                        Text(
-                            "Red Local (Aurora Synapse LAN)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            "Dispositivo actual: ${platform.deviceName} (${platform.deviceOs})",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (state.discoveredPeers.isEmpty()) {
-                            Text(
-                                "Buscando otros dispositivos Luna en tu red Wi-Fi…",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            )
-                        } else {
-                            state.discoveredPeers.forEach { peer ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("${peer.icon} ${peer.name}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                        Text("IP: ${peer.ip} • Puerto: ${peer.port}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    OutlinedButton(
-                                        onClick = { presenter.syncHistoryWithPeer(peer) },
-                                        shape = RoundedCornerShape(50),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
-                                    ) {
-                                        Text("🔄 Sincronizar", style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-
-                    // Sección "Acerca de Luna Fetch" unificada
-                    Column(verticalArrangement = Arrangement.spacedBy(if (isMobile) 8.dp else 6.dp)) {
-                        Text(
-                            "Acerca de Luna Fetch",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            "Una herramienta moderna y gratuita para descargar videos, audio y contenido multimedia de YouTube, TikTok sin marca de agua, Instagram y más.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Button(
-                            onClick = { platform.openUrl("https://www.biglexj.com/donaciones") },
-                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 42.dp else 38.dp),
-                            shape = RoundedCornerShape(50),
-                            contentPadding = PaddingValues(vertical = 2.dp),
-                        ) {
-                            Text("Donar (Yape / Plin / Web) 🤍", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            OutlinedButton(
-                                onClick = { platform.openUrl("https://buymeacoffee.com/biglexj") },
-                                modifier = Modifier.weight(1f).height(if (isMobile) 38.dp else 36.dp),
-                                shape = RoundedCornerShape(50),
-                                contentPadding = PaddingValues(vertical = 2.dp),
-                            ) {
-                                Text("☕ Buy Me a Coffee", style = MaterialTheme.typography.labelSmall)
-                            }
-                            OutlinedButton(
-                                onClick = { platform.openUrl("https://github.com/biglexj") },
-                                modifier = Modifier.weight(1f).height(if (isMobile) 38.dp else 36.dp),
-                                shape = RoundedCornerShape(50),
-                                contentPadding = PaddingValues(vertical = 2.dp),
-                            ) {
-                                Text("⭐ GitHub", style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        OutlinedButton(
-                            onClick = { presenter.checkForUpdates(manual = true) },
-                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 38.dp else 36.dp),
-                            shape = RoundedCornerShape(50),
-                            contentPadding = PaddingValues(vertical = 2.dp),
-                        ) {
-                            Text("🔄 Buscar actualizaciones de la app", style = MaterialTheme.typography.labelMedium)
-                        }
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = state.updateMessage != null,
-                            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
-                            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(),
-                        ) {
-                            if (state.updateMessage != null) {
-                                Text(
-                                    state.updateMessage!!,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                                    textAlign = TextAlign.Center,
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = handleDismiss,
-                    modifier = Modifier.padding(top = if (isMobile) 4.dp else 0.dp, bottom = 0.dp),
-                ) {
-                    Text("Cerrar", fontWeight = FontWeight.Bold)
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun SettingsRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-            )
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.5f),
-            )
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemeModeButton(currentMode: ThemeMode, onModeSelected: (ThemeMode) -> Unit) {
@@ -588,89 +306,89 @@ private fun ThemeModeButton(currentMode: ThemeMode, onModeSelected: (ThemeMode) 
 }
 
 @Composable
-private fun ThemeModeGlyph(mode: ThemeMode, modifier: Modifier = Modifier) {
-    val color = MaterialTheme.colorScheme.onSurfaceVariant
-    Canvas(modifier) {
-        val strokeWidth = 1.9.dp.toPx()
+private fun ThemeModeGlyph(
+    mode: ThemeMode,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val color = androidx.compose.ui.graphics.Color(0xFF8A8A8A)
+        val strokeWidth = 1.8.dp.toPx()
         when (mode) {
             ThemeMode.System -> {
+                val monitorWidth = size.width * 0.9f
+                val monitorHeight = size.height * 0.62f
+                val monitorLeft = (size.width - monitorWidth) / 2f
+                val monitorTop = size.height * 0.12f
+
                 drawRoundRect(
                     color = color,
-                    topLeft = Offset(size.width * 0.1f, size.height * 0.16f),
-                    size = Size(size.width * 0.8f, size.height * 0.58f),
-                    cornerRadius = CornerRadius(2.dp.toPx()),
-                    style = Stroke(strokeWidth, cap = StrokeCap.Round),
+                    topLeft = Offset(monitorLeft, monitorTop),
+                    size = Size(monitorWidth, monitorHeight),
+                    cornerRadius = CornerRadius(2.5.dp.toPx(), 2.5.dp.toPx()),
+                    style = Stroke(width = strokeWidth),
                 )
                 drawLine(
-                    color,
-                    Offset(size.width * 0.5f, size.height * 0.74f),
-                    Offset(size.width * 0.5f, size.height * 0.88f),
-                    strokeWidth,
-                    StrokeCap.Round,
+                    color = color,
+                    start = Offset(size.width / 2f, monitorTop + monitorHeight),
+                    end = Offset(size.width / 2f, monitorTop + monitorHeight + size.height * 0.16f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
                 )
                 drawLine(
-                    color,
-                    Offset(size.width * 0.3f, size.height * 0.88f),
-                    Offset(size.width * 0.7f, size.height * 0.88f),
-                    strokeWidth,
-                    StrokeCap.Round,
+                    color = color,
+                    start = Offset(size.width * 0.32f, size.height * 0.9f),
+                    end = Offset(size.width * 0.68f, size.height * 0.9f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
                 )
             }
-
             ThemeMode.Light -> {
-                drawCircle(color, radius = size.minDimension * 0.19f, style = Stroke(strokeWidth))
-                repeat(8) { index ->
-                    val angle = Math.toRadians(index * 45.0)
-                    val direction = Offset(cos(angle).toFloat(), sin(angle).toFloat())
-                    val center = this.center
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val radius = size.minDimension * 0.22f
+                drawCircle(color = color, radius = radius, center = center, style = Stroke(width = strokeWidth))
+
+                val rayLength = size.minDimension * 0.14f
+                val rayStart = radius + 2.5.dp.toPx()
+                for (i in 0 until 8) {
+                    val angle = (i * Math.PI / 4).toFloat()
+                    val startX = center.x + rayStart * cos(angle)
+                    val startY = center.y + rayStart * sin(angle)
+                    val endX = center.x + (rayStart + rayLength) * cos(angle)
+                    val endY = center.y + (rayStart + rayLength) * sin(angle)
                     drawLine(
-                        color,
-                        center + direction * (size.minDimension * 0.31f),
-                        center + direction * (size.minDimension * 0.43f),
-                        strokeWidth,
-                        StrokeCap.Round,
+                        color = color,
+                        start = Offset(startX, startY),
+                        end = Offset(endX, endY),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round,
                     )
                 }
             }
-
             ThemeMode.Dark -> {
-                val moon = Path().apply {
-                    moveTo(size.width * 0.68f, size.height * 0.08f)
-                    cubicTo(
-                        size.width * 0.34f,
-                        size.height * 0.18f,
-                        size.width * 0.22f,
-                        size.height * 0.62f,
-                        size.width * 0.48f,
-                        size.height * 0.86f,
+                val center = Offset(size.width * 0.48f, size.height * 0.5f)
+                val radius = size.minDimension * 0.36f
+                val moonPath = Path().apply {
+                    arcTo(
+                        rect = androidx.compose.ui.geometry.Rect(
+                            center.x - radius, center.y - radius,
+                            center.x + radius, center.y + radius,
+                        ),
+                        startAngleDegrees = -90f,
+                        sweepAngleDegrees = 270f,
+                        forceMoveTo = true,
                     )
-                    cubicTo(
-                        size.width * 0.66f,
-                        size.height * 1.02f,
-                        size.width * 0.92f,
-                        size.height * 0.88f,
-                        size.width * 0.96f,
-                        size.height * 0.68f,
-                    )
-                    cubicTo(
-                        size.width * 0.66f,
-                        size.height * 0.82f,
-                        size.width * 0.4f,
-                        size.height * 0.56f,
-                        size.width * 0.52f,
-                        size.height * 0.3f,
-                    )
-                    cubicTo(
-                        size.width * 0.56f,
-                        size.height * 0.2f,
-                        size.width * 0.62f,
-                        size.height * 0.13f,
-                        size.width * 0.68f,
-                        size.height * 0.08f,
+                    arcTo(
+                        rect = androidx.compose.ui.geometry.Rect(
+                            center.x - radius * 0.55f, center.y - radius,
+                            center.x + radius * 0.85f, center.y + radius,
+                        ),
+                        startAngleDegrees = 180f,
+                        sweepAngleDegrees = -180f,
+                        forceMoveTo = false,
                     )
                     close()
                 }
-                drawPath(moon, color)
+                drawPath(moonPath, color = color, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
             }
         }
     }
