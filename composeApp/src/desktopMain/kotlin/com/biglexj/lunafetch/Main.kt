@@ -62,7 +62,16 @@ fun main(args: Array<String>) {
         val isDev = SingleInstanceLock.isDevMode()
         var isVisible by remember { mutableStateOf(if (isDev) true else !isAutostart) }
 
-        val icon = painterResource(Res.drawable.luna_fetch_icon)
+        val appIcon = remember {
+            runCatching {
+                val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("composeResources/lunafetch.composeapp.generated.resources/drawable/luna_fetch_icon.png")
+                    ?: Thread.currentThread().contextClassLoader.getResourceAsStream("drawable/luna_fetch_icon.png")
+                    ?: DesktopPlatformBindings::class.java.getResourceAsStream("/drawable/luna_fetch_icon.png")
+                stream?.use { androidx.compose.ui.res.loadImageBitmap(it) }?.let {
+                    androidx.compose.ui.graphics.painter.BitmapPainter(it)
+                }
+            }.getOrNull()
+        }
 
         // ── Window State Persistence (desktop_app_standards.md Rule 5) ────────
         val initialPlacement = if (appSettings.windowIsMaximized) WindowPlacement.Maximized else WindowPlacement.Floating
@@ -190,11 +199,32 @@ fun main(args: Array<String>) {
                     exitApplication()
                 }
             },
-            title = "Luna Fetch",
-            icon = icon,
+            title = if (isDev) "Luna Fetch [Dev]" else "Luna Fetch",
+            icon = appIcon,
             state = windowState,
             visible = isVisible,
         ) {
+            androidx.compose.runtime.DisposableEffect(window) {
+                runCatching {
+                    val stream = Thread.currentThread().contextClassLoader.getResourceAsStream("composeResources/lunafetch.composeapp.generated.resources/drawable/luna_fetch_icon.png")
+                        ?: Thread.currentThread().contextClassLoader.getResourceAsStream("drawable/luna_fetch_icon.png")
+                        ?: DesktopPlatformBindings::class.java.getResourceAsStream("/drawable/luna_fetch_icon.png")
+                    stream?.use { javax.imageio.ImageIO.read(it) }?.let { window.iconImage = it }
+                }
+                if (isDev) {
+                    java.awt.EventQueue.invokeLater {
+                        window.isMinimized = false
+                        window.toFront()
+                        window.requestFocus()
+                        runCatching {
+                            val hwnd = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Native.getWindowPointer(window))
+                            com.sun.jna.platform.win32.User32.INSTANCE.SetForegroundWindow(hwnd)
+                        }
+                    }
+                }
+                onDispose { }
+            }
+
             LunaFetchApp(
                 platform = bindings,
                 presenter = presenter,

@@ -49,27 +49,29 @@ object ModernTrayManager {
         onOpenDownloadsFolder: () -> Unit,
         onQuitApp: () -> Unit,
     ): TrayIcon? {
-        if (!SystemTray.isSupported()) return null
-
-        // JDialog with POPUP type: OS treats it as a real popup, focus events work correctly
-        val dialog = JDialog()
-        dialog.isUndecorated = true
-        dialog.isAlwaysOnTop = true
-        dialog.background = Color(0, 0, 0, 0)
-        dialog.type = Window.Type.POPUP
-
-        // Guard: ignore the very first windowLostFocus that fires right after showing
-        // (happens because the tray icon is in a native OS thread)
+        // JDialog with POPUP type: instanciado de forma perezosa (lazy) para evitar descriptores nativos en arranque
+        var dialog: JDialog? = null
         var justOpened = false
 
-        dialog.addWindowFocusListener(object : WindowFocusListener {
-            override fun windowGainedFocus(e: WindowEvent) {}
-            override fun windowLostFocus(e: WindowEvent) {
-                if (!justOpened) {
-                    dialog.isVisible = false
-                }
+        fun getOrCreateDialog(): JDialog {
+            dialog?.let { return it }
+            val d = JDialog().apply {
+                isUndecorated = true
+                isAlwaysOnTop = true
+                background = Color(0, 0, 0, 0)
+                type = Window.Type.POPUP
+                addWindowFocusListener(object : WindowFocusListener {
+                    override fun windowGainedFocus(e: WindowEvent) {}
+                    override fun windowLostFocus(e: WindowEvent) {
+                        if (!justOpened) {
+                            isVisible = false
+                        }
+                    }
+                })
             }
-        })
+            dialog = d
+            return d
+        }
 
         val itemWidth = 150
         val itemHeight = 32
@@ -111,7 +113,7 @@ object ModernTrayManager {
                         override fun mouseEntered(e: MouseEvent) { isHovered = true; repaint() }
                         override fun mouseExited(e: MouseEvent) { isHovered = false; repaint() }
                         override fun mouseClicked(e: MouseEvent) {
-                            dialog.isVisible = false
+                            dialog?.isVisible = false
                             onClick()
                         }
                     })
@@ -168,29 +170,31 @@ object ModernTrayManager {
         })
         mainPanel.add(createItem("Salir", TrayIconType.EXIT, onQuitApp))
 
-        dialog.contentPane = mainPanel
-        dialog.pack()
-
         val trayIcon = TrayIcon(image, tooltip).apply {
             isImageAutoSize = true
         }
 
         fun showWindowAtTray(x: Int, y: Int) {
-            if (dialog.isVisible) return  // already open, do nothing
+            val d = getOrCreateDialog()
+            if (d.contentPane != mainPanel) {
+                d.contentPane = mainPanel
+                d.pack()
+            }
+            if (d.isVisible) return  // already open, do nothing
 
             mainPanel.repaint()
             val screenSize = Toolkit.getDefaultToolkit().screenSize
             var wx = x
-            var wy = y - dialog.height - 10
-            if (wx + dialog.width > screenSize.width) wx = screenSize.width - dialog.width - 10
+            var wy = y - d.height - 10
+            if (wx + d.width > screenSize.width) wx = screenSize.width - d.width - 10
             if (wy < 0) wy = y + 10
 
             // Set guard so the initial tray focus-lost event doesn't immediately close
             justOpened = true
-            dialog.location = Point(wx, wy)
-            dialog.isVisible = true
-            dialog.toFront()
-            dialog.requestFocus()
+            d.location = Point(wx, wy)
+            d.isVisible = true
+            d.toFront()
+            d.requestFocus()
 
             // After 300ms, allow windowLostFocus to close the dialog normally
             Timer(300) { justOpened = false }.apply { isRepeats = false; start() }
@@ -200,7 +204,7 @@ object ModernTrayManager {
             override fun mouseClicked(e: MouseEvent) {
                 // Left click: open app
                 if (e.button == MouseEvent.BUTTON1) {
-                    dialog.isVisible = false
+                    dialog?.isVisible = false
                     onOpenApp()
                 }
             }
