@@ -53,7 +53,20 @@ fun HistoryCard(
         Spacer(Modifier.height(8.dp))
         state.history.forEach { item ->
             val isLocal = platform.isLocalPathAccessible(item.path)
-            val isFromOtherDevice = item.originDevice.isNotBlank() && item.originDevice != platform.deviceName
+            val isWindowsPath = item.path.matches(Regex("^[a-zA-Z]:[/\\\\].*"))
+            val isAndroidContent = item.path.startsWith("content://")
+            val isFromOtherDevice = (item.originDevice.isNotBlank() && !item.originDevice.equals(platform.deviceName, ignoreCase = true)) ||
+                (!isLocal && isWindowsPath && platform.deviceOs == "android") ||
+                (!isLocal && isAndroidContent && platform.deviceOs != "android")
+            val deviceLabel = if (item.originDevice.isNotBlank() && !item.originDevice.equals(platform.deviceName, ignoreCase = true)) {
+                item.originDevice
+            } else if (isWindowsPath && platform.deviceOs == "android") {
+                "PC"
+            } else if (isAndroidContent && platform.deviceOs != "android") {
+                "Móvil"
+            } else {
+                item.originDevice
+            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -77,8 +90,9 @@ fun HistoryCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         if (isFromOtherDevice) {
+                            val icon = if (deviceLabel.contains("motorola", ignoreCase = true) || deviceLabel.contains("phone", ignoreCase = true) || deviceLabel.contains("android", ignoreCase = true) || deviceLabel == "Móvil") "📱" else "💻"
                             Text(
-                                "• 💻 ${item.originDevice}",
+                                "• $icon $deviceLabel",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold,

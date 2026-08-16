@@ -71,11 +71,11 @@ class SynapseLanDiscovery(
                     runCatching {
                         val packet = DatagramPacket(buffer, buffer.size)
                         socket.receive(packet)
-                        val senderIp = packet.address.hostAddress
+                        val senderIp = packet.address?.hostAddress.orEmpty().substringBefore("%")
                         val json = String(packet.data, packet.offset, packet.length, Charsets.UTF_8)
                         val beacon = LanBeaconPacket.fromJson(json)
 
-                        if (beacon != null && beacon.deviceId != localDevice.id && !senderIp.isNullOrBlank()) {
+                        if (beacon != null && senderIp.isNotBlank() && !isSelf(beacon, senderIp)) {
                             val device = SynapseDevice(
                                 id = beacon.deviceId,
                                 name = beacon.deviceName,
@@ -93,6 +93,30 @@ class SynapseLanDiscovery(
                 // Socket cerrado o puerto en uso
             }
         }
+    }
+
+    private fun isLocalHostAddress(ip: String): Boolean {
+        if (ip == "127.0.0.1" || ip == "localhost" || ip == "::1") return true
+        return runCatching {
+            val interfaces = NetworkInterface.getNetworkInterfaces() ?: return false
+            while (interfaces.hasMoreElements()) {
+                val iface = interfaces.nextElement()
+                val addrs = iface.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    val addr = addrs.nextElement()
+                    val host = addr.hostAddress?.substringBefore("%")
+                    if (host == ip) return true
+                }
+            }
+            false
+        }.getOrDefault(false)
+    }
+
+    private fun isSelf(beacon: LanBeaconPacket, senderIp: String): Boolean {
+        if (beacon.deviceId == localDevice.id) return true
+        if (beacon.deviceName.equals(localDevice.name, ignoreCase = true)) return true
+        if (isLocalHostAddress(senderIp)) return true
+        return false
     }
 
     private fun startBroadcasting() {
@@ -151,7 +175,12 @@ class SynapseLanDiscovery(
     private fun updateDevice(device: SynapseDevice) {
         _discoveredDevices.update { list ->
             val now = System.currentTimeMillis()
-            val existing = list.filter { it.id != device.id && (now - it.lastSeenMs) < DEVICE_TIMEOUT_MS }
+            val existing = list.filter {
+                it.id != device.id &&
+                !it.name.equals(device.name, ignoreCase = true) &&
+                it.ip != device.ip &&
+                (now - it.lastSeenMs) < DEVICE_TIMEOUT_MS
+            }
             existing + device
         }
     }

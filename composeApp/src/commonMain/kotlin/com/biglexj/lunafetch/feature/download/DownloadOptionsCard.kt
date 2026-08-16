@@ -114,57 +114,55 @@ fun DownloadOptionsCard(
         Spacer(Modifier.height(14.dp))
         Text("Dispositivo de Descarga (Aurora LAN)", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(6.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val isLocal = state.selectedTargetPeer == null
-            OutlinedButton(
-                onClick = { presenter.selectTargetPeer(null) },
-                modifier = Modifier.weight(1f).heightIn(min = 44.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                    containerColor = if (isLocal) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-                    contentColor = if (isLocal) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-                border = androidx.compose.foundation.BorderStroke(
-                    width = if (isLocal) 1.5.dp else 1.dp,
-                    color = if (isLocal) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                ),
-            ) {
-                Text(
-                    "📍 Este equipo",
-                    fontWeight = if (isLocal) FontWeight.Bold else FontWeight.Medium,
-                )
-            }
 
-            state.discoveredPeers.forEach { peer ->
-                val isSelected = state.selectedTargetPeer?.id == peer.id
-                OutlinedButton(
-                    onClick = { presenter.selectTargetPeer(peer) },
-                    modifier = Modifier.weight(1f).heightIn(min = 44.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-                                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-                        contentColor = if (isSelected) MaterialTheme.colorScheme.primary
-                                       else MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                    ),
-                ) {
-                    Text(
-                        "${peer.icon} ${peer.name}",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    )
+        androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val columns = when {
+                maxWidth >= 880.dp -> 4
+                maxWidth >= 520.dp -> 3
+                else -> 2
+            }
+            val allTargets = listOf<com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice?>(null) + state.discoveredPeers
+            val rows = allTargets.chunked(columns)
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                rows.forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        rowItems.forEach { target ->
+                            val isSelected = if (target == null) state.selectedTargetPeer == null else state.selectedTargetPeer?.id == target.id
+                            OutlinedButton(
+                                onClick = { presenter.selectTargetPeer(target) },
+                                modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                                    contentColor = if (isSelected) MaterialTheme.colorScheme.primary
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                ),
+                            ) {
+                                Text(
+                                    if (target == null) "📍 Este equipo" else "${target.icon} ${target.name}",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                )
+                            }
+                        }
+                        repeat(columns - rowItems.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
                 }
             }
         }
