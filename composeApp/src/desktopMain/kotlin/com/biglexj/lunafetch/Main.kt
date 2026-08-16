@@ -61,7 +61,7 @@ fun main(args: Array<String>) {
         val appSettings = remember { AppSettings() }
         var isVisible by remember { mutableStateOf(!isAutostart) }
 
-        val icon = runCatching { painterResource(Res.drawable.luna_fetch_icon) }.getOrNull()
+        val icon = painterResource(Res.drawable.luna_fetch_icon)
 
         // ── Window State Persistence (desktop_app_standards.md Rule 5) ────────
         val initialPlacement = if (appSettings.windowIsMaximized) WindowPlacement.Maximized else WindowPlacement.Floating
@@ -104,7 +104,7 @@ fun main(args: Array<String>) {
                     presenter.handleSynapseAction(action)
                 },
                 onBringToFront = {
-                    isVisible = true
+                    windowState.isMinimized = false
                 },
             ).also { it.startListening() }
         }
@@ -113,7 +113,7 @@ fun main(args: Array<String>) {
         remember {
             SingleInstanceLock.listenForLegacyRequests { payload ->
                 val action = SynapseUriParser.parse(payload) ?: SynapseAction.Focus
-                isVisible = true
+                windowState.isMinimized = false
                 presenter.handleSynapseAction(action)
             }
         }
@@ -161,7 +161,9 @@ fun main(args: Array<String>) {
                 ModernTrayManager.setupTray(
                     image = trayImage,
                     tooltip = "Luna Fetch",
-                    onOpenApp = { isVisible = true },
+                    onOpenApp = {
+                        windowState.isMinimized = false
+                    },
                     onOpenDownloadsFolder = { bindings.openDestinationFolder(bindings.defaultDestination) },
                     onQuitApp = {
                         saveWindowState()
@@ -183,7 +185,9 @@ fun main(args: Array<String>) {
         Window(
             onCloseRequest = {
                 saveWindowState()
-                if (bindings.isMinimizeToTrayEnabled == true) isVisible = false else {
+                if (bindings.isMinimizeToTrayEnabled == true) {
+                    windowState.isMinimized = true
+                } else {
                     synapseServer.stop()
                     SingleInstanceLock.release()
                     ModernTrayManager.removeTray()
@@ -193,7 +197,6 @@ fun main(args: Array<String>) {
             title = "Luna Fetch",
             icon = icon,
             state = windowState,
-            visible = isVisible,
         ) {
             LunaFetchApp(
                 platform = bindings,
