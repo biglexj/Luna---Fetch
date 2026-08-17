@@ -96,6 +96,8 @@ fun main(args: Array<String>) {
             }
         }
 
+        var isVisible by remember { mutableStateOf(true) }
+
         // ── Aurora Synapse Dispatcher Server (127.0.0.1:49282) ───────────────
         val synapseServer = remember {
             SynapseDispatcherServer(
@@ -104,6 +106,7 @@ fun main(args: Array<String>) {
                     presenter.handleSynapseAction(action)
                 },
                 onBringToFront = {
+                    isVisible = true
                     windowState.isMinimized = false
                 },
             ).also { it.startListening() }
@@ -113,6 +116,7 @@ fun main(args: Array<String>) {
         remember {
             SingleInstanceLock.listenForLegacyRequests { payload ->
                 val action = SynapseUriParser.parse(payload) ?: SynapseAction.Focus
+                isVisible = true
                 windowState.isMinimized = false
                 presenter.handleSynapseAction(action)
             }
@@ -162,6 +166,7 @@ fun main(args: Array<String>) {
                     image = trayImage,
                     tooltip = "Luna Fetch",
                     onOpenApp = {
+                        isVisible = true
                         windowState.isMinimized = false
                     },
                     onOpenDownloadsFolder = { bindings.openDestinationFolder(bindings.defaultDestination) },
@@ -186,7 +191,7 @@ fun main(args: Array<String>) {
             onCloseRequest = {
                 saveWindowState()
                 if (bindings.isMinimizeToTrayEnabled == true) {
-                    windowState.isMinimized = true
+                    isVisible = false
                 } else {
                     synapseServer.stop()
                     SingleInstanceLock.release()
@@ -197,6 +202,7 @@ fun main(args: Array<String>) {
             title = "Luna Fetch",
             icon = icon,
             state = windowState,
+            visible = isVisible,
         ) {
             LunaFetchApp(
                 platform = bindings,
