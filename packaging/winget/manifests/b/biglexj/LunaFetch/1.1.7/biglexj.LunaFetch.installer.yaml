@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+
+PackageIdentifier: biglexj.LunaFetch
+PackageVersion: 1.1.7
+InstallerType: wix
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+  - silentWithProgress
+UpgradeBehavior: install
+ProductCode: ' {B8724723-B191-387F-9BF9-E95A4FFF2300}'
+ReleaseDate: 2026-08-17
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/biglexj/Luna---Fetch/releases/download/v1.1.7/LunaFetch-Windows-1.1.7.msi
+    InstallerSha256: 28C2702F7EC3761AA63E1787E213C36C5CF45E840F98F28B1984589EDB9DED67
+ManifestType: installer
+ManifestVersion: 1.10.0
