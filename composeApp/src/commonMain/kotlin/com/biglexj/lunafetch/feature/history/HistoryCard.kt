@@ -61,11 +61,11 @@ fun HistoryCard(
             val deviceLabel = if (item.originDevice.isNotBlank() && !item.originDevice.equals(platform.deviceName, ignoreCase = true)) {
                 item.originDevice
             } else if (isWindowsPath && platform.deviceOs == "android") {
-                "PC"
+                state.discoveredPeers.firstOrNull { it.os.contains("win", ignoreCase = true) || it.type == "desktop" }?.name ?: "biglexj"
             } else if (isAndroidContent && platform.deviceOs != "android") {
-                "Móvil"
+                state.discoveredPeers.firstOrNull { it.os.contains("android", ignoreCase = true) || it.type == "mobile" }?.name ?: "Móvil"
             } else {
-                item.originDevice
+                item.originDevice.ifBlank { platform.deviceName }
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -90,7 +90,7 @@ fun HistoryCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         if (isFromOtherDevice) {
-                            val icon = if (deviceLabel.contains("motorola", ignoreCase = true) || deviceLabel.contains("phone", ignoreCase = true) || deviceLabel.contains("android", ignoreCase = true) || deviceLabel == "Móvil") "📱" else "💻"
+                            val icon = getDeviceIcon(deviceLabel, item.path)
                             Text(
                                 "• $icon $deviceLabel",
                                 style = MaterialTheme.typography.labelSmall,
@@ -166,6 +166,16 @@ private fun HistoryActionButton(
         ) {
             Text(icon, fontSize = 14.sp)
         }
+    }
+}
+
+private fun getDeviceIcon(name: String, path: String = ""): String {
+    val combined = name.lowercase()
+    return when {
+        combined.contains("linux") || combined.contains("ubuntu") || combined.contains("debian") || combined.contains("fedora") || combined.contains("arch") || combined.contains("mint") || combined.contains("manjaro") -> "🐧"
+        combined.contains("mac") || combined.contains("apple") || combined.contains("darwin") -> "🍎"
+        combined.contains("motorola") || combined.contains("phone") || combined.contains("android") || combined.contains("samsung") || combined.contains("xiaomi") || combined.contains("redmi") || combined.contains("pixel") || path.startsWith("content://") -> "📱"
+        else -> "💻"
     }
 }
 

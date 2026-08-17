@@ -137,20 +137,23 @@ class SynapseLanServer(
                     method == "POST" && path.startsWith("/api/v1/synapse/sync-history") -> {
                         val req = LanHistorySyncRequest.fromJson(body)
                         if (req != null) {
+                            val enrichedIncomingItems = req.historyItems.map { item ->
+                                if (item.originDevice.isBlank()) item.copy(originDevice = req.sourceDevice) else item
+                            }
                             if (req.sourceDevice.isNotBlank() && clientIp.isNotBlank()) {
                                 onPeerDiscovered(
                                     SynapseDevice(
                                         id = "luna_${req.sourceDevice.hashCode().toString(16)}",
                                         name = req.sourceDevice,
-                                        type = "mobile",
+                                        type = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "mobile" else "desktop",
                                         ip = clientIp,
                                         port = LAN_PORT,
-                                        os = "android",
+                                        os = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "android" else "windows",
                                         lastSeenMs = System.currentTimeMillis(),
                                     )
                                 )
                             }
-                            val merged = onHistorySyncReceived(req.historyItems)
+                            val merged = onHistorySyncReceived(enrichedIncomingItems)
                             val respJson = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(DownloadHistoryItem.serializer()), merged)
                             sendRawResponse(writer, 200, "application/json", respJson)
                         } else {

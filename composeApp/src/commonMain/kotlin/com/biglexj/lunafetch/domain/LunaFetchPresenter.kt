@@ -104,7 +104,18 @@ class LunaFetchPresenter(
     }
 
     fun refreshHistory() {
-        _state.update { it.copy(history = platform.loadHistory()) }
+        val loaded = platform.loadHistory()
+        val migrated = loaded.map { item ->
+            if (item.originDevice.isBlank() && platform.isLocalPathAccessible(item.path)) {
+                item.copy(originDevice = platform.deviceName)
+            } else {
+                item
+            }
+        }
+        if (migrated != loaded) {
+            platform.saveHistory(migrated)
+        }
+        _state.update { it.copy(history = migrated) }
     }
 
     fun showToast(message: String) {

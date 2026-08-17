@@ -70,9 +70,12 @@ object SynapseLanClient {
     ): Result<List<DownloadHistoryItem>> = withContext(Dispatchers.IO) {
         runCatching {
             val endpoint = "http://${peer.ip}:${peer.port}/api/v1/synapse/sync-history"
+            val enrichedHistory = localHistory.map {
+                if (it.originDevice.isBlank()) it.copy(originDevice = sourceDeviceName) else it
+            }
             val req = LanHistorySyncRequest(
                 sourceDevice = sourceDeviceName,
-                historyItems = localHistory,
+                historyItems = enrichedHistory,
             )
             val jsonBody = LanHistorySyncRequest.toJson(req)
 
