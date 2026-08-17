@@ -96,8 +96,6 @@ fun main(args: Array<String>) {
             }
         }
 
-        var isVisible by remember { mutableStateOf(true) }
-
         // ── Aurora Synapse Dispatcher Server (127.0.0.1:49282) ───────────────
         val synapseServer = remember {
             SynapseDispatcherServer(
