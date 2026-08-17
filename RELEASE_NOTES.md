@@ -16,13 +16,13 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
-## [1.1.7] — Auto-pegado Inteligente, Placeholder Reactivo, Layout Responsivo e Instalador de 1 solo Clic — 2026-08-04
+## [1.1.7] — Aurora Synapse LAN Link, Historial Multiplataforma, Layout Responsivo y Estabilidad — 2026-08-16
 
-Luna Fetch 1.1.7 introduce el auto-pegado inteligente de enlaces de YouTube (o plataformas soportadas) al abrir la aplicación si el portapapeles contiene una URL válida. El cuadro de entrada de enlace ahora oculta su texto de ayuda (*"Pega acá la URL..."*) tan pronto como recibe el foco o cursor del usuario.
+Luna Fetch 1.1.7 introduce el protocolo de enlace local **Aurora Synapse LAN Link**, permitiendo a la aplicación descubrir automáticamente otros dispositivos (PC Windows, teléfonos Android y más) conectados a la misma red Wi-Fi local en tiempo real mediante balizas UDP y handshakes HTTP bidireccionales (`/api/v1/synapse/ping`).
 
-Se añade un layout responsivo adaptativo que se divide en 2 filas en pantallas compactas o con escalado de fuente elevado, incorporando el nuevo botón dedicado `📋 Pegar` junto a `Analizar`. Además, en Android las notificaciones flotantes emergentes respetan dinámicamente el área del *status bar* y recorte de la cámara (*camera punch hole*).
+Se incorpora la capacidad de enviar descargas directamente entre equipos con un solo clic y sincronizar el historial de descargas entre dispositivos de forma transparente. El historial ahora identifica el origen con el nombre exacto de la máquina e iconografía por sistema operativo (🐧 Linux, 🍎 macOS, 📱 Android y 💻 Windows), permitiendo descargar en el equipo local archivos descargados en otros nodos mediante el botón `[ ⬇️ Descargar en este equipo ]`.
 
-En Windows, el instalador ejecutable (`.exe` y `.msi`) se optimiza para un flujo de instalación rápida de **1 solo clic** (`dirChooser = false`), instalándose directamente por usuario (`perUserInstall = true`) sin requerir permisos de administrador ni cuadros de elevación de UAC.
+La interfaz de usuario adopta una cuadrícula adaptativa de selección de dispositivo (2 columnas en móviles, 3 en ventana estándar y 4 en ventana maximizada). Asimismo, se incluye el auto-pegado inteligente de enlaces al iniciar, placeholder reactivo al foco, soporte para bandeja del sistema (System Tray) con minimización limpia y blindaje total contra interrupciones de red o excepciones de socket en segundo plano.
 
 ## [1.1.6] — Actualización In-App de Fricción Cero con Cierre y Auto-Reinicio — 2026-08-02
 
