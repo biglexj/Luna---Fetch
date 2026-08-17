@@ -58,116 +58,118 @@ class SynapseLanServer(
 
     private fun handleClient(socket: Socket) {
         thread(isDaemon = true, name = "LunaSynapseLanWorker") {
-            socket.use { s ->
-                s.soTimeout = 5000
-                val reader = s.getInputStream().bufferedReader()
-                val writer = s.getOutputStream().bufferedWriter()
+            runCatching {
+                socket.use { s ->
+                    s.soTimeout = 4000
+                    val reader = s.getInputStream().bufferedReader(Charsets.UTF_8)
+                    val writer = s.getOutputStream().bufferedWriter(Charsets.UTF_8)
 
-                val requestLine = reader.readLine() ?: return@use
-                val parts = requestLine.split(" ")
-                if (parts.size < 2) return@use
+                    val requestLine = reader.readLine() ?: return@use
+                    val parts = requestLine.split(" ")
+                    if (parts.size < 2) return@use
 
-                val method = parts[0].uppercase()
-                val path = parts[1]
+                    val method = parts[0].uppercase()
+                    val path = parts[1]
 
-                // Leer headers
-                var contentLength = 0
-                var line: String? = reader.readLine()
-                while (!line.isNullOrBlank()) {
-                    if (line.startsWith("Content-Length:", ignoreCase = true)) {
-                        contentLength = line.substringAfter(":").trim().toIntOrNull() ?: 0
-                    }
-                    line = reader.readLine()
-                }
-
-                // Leer body si existe
-                val body = if (contentLength > 0) {
-                    val buffer = CharArray(contentLength)
-                    var read = 0
-                    while (read < contentLength) {
-                        val r = reader.read(buffer, read, contentLength - read)
-                        if (r == -1) break
-                        read += r
-                    }
-                    String(buffer, 0, read)
-                } else ""
-
-                val clientIp = socket.inetAddress?.hostAddress.orEmpty().substringBefore("%")
-
-                when {
-                    method == "GET" && path.startsWith("/api/v1/synapse/ping") -> {
-                        val source = path.substringAfter("source=", "").substringBefore("&").takeIf { it.isNotBlank() }
-                            ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
-                            ?: "Dispositivo Luna"
-                        val os = path.substringAfter("os=", "").substringBefore("&").ifBlank { "mobile" }
-                        val peer = SynapseDevice(
-                            id = "luna_${source.hashCode().toString(16)}",
-                            name = source,
-                            type = if (os == "android") "mobile" else "desktop",
-                            ip = clientIp,
-                            port = LAN_PORT,
-                            os = os,
-                            lastSeenMs = System.currentTimeMillis(),
-                        )
-                        onPeerDiscovered(peer)
-                        sendJsonResponse(writer, 200, LanGenericResponse(true, "PONG"))
-                    }
-                    method == "POST" && path.startsWith("/api/v1/synapse/push-download") -> {
-                        val req = PushDownloadRequest.fromJson(body)
-                        if (req != null) {
-                            if (req.sourceDevice.isNotBlank() && clientIp.isNotBlank()) {
-                                onPeerDiscovered(
-                                    SynapseDevice(
-                                        id = "luna_${req.sourceDevice.hashCode().toString(16)}",
-                                        name = req.sourceDevice,
-                                        type = "mobile",
-                                        ip = clientIp,
-                                        port = LAN_PORT,
-                                        os = "android",
-                                        lastSeenMs = System.currentTimeMillis(),
-                                    )
-                                )
-                            }
-                            onRemoteDownloadReceived(req)
-                            sendJsonResponse(writer, 200, LanGenericResponse(true, "Descarga recibida correctamente en este dispositivo."))
-                        } else {
-                            sendJsonResponse(writer, 400, LanGenericResponse(false, "Cuerpo JSON de descarga inválido."))
+                    // Leer headers
+                    var contentLength = 0
+                    var line: String? = reader.readLine()
+                    while (!line.isNullOrBlank()) {
+                        if (line.startsWith("Content-Length:", ignoreCase = true)) {
+                            contentLength = line.substringAfter(":").trim().toIntOrNull() ?: 0
                         }
+                        line = reader.readLine()
                     }
-                    method == "POST" && path.startsWith("/api/v1/synapse/sync-history") -> {
-                        val req = LanHistorySyncRequest.fromJson(body)
-                        if (req != null) {
-                            val enrichedIncomingItems = req.historyItems.map { item ->
-                                if (item.originDevice.isBlank()) item.copy(originDevice = req.sourceDevice) else item
-                            }
-                            if (req.sourceDevice.isNotBlank() && clientIp.isNotBlank()) {
-                                onPeerDiscovered(
-                                    SynapseDevice(
-                                        id = "luna_${req.sourceDevice.hashCode().toString(16)}",
-                                        name = req.sourceDevice,
-                                        type = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "mobile" else "desktop",
-                                        ip = clientIp,
-                                        port = LAN_PORT,
-                                        os = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "android" else "windows",
-                                        lastSeenMs = System.currentTimeMillis(),
-                                    )
-                                )
-                            }
-                            val merged = onHistorySyncReceived(enrichedIncomingItems)
-                            val respJson = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(DownloadHistoryItem.serializer()), merged)
-                            sendRawResponse(writer, 200, "application/json", respJson)
-                        } else {
-                            sendJsonResponse(writer, 400, LanGenericResponse(false, "Solicitud de sincronización inválida."))
+
+                    // Leer body si existe
+                    val body = if (contentLength > 0) {
+                        val buffer = CharArray(contentLength)
+                        var read = 0
+                        while (read < contentLength) {
+                            val r = reader.read(buffer, read, contentLength - read)
+                            if (r == -1) break
+                            read += r
                         }
-                    }
-                    method == "GET" && path.startsWith("/api/v1/synapse/status") -> {
-                        sendJsonResponse(writer, 200, LanGenericResponse(true, "Nodo Luna Synapse Activo y Operativo."))
-                    }
-                    method == "OPTIONS" -> {
-                        sendCorsHeaders(writer)
-                    }
-                    else -> {
-                        sendJsonResponse(writer, 404, LanGenericResponse(false, "Endpoint no encontrado."))
+                        String(buffer, 0, read)
+                    } else ""
+
+                    val clientIp = socket.inetAddress?.hostAddress.orEmpty().substringBefore("%")
+
+                    when {
+                        method == "GET" && path.startsWith("/api/v1/synapse/ping") -> {
+                            val source = path.substringAfter("source=", "").substringBefore("&").takeIf { it.isNotBlank() }
+                                ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
+                                ?: "Dispositivo Luna"
+                            val os = path.substringAfter("os=", "").substringBefore("&").ifBlank { "mobile" }
+                            val peer = SynapseDevice(
+                                id = "luna_${source.hashCode().toString(16)}",
+                                name = source,
+                                type = if (os == "android") "mobile" else "desktop",
+                                ip = clientIp,
+                                port = LAN_PORT,
+                                os = os,
+                                lastSeenMs = System.currentTimeMillis(),
+                            )
+                            onPeerDiscovered(peer)
+                            sendJsonResponse(writer, 200, LanGenericResponse(true, "PONG"))
+                        }
+                        method == "POST" && path.startsWith("/api/v1/synapse/push-download") -> {
+                            val req = PushDownloadRequest.fromJson(body)
+                            if (req != null) {
+                                if (req.sourceDevice.isNotBlank() && clientIp.isNotBlank()) {
+                                    onPeerDiscovered(
+                                        SynapseDevice(
+                                            id = "luna_${req.sourceDevice.hashCode().toString(16)}",
+                                            name = req.sourceDevice,
+                                            type = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "mobile" else "desktop",
+                                            ip = clientIp,
+                                            port = LAN_PORT,
+                                            os = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "android" else "windows",
+                                            lastSeenMs = System.currentTimeMillis(),
+                                        )
+                                    )
+                                }
+                                onRemoteDownloadReceived(req)
+                                sendJsonResponse(writer, 200, LanGenericResponse(true, "Descarga recibida correctamente en este dispositivo."))
+                            } else {
+                                sendJsonResponse(writer, 400, LanGenericResponse(false, "Cuerpo JSON de descarga inválido."))
+                            }
+                        }
+                        method == "POST" && path.startsWith("/api/v1/synapse/sync-history") -> {
+                            val req = LanHistorySyncRequest.fromJson(body)
+                            if (req != null) {
+                                val enrichedIncomingItems = req.historyItems.map { item ->
+                                    if (item.originDevice.isBlank()) item.copy(originDevice = req.sourceDevice) else item
+                                }
+                                if (req.sourceDevice.isNotBlank() && clientIp.isNotBlank()) {
+                                    onPeerDiscovered(
+                                        SynapseDevice(
+                                            id = "luna_${req.sourceDevice.hashCode().toString(16)}",
+                                            name = req.sourceDevice,
+                                            type = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "mobile" else "desktop",
+                                            ip = clientIp,
+                                            port = LAN_PORT,
+                                            os = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "android" else "windows",
+                                            lastSeenMs = System.currentTimeMillis(),
+                                        )
+                                    )
+                                }
+                                val merged = onHistorySyncReceived(enrichedIncomingItems)
+                                val respJson = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(DownloadHistoryItem.serializer()), merged)
+                                sendRawResponse(writer, 200, "application/json", respJson)
+                            } else {
+                                sendJsonResponse(writer, 400, LanGenericResponse(false, "Solicitud de sincronización inválida."))
+                            }
+                        }
+                        method == "GET" && path.startsWith("/api/v1/synapse/status") -> {
+                            sendJsonResponse(writer, 200, LanGenericResponse(true, "Nodo Luna Synapse Activo y Operativo."))
+                        }
+                        method == "OPTIONS" -> {
+                            sendCorsHeaders(writer)
+                        }
+                        else -> {
+                            sendJsonResponse(writer, 404, LanGenericResponse(false, "Endpoint no encontrado."))
+                        }
                     }
                 }
             }
