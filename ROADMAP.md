@@ -34,6 +34,15 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 
 ## 🟢 Completado
 
+- [x] **v1.1.7**
+  - Protocolo de interconexión local Aurora Synapse LAN Link con descubrimiento automático UDP y handshake HTTP bidireccional (`/api/v1/synapse/ping`).
+  - Envío remoto de descargas entre PC y dispositivos móviles con un solo clic.
+  - Sincronización automática de historial multi-dispositivo con deduplicación por `${url}_${formatLabel}` y límite a 10 elementos.
+  - Identificación de origen por nombre real de máquina e iconografía representativa por sistema operativo (🐧 Linux, 🍎 Mac, 📱 Android y 💻 Windows).
+  - Botón de descarga directa local `[ ⬇️ Descargar en este equipo ]` para archivos descargados en otros nodos del ecosistema.
+  - Cuadrícula responsiva de selección de dispositivo (2 columnas en móvil, 3 en estándar Windows y 4 en ventana maximizada).
+  - Auto-pegado inteligente de enlaces válidos desde el portapapeles y placeholder reactivo al foco.
+  - Ocultación limpia a la bandeja del sistema (System Tray) al cerrar y protección total contra excepciones de sockets en segundo plano en Android.
 - [x] **v1.1.6**
   - Flujo de actualización in-app de fricción cero: liberación de socket lock (`SingleInstanceLock`), ejecución pasiva de instalador y auto-reinicio automático de Luna Fetch.
 - [x] **v1.1.5**
