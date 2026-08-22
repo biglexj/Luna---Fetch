@@ -2,6 +2,12 @@
 
 Luna Fetch es una aplicación multiplataforma para analizar y descargar videos o audio mediante `yt-dlp` y FFmpeg. Está construida con Kotlin Multiplatform y Compose Multiplatform para compartir interfaz, estados y reglas entre Windows, Linux y Android.
 
+## 📸 Capturas de Pantalla
+
+| Modo oscuro | Modo claro |
+| :---: | :---: |
+| ![Pantalla principal en modo oscuro](screenshots/main_dashboard_dark.png) | ![Pantalla principal en modo claro](screenshots/main_dashboard_light.png) |
+
 ## Funciones
 
 - Análisis de enlaces con título, autor, duración y miniatura.
