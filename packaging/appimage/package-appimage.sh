@@ -42,8 +42,8 @@ chmod +x "${APPDIR}/AppRun"
 
 # Desktop file & Icons
 cp "${SCRIPT_DIR}/lunafetch.desktop" "${APPDIR}/lunafetch.desktop"
-cp "${ROOT_DIR}/icon/300x300.png" "${APPDIR}/lunafetch.png"
-cp "${ROOT_DIR}/icon/300x300.png" "${APPDIR}/.DirIcon"
+cp "${ROOT_DIR}/assets/branding/icons/icon-transparent.png" "${APPDIR}/lunafetch.png"
+cp "${ROOT_DIR}/assets/branding/icons/icon-transparent.png" "${APPDIR}/.DirIcon"
 
 # AppImageTool detection/download
 APPIMAGETOOL="${BUILD_DIR}/appimagetool"

@@ -75,7 +75,8 @@ class DesktopDownloadEngine(
         }
 
         if (exitCode != 0) {
-            throw DownloadException("yt-dlp terminó con código $exitCode. Revisa el registro técnico.")
+            val combinedError = outputs.first + "\n" + outputs.second
+            throw DownloadException(friendlyError(exitCode, combinedError))
         }
 
         val completedPaths = finalPaths.distinct().ifEmpty {
@@ -96,6 +97,16 @@ class DesktopDownloadEngine(
         activeProcess.getAndSet(null)?.let { process ->
             runCatching { process.destroyForcibly() }
         }
+    }
+
+    private fun friendlyError(exitCode: Int, combinedError: String): String = when {
+        combinedError.contains("403", ignoreCase = true) || combinedError.contains("forbidden", ignoreCase = true) ->
+            "La plataforma rechazó la descarga (HTTP 403). Suele ser detección anti-bot del sitio. Intenta el canal del motor Nocturno o deja que se extraigan las cookies del navegador, y vuelve a intentar."
+        combinedError.contains("sign in to confirm", ignoreCase = true) ->
+            "El sitio pide confirmar el inicio de sesión (anti-bot). Deja que se extraigan las cookies del navegador o actualiza el motor a Nocturno."
+        combinedError.contains("unable to download video data", ignoreCase = true) ->
+            "No se pudo descargar el video (los datos fueron rechazados por el servidor). Intenta cambiar el canal del motor o revisa el registro técnico para el detalle."
+        else -> "yt-dlp terminó con código $exitCode. Revisa el registro técnico."
     }
 
     private fun executeWithCookieFallback(

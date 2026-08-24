@@ -290,18 +290,32 @@ class AndroidPlatformBindings(
         }
     }
 
-    override suspend fun getEngineComponentStatus(): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val lastUpdate = preferences.getLong("lastYtdlpUpdate", 0L)
-        if (lastUpdate > 0) "Componentes nativos (Canal NIGHTLY)" else "Componentes nativos activos"
+    override suspend fun getEngineChannel(): String =
+        preferences.getString("lastYtdlpChannel", com.biglexj.lunafetch.domain.EngineChannel.STABLE.wire)
+            ?: com.biglexj.lunafetch.domain.EngineChannel.STABLE.wire
+
+    override suspend fun setEngineChannel(channel: String) {
+        preferences.edit().putString("lastYtdlpChannel", channel).apply()
     }
 
-    override suspend fun updateEngineComponents(): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    override suspend fun getEngineComponentStatus(): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val channel = com.biglexj.lunafetch.domain.EngineChannel.fromWire(getEngineChannel())
+        val lastUpdate = preferences.getLong("lastYtdlpUpdate", 0L)
+        if (lastUpdate > 0) "Componentes nativos (Canal ${channel.label})" else "Componentes nativos activos (Canal ${channel.label})"
+    }
+
+    override suspend fun updateEngineComponents(channel: String): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val engineChannel = com.biglexj.lunafetch.domain.EngineChannel.fromWire(channel)
         runCatching {
-            com.yausername.youtubedl_android.YoutubeDL.updateYoutubeDL(appContext, com.yausername.youtubedl_android.YoutubeDL.UpdateChannel._NIGHTLY)
-            preferences.edit().putLong("lastYtdlpUpdate", System.currentTimeMillis()).putString("lastYtdlpChannel", "NIGHTLY").apply()
-            Result.success("Componentes del motor actualizados al canal NIGHTLY.")
+            val updateChannel = when (engineChannel) {
+                com.biglexj.lunafetch.domain.EngineChannel.STABLE -> com.yausername.youtubedl_android.YoutubeDL.UpdateChannel._STABLE
+                com.biglexj.lunafetch.domain.EngineChannel.NIGHTLY -> com.yausername.youtubedl_android.YoutubeDL.UpdateChannel._NIGHTLY
+            }
+            com.yausername.youtubedl_android.YoutubeDL.updateYoutubeDL(appContext, updateChannel)
+            preferences.edit().putLong("lastYtdlpUpdate", System.currentTimeMillis()).putString("lastYtdlpChannel", engineChannel.wire).apply()
+            Result.success("Componentes nativos actualizados al canal ${engineChannel.label}.")
         }.getOrElse {
-            Result.success("Los componentes nativos están actualizados.")
+            Result.success("Los componentes nativos están actualizados al canal ${engineChannel.label}.")
         }
     }
 }

@@ -172,7 +172,7 @@ compose.desktop {
             copyright = "Copyright © 2026 Biglex J. Todos los derechos reservados."
 
             windows {
-                iconFile.set(rootProject.file("icon/icon.ico"))
+                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
                 msiPackageVersion = appVersion
                 exePackageVersion = appVersion
                 upgradeUuid = "ea999172-1299-4930-93c9-90ea30707c17"
@@ -184,7 +184,7 @@ compose.desktop {
             }
 
             linux {
-                iconFile.set(rootProject.file("icon/300x300.png"))
+                iconFile.set(project.file("src/desktopMain/resources/icon.png"))
                 shortcut = true
                 menuGroup = "Utility"
                 appCategory = "AudioVideo"

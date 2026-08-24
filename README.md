@@ -6,7 +6,12 @@ Luna Fetch es una aplicación multiplataforma para analizar y descargar videos o
 
 | Modo oscuro | Modo claro |
 | :---: | :---: |
-| ![Pantalla principal en modo oscuro](screenshots/main_dashboard_dark.png) | ![Pantalla principal en modo claro](screenshots/main_dashboard_light.png) |
+| ![Pantalla principal en modo oscuro](docs/screenshots/main_dashboard_dark.png) | ![Pantalla principal en modo claro](docs/screenshots/main_dashboard_light.png) |
+
+## Organización de recursos
+
+El icono canónico de identidad se conserva en [`assets/branding/icons/icon-transparent.png`](assets/branding/icons/icon-transparent.png). Los recursos derivados deben generarse desde esa fuente conforme al [Asset Organization Standard](../Core-Docs/global/architecture/asset-organization-standard.md); las capturas documentales viven en `docs/screenshots/`.
+
 
 ## Funciones
 

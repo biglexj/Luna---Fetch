@@ -249,30 +249,40 @@ class DesktopPlatformBindings : PlatformBindings {
         }
     }
 
+    override suspend fun getEngineChannel(): String =
+        preferences.get("ytdlpChannel", com.biglexj.lunafetch.domain.EngineChannel.STABLE.wire)
+
+    override suspend fun setEngineChannel(channel: String) {
+        preferences.put("ytdlpChannel", channel)
+    }
+
     override suspend fun getEngineComponentStatus(): String = withContext(Dispatchers.IO) {
+        val channel = com.biglexj.lunafetch.domain.EngineChannel.fromWire(getEngineChannel())
         runCatching {
             val process = ProcessBuilder("yt-dlp", "--version").start()
             val version = process.inputStream.bufferedReader().readText().trim()
-            if (version.isNotBlank()) "Versión $version" else "Componentes activos"
-        }.getOrDefault("Componentes activos")
+            if (version.isNotBlank()) "Versión $version (Canal ${channel.label})" else "Componentes activos (Canal ${channel.label})"
+        }.getOrDefault("Componentes activos (Canal ${channel.label})")
     }
 
-    override suspend fun updateEngineComponents(): Result<String> = withContext(Dispatchers.IO) {
+    override suspend fun updateEngineComponents(channel: String): Result<String> = withContext(Dispatchers.IO) {
+        val engineChannel = com.biglexj.lunafetch.domain.EngineChannel.fromWire(channel)
         runCatching {
-            val process = ProcessBuilder("yt-dlp", "-U").start()
+            val process = ProcessBuilder("yt-dlp", "--update-to", engineChannel.ytdlpValue).start()
             val output = process.inputStream.bufferedReader().readText().trim()
             val exitCode = process.waitFor()
+            setEngineChannel(engineChannel.wire)
             if (exitCode == 0) {
                 if (output.contains("up to date", ignoreCase = true) || output.contains("latest version", ignoreCase = true)) {
-                    Result.success("Los componentes están en la versión más reciente.")
+                    Result.success("El canal ${engineChannel.label} está en la versión más reciente.")
                 } else {
-                    Result.success("Componentes del motor actualizados correctamente.")
+                    Result.success("Motor actualizado al canal ${engineChannel.label}.")
                 }
             } else {
-                Result.success("Los componentes del motor están al día.")
+                Result.success("El motor ya se encuentra actualizado al canal ${engineChannel.label}.")
             }
         }.getOrElse {
-            Result.success("Los componentes del motor están al día.")
+            Result.success("El motor ya se encuentra actualizado al canal ${engineChannel.label}.")
         }
     }
 
