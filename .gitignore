@@ -36,3 +36,10 @@ brain/
 /temp/
 implementation_plan.md
 walkthrough.md
+
+java_pid*.hprof
+release-log.txt
+release-err.txt
+upload-log.txt
+upload-exit.txt
+publish-exit.txt
