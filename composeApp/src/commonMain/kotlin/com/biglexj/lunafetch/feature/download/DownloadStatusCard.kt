@@ -57,7 +57,7 @@ fun DownloadStatusCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = presenter::playCompletedInPrisma) { Text("▶ Reproducir en Prisma") }
-                TextButton(onClick = presenter::openCompletedOutput) { Text("Abrir resultado") }
+                TextButton(onClick = presenter::openCompletedFolder) { Text("📂 Abrir carpeta") }
             }
         }
     }

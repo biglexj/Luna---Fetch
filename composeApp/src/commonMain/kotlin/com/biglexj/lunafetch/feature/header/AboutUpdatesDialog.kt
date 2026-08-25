@@ -7,7 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -92,22 +93,18 @@ fun AboutUpdatesDialog(
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f))
-                .clickable(onClick = onDismiss),
+                .pointerInput(Unit) { detectTapGestures(onTap = { onDismiss() }) },
             contentAlignment = Alignment.Center,
         ) {
             val isMobile = maxWidth < 380.dp
-            val sectionSpacing = if (isMobile) 7.dp else 10.dp
-            val dividerPadding = if (isMobile) 1.dp else 2.dp
+            val sectionSpacing = if (isMobile) 10.dp else 14.dp
+            val dividerPadding = if (isMobile) 2.dp else 4.dp
 
-Surface(
+            Surface(
                 modifier = Modifier
-                    .widthIn(min = 320.dp, max = 520.dp)
-                    .fillMaxWidth(0.92f)
-                    .heightIn(max = maxHeight * 0.90f)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) { /* consume clicks to prevent dismiss on content tap */ },
+                    .widthIn(min = 320.dp, max = 560.dp)
+                    .fillMaxWidth(0.96f)
+                    .heightIn(max = maxHeight * 0.90f),
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 6.dp,
@@ -118,8 +115,8 @@ Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 20.dp, vertical = 14.dp)
-                            .padding(bottom = 44.dp),
+                            .padding(horizontal = 24.dp, vertical = 22.dp)
+                            .padding(bottom = 56.dp),
                         verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                     ) {
                         Row(
@@ -129,12 +126,12 @@ Surface(
                         ) {
                             Text(
                                 "Acerca de & Actualizaciones",
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
                                 "v1.1.7",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -157,7 +154,7 @@ Surface(
 
                         OutlinedButton(
                             onClick = { presenter.checkForUpdates(manual = true) },
-                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 40.dp else 38.dp),
+                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 44.dp else 42.dp),
                             shape = RoundedCornerShape(50),
                         ) {
                             Text("🚀 Buscar Actualizaciones de la App", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
@@ -273,7 +270,7 @@ Surface(
 
                         Button(
                             onClick = { platform.openUrl("https://www.biglexj.com/donaciones") },
-                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 40.dp else 36.dp),
+                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 44.dp else 40.dp),
                             shape = RoundedCornerShape(50),
                             contentPadding = PaddingValues(vertical = 2.dp),
                         ) {
@@ -283,7 +280,7 @@ Surface(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             OutlinedButton(
                                 onClick = { platform.openUrl("https://buymeacoffee.com/biglexj") },
-                                modifier = Modifier.weight(1f).height(if (isMobile) 34.dp else 32.dp),
+                                modifier = Modifier.weight(1f).height(if (isMobile) 38.dp else 36.dp),
                                 shape = RoundedCornerShape(50),
                                 contentPadding = PaddingValues(vertical = 2.dp),
                             ) {
@@ -291,7 +288,7 @@ Surface(
                             }
                             OutlinedButton(
                                 onClick = { platform.openUrl("https://github.com/biglexj") },
-                                modifier = Modifier.weight(1f).height(if (isMobile) 34.dp else 32.dp),
+                                modifier = Modifier.weight(1f).height(if (isMobile) 38.dp else 36.dp),
                                 shape = RoundedCornerShape(50),
                                 contentPadding = PaddingValues(vertical = 2.dp),
                             ) {
@@ -301,7 +298,7 @@ Surface(
 
                         OutlinedButton(
                             onClick = { platform.openUrl("https://github.com/biglexj/Luna---Fetch/issues") },
-                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 34.dp else 32.dp),
+                            modifier = Modifier.fillMaxWidth().height(if (isMobile) 38.dp else 36.dp),
                             shape = RoundedCornerShape(50),
                             contentPadding = PaddingValues(vertical = 2.dp),
                         ) {
@@ -320,7 +317,7 @@ Surface(
                     Surface(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(end = 12.dp, bottom = 10.dp)
+                            .padding(end = 14.dp, bottom = 12.dp)
                             .clickable(role = Role.Button, onClickLabel = "Cerrar", onClick = onDismiss),
                         shape = RoundedCornerShape(50),
                         color = MaterialTheme.colorScheme.primary,
@@ -329,7 +326,7 @@ Surface(
                     ) {
                         Text(
                             "✕",
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelLarge,
                         )

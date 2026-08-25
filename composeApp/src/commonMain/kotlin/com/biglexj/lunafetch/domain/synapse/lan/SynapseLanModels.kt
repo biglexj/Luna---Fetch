@@ -97,3 +97,35 @@ data class LanGenericResponse(
         fun toJson(res: LanGenericResponse): String = json.encodeToString(serializer(), res)
     }
 }
+
+/**
+ * Anuncio de nueva release propagado por Aurora Synapse LAN.
+ * Regla `auto_updater.md` #11 — release messages MUST be propagated to Aurora.
+ */
+@Serializable
+data class LanAnnounceReleaseRequest(
+    @SerialName("source_device")
+    val sourceDevice: String,
+
+    @SerialName("version")
+    val version: String,
+
+    @SerialName("download_url")
+    val downloadUrl: String = "",
+
+    @SerialName("release_page_url")
+    val releasePageUrl: String = "",
+
+    @SerialName("body")
+    val body: String = "",
+) {
+    companion object {
+        private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+
+        fun fromJson(raw: String): LanAnnounceReleaseRequest? = runCatching {
+            json.decodeFromString<LanAnnounceReleaseRequest>(raw)
+        }.getOrNull()
+
+        fun toJson(req: LanAnnounceReleaseRequest): String = json.encodeToString(serializer(), req)
+    }
+}

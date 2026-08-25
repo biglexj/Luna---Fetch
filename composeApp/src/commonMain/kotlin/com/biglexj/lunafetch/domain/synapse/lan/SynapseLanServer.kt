@@ -19,6 +19,7 @@ class SynapseLanServer(
     private val onRemoteDownloadReceived: (PushDownloadRequest) -> Unit,
     private val onHistorySyncReceived: (List<DownloadHistoryItem>) -> List<DownloadHistoryItem>,
     private val onPeerDiscovered: (SynapseDevice) -> Unit = {},
+    private val onReleaseAnnounced: (LanAnnounceReleaseRequest) -> Unit = {},
 ) {
     companion object {
         const val LAN_PORT = 49288
@@ -163,6 +164,28 @@ class SynapseLanServer(
                         }
                         method == "GET" && path.startsWith("/api/v1/synapse/status") -> {
                             sendJsonResponse(writer, 200, LanGenericResponse(true, "Nodo Luna Synapse Activo y Operativo."))
+                        }
+                        method == "POST" && path.startsWith("/api/v1/synapse/announce-release") -> {
+                            val req = LanAnnounceReleaseRequest.fromJson(body)
+                            if (req != null && req.version.isNotBlank()) {
+                                if (req.sourceDevice.isNotBlank() && clientIp.isNotBlank()) {
+                                    onPeerDiscovered(
+                                        SynapseDevice(
+                                            id = "luna_${req.sourceDevice.hashCode().toString(16)}",
+                                            name = req.sourceDevice,
+                                            type = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "mobile" else "desktop",
+                                            ip = clientIp,
+                                            port = LAN_PORT,
+                                            os = if (req.sourceDevice.contains("motorola", ignoreCase = true) || req.sourceDevice.contains("phone", ignoreCase = true) || req.sourceDevice.contains("android", ignoreCase = true)) "android" else "windows",
+                                            lastSeenMs = System.currentTimeMillis(),
+                                        )
+                                    )
+                                }
+                                onReleaseAnnounced(req)
+                                sendJsonResponse(writer, 200, LanGenericResponse(true, "Anuncio de release v${req.version} recibido."))
+                            } else {
+                                sendJsonResponse(writer, 400, LanGenericResponse(false, "Anuncio de release inválido."))
+                            }
                         }
                         method == "OPTIONS" -> {
                             sendCorsHeaders(writer)

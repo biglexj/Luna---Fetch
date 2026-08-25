@@ -1,5 +1,5 @@
-package com.biglexj.lunafetch.domain
+﻿package com.biglexj.lunafetch.domain
 
 object AppConfig {
-    const val APP_VERSION = "1.1.7"
+    const val APP_VERSION = "1.2.0"
 }

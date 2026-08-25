@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Luna Fetch",
-  "version": "1.0.4",
+  "version": "1.4.0",
   "description": "Descarga videos y audio desde YouTube directamente con Luna Fetch.",
-  "permissions": ["activeTab"],
+  "permissions": ["activeTab", "cookies", "tabs"],
   "host_permissions": [
     "*://*.youtube.com/*",
     "*://music.youtube.com/*",
+    "*://*.google.com/*",
     "http://127.0.0.1:51234/*"
   ],
   "content_scripts": [

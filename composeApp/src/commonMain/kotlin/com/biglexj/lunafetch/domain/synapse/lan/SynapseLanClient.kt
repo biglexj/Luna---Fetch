@@ -9,8 +9,8 @@ import java.net.URL
 
 /**
  * Cliente de Red Local (Aurora Synapse LAN Client).
- * Permite despachar descargas a otros dispositivos descubiertos en la misma Wi-Fi
- * o solicitar sincronización de historial.
+ * Permite despachar descargas a otros dispositivos descubiertos en la misma Wi-Fi,
+ * solicitar sincronización de historial y propagar anuncios de release.
  */
 object SynapseLanClient {
 
@@ -98,6 +98,51 @@ object SynapseLanClient {
                 json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(DownloadHistoryItem.serializer()), respText)
             } else {
                 throw Exception("Fallo en sincronización: HTTP $code")
+            }
+        }
+    }
+
+    /**
+     * Propaga un anuncio de nueva release a un peer (regla auto_updater.md #11).
+     * Fire-and-forget; el emisor no espera respuesta bloqueante.
+     */
+    suspend fun broadcastRelease(
+        peer: SynapseDevice,
+        sourceDeviceName: String,
+        version: String,
+        downloadUrl: String,
+        releasePageUrl: String,
+        body: String,
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val endpoint = "http://${peer.ip}:${peer.port}/api/v1/synapse/announce-release"
+            val req = LanAnnounceReleaseRequest(
+                sourceDevice = sourceDeviceName,
+                version = version,
+                downloadUrl = downloadUrl,
+                releasePageUrl = releasePageUrl,
+                body = body,
+            )
+            val jsonBody = LanAnnounceReleaseRequest.toJson(req)
+
+            val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 3000
+                readTimeout = 4000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            }
+
+            conn.outputStream.use { os ->
+                os.write(jsonBody.toByteArray(Charsets.UTF_8))
+                os.flush()
+            }
+
+            val code = conn.responseCode
+            if (code in 200..299) {
+                "Anuncio de v$version enviado a ${peer.name}."
+            } else {
+                throw Exception("${peer.name} respondió con HTTP $code al anuncio de release.")
             }
         }
     }

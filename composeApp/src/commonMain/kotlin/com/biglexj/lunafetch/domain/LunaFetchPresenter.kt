@@ -79,6 +79,9 @@ class LunaFetchPresenter(
         },
         onPeerDiscovered = { peer ->
             lanDiscovery.registerDirectPeer(peer)
+        },
+        onReleaseAnnounced = { req ->
+            handleAuroraReleaseAnnouncement(req)
         }
     )
 
@@ -142,6 +145,8 @@ class LunaFetchPresenter(
                         updateError = null,
                     )
                 }
+                // Propagar el release a Aurora Synapse LAN (auto_updater.md #11).
+                broadcastReleaseToAurora(release)
             } else if (manual) {
                 autoClearUpdateMessageJob?.cancel()
                 val msg = if (release != null) "✅ ¡Estás en la última versión!" else "⚠️ No se pudo comprobar las actualizaciones."
@@ -159,6 +164,47 @@ class LunaFetchPresenter(
                 }
             }
         }
+    }
+
+    private fun broadcastReleaseToAurora(release: com.biglexj.lunafetch.domain.UpdateRelease) {
+        val peers = state.value.discoveredPeers
+        if (peers.isEmpty()) return
+        val sourceName = platform.deviceName
+        scope.launch {
+            peers.forEach { peer ->
+                runCatching {
+                    com.biglexj.lunafetch.domain.synapse.lan.SynapseLanClient.broadcastRelease(
+                        peer = peer,
+                        sourceDeviceName = sourceName,
+                        version = release.version,
+                        downloadUrl = release.exeDownloadUrl.ifBlank { release.downloadUrl },
+                        releasePageUrl = release.releasePageUrl,
+                        body = release.body,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun handleAuroraReleaseAnnouncement(req: com.biglexj.lunafetch.domain.synapse.lan.LanAnnounceReleaseRequest) {
+        val currentVersion = AppConfig.APP_VERSION
+        if (!UpdateChecker.isNewerVersion(currentVersion, req.version)) return
+        val release = com.biglexj.lunafetch.domain.UpdateRelease(
+            version = req.version,
+            downloadUrl = req.downloadUrl,
+            exeDownloadUrl = req.downloadUrl,
+            releasePageUrl = req.releasePageUrl,
+            body = req.body,
+        )
+        _state.update {
+            it.copy(
+                availableUpdate = release,
+                showUpdateModal = true,
+                updateMessage = null,
+                updateError = null,
+            )
+        }
+        showToast("🛰️ Nueva versión v${req.version} disponible (recibida desde ${req.sourceDevice})")
     }
 
     fun clearUpdateMessage() {
@@ -462,6 +508,8 @@ class LunaFetchPresenter(
     }
 
     fun openCompletedOutput() = state.value.completedOutput?.let(platform::openOutput)
+
+    fun openCompletedFolder() = state.value.completedOutput?.let(platform::openDestinationFolder)
 
     fun playInPrisma(filePath: String) {
         if (filePath.isBlank()) return

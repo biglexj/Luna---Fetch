@@ -87,13 +87,15 @@ class LunaSocketServer(
                 return
             }
 
+            val path = firstLine.split(" ").getOrNull(1) ?: ""
+
             var contentLength = 0
-            var line: String? = reader.readLine()
-            while (!line.isNullOrBlank()) {
-                if (line.startsWith("Content-Length:", ignoreCase = true)) {
-                    contentLength = line.substringAfter(":").trim().toIntOrNull() ?: 0
+            var headerLine: String? = reader.readLine()
+            while (!headerLine.isNullOrBlank()) {
+                if (headerLine.startsWith("Content-Length:", ignoreCase = true)) {
+                    contentLength = headerLine.substringAfter(":").trim().toIntOrNull() ?: 0
                 }
-                line = reader.readLine()
+                headerLine = reader.readLine()
             }
 
             var bodyString = ""
@@ -108,10 +110,9 @@ class LunaSocketServer(
                 bodyString = String(charBuffer, 0, readTotal)
             }
 
-            val path = firstLine.split(" ").getOrNull(1) ?: ""
-            var url: String? = parseQueryParam(path, "url") ?: jsonString(bodyString, "url")
-            var format: String = parseQueryParam(path, "format") ?: jsonString(bodyString, "format") ?: "mp4"
-            var quality: String? = parseQueryParam(path, "quality") ?: jsonString(bodyString, "quality")
+            val url: String? = parseQueryParam(path, "url") ?: jsonString(bodyString, "url")
+            val format: String = parseQueryParam(path, "format") ?: jsonString(bodyString, "format") ?: "mp4"
+            val quality: String? = parseQueryParam(path, "quality") ?: jsonString(bodyString, "quality")
             val cookiesRaw = jsonString(bodyString, "cookies")?.replace("\\n", "\n")?.replace("\\t", "\t")
             val cookieFile = saveCookiesFile(cookiesRaw)
 
@@ -126,37 +127,37 @@ class LunaSocketServer(
                 writer.flush()
             }
 
-            if (firstLine.startsWith("GET ") || firstLine.startsWith("POST ")) {
-                if (path.startsWith("/analyze") && !url.isNullOrBlank() && onAnalyzeRequest != null) {
-                    kotlinx.coroutines.runBlocking {
-                        runCatching { onAnalyzeRequest.invoke(url!!, cookieFile) }
-                            .onSuccess { (videoQualities, audioQualities) ->
-                                val vqJson = videoQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
-                                val aqJson = audioQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
-                                val body = """{"ok":true,"videoQualities":[$vqJson],"audioQualities":[$aqJson]}"""
-                                sendJsonResponse("HTTP/1.1 200 OK", body)
-                            }
-                            .onFailure { error ->
-                                val body = """{"ok":false,"error":"${error.message ?: "No se pudo analizar el enlace"}"}"""
-                                sendJsonResponse("HTTP/1.1 400 Bad Request", body)
-                            }
-                    }
-                    return
-                }
+            // Endpoint dedicado de sincronización de cookies desde la extensión.
+            // El cuerpo debe ser JSON con { "cookies": "<contenido Netscape>" }.
+            if (path.startsWith("/cookies")) {
+                val saved = cookieFile != null
+                sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true,"saved":$saved}""")
+                return
+            }
 
-                if (!url.isNullOrBlank()) {
-                    onDownloadRequest(url, format, quality, cookieFile)
-                    sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true}""")
-                } else {
-                    sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL vacía"}""")
+            val method = firstLine.substringBefore(" ")
+            if (path.startsWith("/analyze") && (method == "GET" || method == "POST") && !url.isNullOrBlank() && onAnalyzeRequest != null) {
+                kotlinx.coroutines.runBlocking {
+                    runCatching { onAnalyzeRequest.invoke(url, cookieFile) }
+                        .onSuccess { (videoQualities, audioQualities) ->
+                            val vqJson = videoQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
+                            val aqJson = audioQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
+                            val body = """{"ok":true,"videoQualities":[$vqJson],"audioQualities":[$aqJson]}"""
+                            sendJsonResponse("HTTP/1.1 200 OK", body)
+                        }
+                        .onFailure { error ->
+                            val body = """{"ok":false,"error":"${error.message ?: "No se pudo analizar el enlace"}"}"""
+                            sendJsonResponse("HTTP/1.1 400 Bad Request", body)
+                        }
                 }
+                return
+            }
+
+            if (!url.isNullOrBlank()) {
+                onDownloadRequest(url, format, quality, cookieFile)
+                sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true}""")
             } else {
-                if (!url.isNullOrBlank()) {
-                    onDownloadRequest(url, format, quality, cookieFile)
-                    sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true}""")
-                } else {
-                    sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL vacía"}""")
-                }
+                sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL vacía"}""")
             }
         }
     }
