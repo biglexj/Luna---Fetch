@@ -24,6 +24,9 @@ data class LanBeaconPacket(
 
     @SerialName("os")
     val os: String,
+
+    @SerialName("target_app")
+    val targetApp: String = "luna",
 ) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }

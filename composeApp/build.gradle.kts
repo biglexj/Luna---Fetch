@@ -105,10 +105,7 @@ android {
 
     splits {
         abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = false
+            isEnable = false
         }
     }
 
@@ -142,7 +139,6 @@ android {
 compose.desktop {
     application {
         mainClass = "com.biglexj.lunafetch.MainKt"
-        jvmArgs("-Dlunafetch.dev=true")
         val validJpackageJdk = run {
             val envJavaHome = System.getenv("JAVA_HOME")
             if (!envJavaHome.isNullOrBlank() && File(envJavaHome, "bin/jpackage.exe").exists()) return@run envJavaHome

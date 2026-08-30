@@ -16,6 +16,14 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.1.9] — Extensión con Popup Nativo, Sincronización de Cookies Anti-Bot, Single-Instance Refactor y APK Universal — 2026-08-30
+
+Luna Fetch 1.1.9 renueva la integración con el navegador mediante un popup nativo en la barra de extensiones que auto-rellena la URL de la pestaña activa, permite elegir formato (🎬 MP4 / 🎵 MP3) y envía la orden directamente a la aplicación de escritorio, eliminando la inyección invasiva en YouTube.
+
+Se incorpora un sistema de sincronización de cookies del navegador que abastece a `yt-dlp` contra restricciones de bot y errores HTTP 403. Asimismo, se activa la propagación de avisos de actualización entre nodos de la red local mediante Aurora Synapse LAN.
+
+La arquitectura de Instancia Única (*Single-Instance Lock*) se alinea con los estándares Core para un aislamiento estricto en producción y desarrollo. La distribución de releases se estandariza a un único instalador ejecutable para Windows (`.exe`) y un único paquete universal para Android, optimizando la descarga y el auto-actualizador in-app.
+
 ## [1.1.7] — Aurora Synapse LAN Link, Historial Multiplataforma, Layout Responsivo y Estabilidad — 2026-08-16
 
 Luna Fetch 1.1.7 introduce el protocolo de enlace local **Aurora Synapse LAN Link**, permitiendo a la aplicación descubrir automáticamente otros dispositivos (PC Windows, teléfonos Android y más) conectados a la misma red Wi-Fi local en tiempo real mediante balizas UDP y handshakes HTTP bidireccionales (`/api/v1/synapse/ping`).

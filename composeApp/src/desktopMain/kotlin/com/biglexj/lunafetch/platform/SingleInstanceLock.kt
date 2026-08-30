@@ -22,12 +22,7 @@ object SingleInstanceLock {
 
     fun isDevMode(): Boolean {
         return System.getProperty("lunafetch.dev") == "true" ||
-                System.getProperty("idea.active") != null ||
-                System.getProperty("sun.java.command")?.let {
-                    it.contains("MainKt", ignoreCase = true) ||
-                    it.contains("Gradle", ignoreCase = true) ||
-                    it.contains("idea", ignoreCase = true)
-                } == true
+                System.getProperty("idea.active") != null
     }
 
     fun acquireOrTransfer(args: Array<String> = emptyArray()): Boolean {

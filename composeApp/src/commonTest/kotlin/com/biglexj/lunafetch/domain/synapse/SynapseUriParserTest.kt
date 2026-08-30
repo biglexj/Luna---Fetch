@@ -65,6 +65,26 @@ class SynapseUriParserTest {
     }
 
     @Test
+    fun testParseDirectHttpUri() {
+        val uri = "luna://https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        val action = SynapseUriParser.parse(uri)
+
+        assertNotNull(action)
+        assertIs<SynapseAction.EnqueueDownload>(action)
+        assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", action.url)
+    }
+
+    @Test
+    fun testParseOpenFolderUri() {
+        val uri = "luna://open_folder"
+        val action = SynapseUriParser.parse(uri)
+
+        assertNotNull(action)
+        assertIs<SynapseAction.OpenFolder>(action)
+        assertNull(action.path)
+    }
+
+    @Test
     fun testPathGuardRejection() {
         val maliciousUri = "luna://download?url=https://youtube.com/watch?v=123&dest=../../Windows/System32"
         val action = SynapseUriParser.parse(maliciousUri)

@@ -77,16 +77,22 @@ class SynapseLanDiscovery(
                         val beacon = LanBeaconPacket.fromJson(json)
 
                         if (beacon != null && senderIp.isNotBlank() && !isSelf(beacon, senderIp)) {
+                            val effectivePort = if (beacon.targetApp.equals("luna", ignoreCase = true) || beacon.port == 49288) {
+                                beacon.port
+                            } else {
+                                49288 // Puerto canónico de Luna Fetch en red local
+                            }
                             val device = SynapseDevice(
                                 id = beacon.deviceId,
                                 name = beacon.deviceName,
                                 type = beacon.deviceType,
                                 ip = senderIp,
-                                port = beacon.port,
+                                port = effectivePort,
                                 os = beacon.os,
                                 lastSeenMs = System.currentTimeMillis(),
                             )
-                            updateDevice(device)
+                            val isNative = beacon.targetApp.equals("luna", ignoreCase = true) || beacon.port == 49288
+                            updateDevice(device, isNativeLuna = isNative)
 
                             // Handshake HTTP de retorno en corrutina segura (pool de IO)
                             scope.launch(Dispatchers.IO) {
@@ -111,7 +117,7 @@ class SynapseLanDiscovery(
 
     fun registerDirectPeer(device: SynapseDevice) {
         if (device.name.equals(localDevice.name, ignoreCase = true) || isLocalHostAddress(device.ip)) return
-        updateDevice(device)
+        updateDevice(device, isNativeLuna = true)
     }
 
     private fun isLocalHostAddress(ip: String): Boolean {
@@ -146,6 +152,7 @@ class SynapseLanDiscovery(
                 deviceType = localDevice.type,
                 port = localDevice.port,
                 os = localDevice.os,
+                targetApp = "luna",
             )
             val json = LanBeaconPacket.toJson(beacon)
             val bytes = json.toByteArray(Charsets.UTF_8)
@@ -191,16 +198,36 @@ class SynapseLanDiscovery(
         }
     }
 
-    private fun updateDevice(device: SynapseDevice) {
+    private fun updateDevice(device: SynapseDevice, isNativeLuna: Boolean = true) {
         _discoveredDevices.update { list ->
             val now = System.currentTimeMillis()
-            val existing = list.filter {
-                it.id != device.id &&
-                !it.name.equals(device.name, ignoreCase = true) &&
-                it.ip != device.ip &&
-                (now - it.lastSeenMs) < DEVICE_TIMEOUT_MS
+            val existingIndex = list.indexOfFirst {
+                it.id == device.id ||
+                it.name.equals(device.name, ignoreCase = true) ||
+                it.ip == device.ip
             }
-            existing + device
+            if (existingIndex != -1) {
+                val current = list[existingIndex]
+                val stableName = if (current.name.equals(device.name, ignoreCase = true)) {
+                    current.name
+                } else if (isNativeLuna) {
+                    device.name
+                } else {
+                    current.name
+                }
+                val updated = current.copy(
+                    name = stableName,
+                    ip = device.ip,
+                    port = if (isNativeLuna) device.port else (if (current.port == 49288) 49288 else device.port),
+                    lastSeenMs = now,
+                )
+                val mutable = list.toMutableList()
+                mutable[existingIndex] = updated
+                mutable.filter { (now - it.lastSeenMs) < DEVICE_TIMEOUT_MS }
+            } else {
+                val filtered = list.filter { (now - it.lastSeenMs) < DEVICE_TIMEOUT_MS }
+                filtered + device.copy(lastSeenMs = now)
+            }
         }
     }
 

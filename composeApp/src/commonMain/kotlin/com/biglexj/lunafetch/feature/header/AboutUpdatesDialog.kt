@@ -52,6 +52,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.biglexj.lunafetch.domain.AppConfig
 import com.biglexj.lunafetch.domain.EngineChannel
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.PlatformBindings
@@ -130,7 +131,7 @@ fun AboutUpdatesDialog(
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "v1.1.7",
+                                "v${AppConfig.APP_VERSION}",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,

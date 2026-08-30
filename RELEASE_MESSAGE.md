@@ -1,4 +1,4 @@
-# 🚀 Luna Fetch — v1.1.8
+# 🚀 Luna Fetch — v1.1.9
 
 Correcciones y mejoras de estabilidad sobre v1.1.7.
 
@@ -13,6 +13,7 @@ Esta versión de parche corrige el flujo de descarga desde el navegador, el bypa
 - **Aurora Synapse LAN**: los nodos de la misma Wi-Fi reciben el aviso de nueva versión (`/api/v1/synapse/announce-release`) y abren el modal de actualización con las mismas notas. Solo se transportan metadatos; los binarios se descargan siempre desde GitHub Releases.
 - **UI**: botón flotante de cierre y cierre tocando el espacio en blanco en los diálogos (fiable en táctil), selector de canal del motor (Estable/Nocturno) con persistencia, y el botón de descarga completada ahora abre la **carpeta** de destino (`📂 Abrir carpeta`).
 - **Diagnóstico**: mensajes de error accionables cuando `yt-dlp` devuelve HTTP 403 o pide inicio de sesión.
+- **Instancia única y empaquetado**: refactorización del bloqueo de instancia única conforme a estándares Core y distribución simplificada en Windows (.exe) y Android (APK Universal único).
 - **Iconos**: versión con fondo para el launcher de Android y transparente para Windows.
 
 ¡Gracias por usar Luna Fetch! 🌙

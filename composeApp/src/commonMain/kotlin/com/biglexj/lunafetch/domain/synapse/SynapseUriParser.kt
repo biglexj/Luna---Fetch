@@ -56,13 +56,18 @@ object SynapseUriParser {
             else -> return null
         }
 
+        // Si el resto es directamente un URL web (luna://https://... o aurora-synapse://luna/https://...)
+        if (rest.startsWith("http://", ignoreCase = true) || rest.startsWith("https://", ignoreCase = true)) {
+            return SynapseAction.EnqueueDownload(url = rest)
+        }
+
         val actionPart = rest.substringBefore("?").trim().lowercase()
         val queryPart = if (rest.contains("?")) rest.substringAfter("?") else ""
         val params = parseQueryParams(queryPart)
 
         return when (actionPart) {
-            "download", "enqueue_download" -> {
-                val url = params["url"] ?: return null
+            "", "download", "enqueue", "enqueue_download" -> {
+                val url = params["url"] ?: if (rest.startsWith("http://", true) || rest.startsWith("https://", true)) rest else return null
                 val type = params["type"] ?: params["media_type"] ?: "video"
                 val quality = params["quality"] ?: params["quality_profile"]
                 val dest = params["dest"] ?: params["target_directory"]
@@ -93,7 +98,12 @@ object SynapseUriParser {
                 SynapseAction.OpenFolder(path = path)
             }
             "focus" -> SynapseAction.Focus
-            else -> null
+            else -> {
+                // Fallback si actionPart contiene un host/protocolo
+                if (actionPart.startsWith("http") || actionPart.contains(".com") || actionPart.contains(".org") || actionPart.contains("youtu")) {
+                    SynapseAction.EnqueueDownload(url = rest)
+                } else null
+            }
         }
     }
 
