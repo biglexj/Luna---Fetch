@@ -7,6 +7,10 @@ release/
 .gradle/
 .kotlin/
 **/build/
+!scripts/build/
+!scripts/build/**
+!scripts/release/
+!scripts/release/**
 local.properties
 keystore.properties
 signing/
