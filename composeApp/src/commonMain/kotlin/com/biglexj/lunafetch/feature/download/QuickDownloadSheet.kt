@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
 import com.biglexj.lunafetch.domain.MediaFormat
+import com.biglexj.lunafetch.domain.PlatformBindings
 import com.biglexj.lunafetch.domain.QualityOption
 import com.biglexj.lunafetch.domain.isCollection
 
@@ -35,6 +37,7 @@ import com.biglexj.lunafetch.domain.isCollection
 fun QuickDownloadSheet(
     state: LunaFetchState,
     presenter: LunaFetchPresenter,
+    platform: PlatformBindings,
     onDismiss: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)) {
@@ -96,10 +99,40 @@ fun QuickDownloadSheet(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !state.isDownloading,
                         )
+                        Text("Destino", style = MaterialTheme.typography.labelLarge)
+                        OutlinedButton(
+                            onClick = presenter::chooseDestination,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (state.destination.isBlank()) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                                                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                                contentColor = if (state.destination.isBlank()) MaterialTheme.colorScheme.error
+                                               else MaterialTheme.colorScheme.onSurface,
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (state.destination.isBlank()) 1.5.dp else 1.dp,
+                                color = if (state.destination.isBlank()) MaterialTheme.colorScheme.error
+                                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                            ),
+                        ) {
+                            Text(
+                                if (state.destination.isBlank()) "⚠️ Seleccionar carpeta de destino"
+                                else platform.destinationLabel(state.destination),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = if (state.destination.isBlank()) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
                         Button(
                             onClick = {
-                                presenter.download()
-                                onDismiss()
+                                if (state.destination.isBlank()) {
+                                    presenter.showToast("⚠️ Selecciona una carpeta de destino para guardar")
+                                    presenter.chooseDestination()
+                                } else {
+                                    presenter.download()
+                                    onDismiss()
+                                }
                             },
                             modifier = Modifier.fillMaxWidth().height(52.dp),
                             enabled = !state.isDownloading,

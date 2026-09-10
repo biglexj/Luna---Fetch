@@ -84,8 +84,12 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         onLog: (String) -> Unit,
     ): DownloadResult = withContext(Dispatchers.IO) {
         initialize()
+        if (request.destination.isBlank()) {
+            throw DownloadException("No se ha seleccionado una carpeta de destino en este dispositivo.")
+        }
         val treeUri = runCatching { Uri.parse(request.destination) }.getOrNull()
-            ?: throw DownloadException("Selecciona una carpeta válida.")
+            ?.takeIf { it != Uri.EMPTY && !it.scheme.isNullOrBlank() }
+            ?: throw DownloadException("Selecciona una carpeta de destino válida con permisos de almacenamiento.")
         val workRoot = File(context.cacheDir, "downloads")
         val workDirectory = File(workRoot, System.currentTimeMillis().toString()).apply { mkdirs() }
         val outputTemplate = File(
@@ -193,21 +197,27 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
 
     private fun copyToTree(sources: List<File>, treeUri: Uri): List<Uri> {
         val resolver = context.contentResolver
-        val parent = DocumentsContract.buildDocumentUriUsingTree(
-            treeUri,
-            DocumentsContract.getTreeDocumentId(treeUri),
-        )
-        return sources.map { source ->
-            val created = DocumentsContract.createDocument(
-                resolver,
-                parent,
-                mimeType(source.extension),
-                source.name,
-            ) ?: throw DownloadException("Android no permitió crear el archivo en la carpeta elegida.")
-            resolver.openOutputStream(created, "w")?.use { output ->
-                source.inputStream().use { input -> input.copyTo(output) }
-            } ?: throw DownloadException("Android no permitió escribir el archivo descargado.")
-            created
+        return try {
+            val parent = DocumentsContract.buildDocumentUriUsingTree(
+                treeUri,
+                DocumentsContract.getTreeDocumentId(treeUri),
+            )
+            sources.map { source ->
+                val created = DocumentsContract.createDocument(
+                    resolver,
+                    parent,
+                    mimeType(source.extension),
+                    source.name,
+                ) ?: throw DownloadException("Android no permitió crear el archivo en la carpeta elegida.")
+                resolver.openOutputStream(created, "w")?.use { output ->
+                    source.inputStream().use { input -> input.copyTo(output) }
+                } ?: throw DownloadException("Android no permitió escribir el archivo descargado.")
+                created
+            }
+        } catch (se: SecurityException) {
+            throw DownloadException("Permiso de almacenamiento revocado o carpeta inaccesible. Vuelve a seleccionarla en Luna Fetch.", se)
+        } catch (iae: IllegalArgumentException) {
+            throw DownloadException("La carpeta seleccionada ya no es válida. Vuelve a seleccionarla en Luna Fetch.", iae)
         }
     }
 

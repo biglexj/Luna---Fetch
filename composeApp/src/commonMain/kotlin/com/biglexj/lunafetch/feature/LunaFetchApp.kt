@@ -56,7 +56,7 @@ fun LunaFetchApp(
                 presenter.setUrl(quickDownloadUrl)
                 presenter.analyze()
             }
-            QuickDownloadSheet(state, presenter, onDismissQuickDownload)
+            QuickDownloadSheet(state, presenter, platform, onDismissQuickDownload)
             return@LunaFetchTheme
         }
         LaunchedEffect(Unit) {

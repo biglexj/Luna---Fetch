@@ -61,8 +61,8 @@ class DownloadNotificationTest {
 
     private class FakePlatformBindings(
         override val engine: DownloadEngine,
+        override val defaultDestination: String = "C:/Downloads",
     ) : PlatformBindings {
-        override val defaultDestination: String = "C:/Downloads"
         override var isNotificationsEnabled: Boolean? = true
         var lastCompletedTitle: String? = null
         var lastCompletedPath: String? = null
@@ -139,5 +139,25 @@ class DownloadNotificationTest {
 
         fakePlatform.setNotificationsEnabled(true)
         assertEquals(true, fakePlatform.isNotificationsEnabled)
+    }
+
+    @Test
+    fun downloadWithEmptyDestinationTriggersNotificationAndToast() = runTest(testDispatcher) {
+        val fakeEngine = FakeEngine(shouldFail = false)
+        val fakePlatform = FakePlatformBindings(fakeEngine, defaultDestination = "")
+        val job = kotlinx.coroutines.Job()
+        val presenterScope = kotlinx.coroutines.CoroutineScope(testDispatcher + job)
+        val presenter = LunaFetchPresenter(fakePlatform, scope = presenterScope)
+
+        try {
+            presenter.startDirectDownload("https://youtu.be/test1234", "mp4")
+            testScheduler.advanceUntilIdle()
+
+            assertTrue(presenter.state.value.toastMessage?.contains("carpeta de destino") == true)
+            assertEquals("Test Video Title", fakePlatform.lastFailedTitle)
+            assertTrue(fakePlatform.lastFailedError?.contains("carpeta de destino") == true)
+        } finally {
+            job.cancel()
+        }
     }
 }

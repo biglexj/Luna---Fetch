@@ -64,7 +64,15 @@ class LunaFetchPresenter(
 
     private val lanServer = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanServer(
         onRemoteDownloadReceived = { req ->
-            showToast("📥 Descarga remota desde ${req.sourceDevice}...")
+            if (state.value.destination.isBlank()) {
+                showToast("⚠️ Descarga remota recibida, pero no hay carpeta de destino configurada.")
+                platform.notifyDownloadFailed(
+                    "Descarga desde ${req.sourceDevice}",
+                    "Configura una carpeta de destino en Luna Fetch para completar la descarga.",
+                )
+            } else {
+                showToast("📥 Descarga remota desde ${req.sourceDevice}...")
+            }
             startDirectDownload(req.url, req.mediaType, req.quality)
         },
         onHistorySyncReceived = { remoteItems ->
@@ -438,7 +446,12 @@ class LunaFetchPresenter(
             return
         }
         if (current.destination.isBlank()) {
-            _state.update { it.copy(error = "Selecciona una carpeta de destino.") }
+            val errorMsg = "Selecciona una carpeta de destino para guardar las descargas."
+            _state.update { it.copy(error = errorMsg) }
+            showToast("⚠️ $errorMsg")
+            val title = video.collectionTitle ?: video.title
+            platform.notifyDownloadFailed(title.ifBlank { "Descarga detenida" }, errorMsg)
+            chooseDestination()
             return
         }
 
