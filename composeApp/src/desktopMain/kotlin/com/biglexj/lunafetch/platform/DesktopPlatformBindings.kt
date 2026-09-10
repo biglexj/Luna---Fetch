@@ -31,13 +31,43 @@ class DesktopPlatformBindings : PlatformBindings {
     override val isAutoStartEnabled: Boolean get() = settings.autoStart
     override val isMinimizeToTrayEnabled: Boolean get() = settings.minimizeToTray
     override val isNativeHostInstalled: Boolean get() = settings.isNativeHostInstalled
+    override val isNotificationsEnabled: Boolean? get() = settings.showNotifications
     override fun setAutoStart(enabled: Boolean) { settings.autoStart = enabled }
     override fun setMinimizeToTray(enabled: Boolean) { settings.minimizeToTray = enabled }
+    override fun setNotificationsEnabled(enabled: Boolean) { settings.showNotifications = enabled }
     override fun installNativeHost() {
         val exe = ProcessHandle.current().info().command().orElse(null) ?: return
         settings.installNativeHost(exe)
     }
     override fun uninstallNativeHost() { settings.uninstallNativeHost() }
+
+    override fun notifyDownloadCompleted(title: String, filePath: String) {
+        if (settings.showNotifications) {
+            ModernTrayManager.showNotification(
+                title = "Descarga completada",
+                message = title.ifBlank { "Archivo guardado exitosamente." },
+                isError = false,
+                onClick = {
+                    if (filePath.isNotBlank()) {
+                        openOutput(filePath)
+                    } else {
+                        openDestinationFolder(defaultDestination)
+                    }
+                },
+            )
+        }
+    }
+
+    override fun notifyDownloadFailed(title: String, error: String) {
+        if (settings.showNotifications) {
+            ModernTrayManager.showNotification(
+                title = "Descarga fallida",
+                message = if (title.isNotBlank()) "$title: $error" else error,
+                isError = true,
+                onClick = null,
+            )
+        }
+    }
     override val defaultDestination: String
         get() = preferences.get("downloadDirectory", systemDownloadsDirectory())
 

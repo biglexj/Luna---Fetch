@@ -24,10 +24,15 @@ interface PlatformBindings {
     val isAutoStartEnabled: Boolean? get() = null
     val isMinimizeToTrayEnabled: Boolean? get() = null
     val isNativeHostInstalled: Boolean? get() = null
+    val isNotificationsEnabled: Boolean? get() = null
     fun setAutoStart(enabled: Boolean) {}
     fun setMinimizeToTray(enabled: Boolean) {}
     fun installNativeHost() {}
     fun uninstallNativeHost() {}
+    fun setNotificationsEnabled(enabled: Boolean) {}
+
+    fun notifyDownloadCompleted(title: String, filePath: String) {}
+    fun notifyDownloadFailed(title: String, error: String) {}
 
     suspend fun chooseDestination(current: String): String?
     fun destinationLabel(destination: String): String

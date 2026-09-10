@@ -415,6 +415,8 @@ class LunaFetchPresenter(
                         val msg = error.userMessage("No se pudo analizar el enlace.")
                         appendLog("ERROR: $msg")
                         _state.update { it.copy(isAnalyzing = false, error = msg) }
+                        showToast("❌ $msg")
+                        platform.notifyDownloadFailed("Error al analizar enlace", msg)
                     }
                 }
         }
@@ -464,9 +466,10 @@ class LunaFetchPresenter(
                     onProgress = { progress -> _state.update { it.copy(progress = progress) } },
                     onLog = ::appendLog,
                 )
+                val downloadTitle = video.collectionTitle ?: video.title
                 val newItem = DownloadHistoryItem(
                     id = "${System.currentTimeMillis()}_${(1000..9999).random()}",
-                    title = video.collectionTitle ?: video.title,
+                    title = downloadTitle,
                     formatLabel = "${current.selectedFormat.displayName} · ${current.selectedQuality.displayName}",
                     path = result.openPath ?: "",
                     url = video.url,
@@ -485,6 +488,8 @@ class LunaFetchPresenter(
                     )
                 }
                 autoBroadcastHistorySync()
+                showToast("✅ Descarga completada: $downloadTitle")
+                platform.notifyDownloadCompleted(downloadTitle, result.openPath ?: "")
             } catch (cancelled: CancellationException) {
                 _state.update {
                     it.copy(isDownloading = false, progress = DownloadProgress(0.0, phase = DownloadPhase.Cancelled))
@@ -498,6 +503,9 @@ class LunaFetchPresenter(
                         error = msg,
                     )
                 }
+                val downloadTitle = video.collectionTitle ?: video.title.ifBlank { "Descarga" }
+                showToast("❌ $msg")
+                platform.notifyDownloadFailed(downloadTitle, msg)
             }
         }
     }

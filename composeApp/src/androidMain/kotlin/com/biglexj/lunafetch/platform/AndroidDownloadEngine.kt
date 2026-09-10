@@ -129,14 +129,11 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                 throw DownloadException("La descarga terminó, pero no se encontró el archivo resultante.")
             }
             val resultUris = copyToTree(downloaded, treeUri)
-            val completedName = downloaded.firstOrNull()?.name ?: "Archivo descargado"
-            DownloadForegroundService.notifyCompleted(context, completedName)
             DownloadResult(
                 outputPaths = resultUris.map(Uri::toString),
                 openPath = if (resultUris.size == 1) resultUris.first().toString() else treeUri.toString(),
             )
         } catch (error: Exception) {
-            DownloadForegroundService.notifyFailed(context, error.message ?: "No se pudo completar la descarga.")
             throw DownloadException(error.message ?: "No se pudo completar la descarga en Android.", error)
         } finally {
             processId = null

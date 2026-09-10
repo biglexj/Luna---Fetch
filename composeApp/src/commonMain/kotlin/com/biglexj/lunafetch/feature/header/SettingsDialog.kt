@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.biglexj.lunafetch.domain.AppConfig
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.PlatformBindings
 
@@ -55,9 +56,10 @@ fun SettingsDialog(
     onDismiss: () -> Unit,
 ) {
     val state by presenter.state.collectAsState()
-    var autoStart       by remember { mutableStateOf(platform.isAutoStartEnabled ?: false) }
-    var minimizeToTray  by remember { mutableStateOf(platform.isMinimizeToTrayEnabled ?: false) }
-    var nativeInstalled by remember { mutableStateOf(platform.isNativeHostInstalled ?: false) }
+    var autoStart            by remember { mutableStateOf(platform.isAutoStartEnabled ?: false) }
+    var minimizeToTray       by remember { mutableStateOf(platform.isMinimizeToTrayEnabled ?: false) }
+    var nativeInstalled      by remember { mutableStateOf(platform.isNativeHostInstalled ?: false) }
+    var notificationsEnabled by remember { mutableStateOf(platform.isNotificationsEnabled ?: true) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -109,7 +111,7 @@ modifier = Modifier
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                "v1.1.7",
+                                "v${AppConfig.APP_VERSION}",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -119,7 +121,10 @@ modifier = Modifier
                         HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
 
                         // ── 1. Preferencias del Sistema (Solo Desktop) ─────────────
-                        val hasSystemSettings = platform.isAutoStartEnabled != null || platform.isMinimizeToTrayEnabled != null || platform.isNativeHostInstalled != null
+                        val hasSystemSettings = platform.isAutoStartEnabled != null ||
+                            platform.isMinimizeToTrayEnabled != null ||
+                            platform.isNotificationsEnabled != null ||
+                            platform.isNativeHostInstalled != null
 
                         if (hasSystemSettings) {
                             Text(
@@ -145,6 +150,19 @@ modifier = Modifier
                                     subtitle = "Al pulsar ✕, la app se oculta en la bandeja del sistema.",
                                     checked = minimizeToTray,
                                     onCheckedChange = { minimizeToTray = it; platform.setMinimizeToTray(it) },
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                            }
+
+                            if (platform.isNotificationsEnabled != null) {
+                                SettingsRow(
+                                    title = "Notificaciones del sistema",
+                                    subtitle = "Avisar en Windows cuando una descarga en segundo plano termine o falle.",
+                                    checked = notificationsEnabled,
+                                    onCheckedChange = {
+                                        notificationsEnabled = it
+                                        platform.setNotificationsEnabled(it)
+                                    },
                                 )
                                 HorizontalDivider(modifier = Modifier.padding(vertical = dividerPadding), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
                             }

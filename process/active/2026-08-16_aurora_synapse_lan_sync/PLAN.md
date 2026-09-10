@@ -56,4 +56,4 @@ flowchart LR
 - [ ] Servidor LAN en `49288` procesando descargas remotas y mostrando feedback en el dispositivo receptor.
 - [ ] UI permitiendo enviar descargas directamente a la PC desde el teléfono o laptop.
 - [ ] Compilación y tests exitosos en Desktop JVM y Android.
-- [ ] Documentación en `Core-Docs/features/aurora-synapse/apps-adaptadas/luna-fetch.md`.
+- [ ] Documentación en `Docs/features/aurora-synapse/apps-adaptadas/luna-fetch.md`.

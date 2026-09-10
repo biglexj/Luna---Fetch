@@ -33,14 +33,56 @@ object ModernTrayManager {
 
     private var currentTrayIcon: TrayIcon? = null
     private var currentDialog: JDialog? = null
+    @Volatile
+    private var pendingNotificationAction: (() -> Unit)? = null
+    private var notificationActionTimer: Timer? = null
 
     fun removeTray() {
+        synchronized(this) {
+            notificationActionTimer?.stop()
+            pendingNotificationAction = null
+        }
         currentTrayIcon?.let { icon ->
             runCatching { SystemTray.getSystemTray().remove(icon) }
         }
         currentTrayIcon = null
         currentDialog?.dispose()
         currentDialog = null
+    }
+
+    /**
+     * Shows a native Windows desktop / tray notification with title and message.
+     * If [onClick] is provided, it is executed when the user clicks on the notification balloon/toast.
+     */
+    fun showNotification(
+        title: String,
+        message: String,
+        isError: Boolean = false,
+        onClick: (() -> Unit)? = null,
+    ) {
+        val icon = currentTrayIcon ?: return
+        val messageType = if (isError) TrayIcon.MessageType.ERROR else TrayIcon.MessageType.INFO
+
+        synchronized(this) {
+            notificationActionTimer?.stop()
+            pendingNotificationAction = onClick
+            if (onClick != null) {
+                notificationActionTimer = Timer(25_000) {
+                    synchronized(this@ModernTrayManager) {
+                        pendingNotificationAction = null
+                    }
+                }.apply {
+                    isRepeats = false
+                    start()
+                }
+            }
+        }
+
+        SwingUtilities.invokeLater {
+            runCatching {
+                icon.displayMessage(title, message, messageType)
+            }
+        }
     }
 
     private fun isSystemDarkMode(): Boolean {
@@ -228,6 +270,22 @@ object ModernTrayManager {
                 }
             }
         })
+
+        trayIcon.addActionListener {
+            val action = synchronized(this) {
+                val act = pendingNotificationAction
+                pendingNotificationAction = null
+                notificationActionTimer?.stop()
+                act
+            }
+            if (action != null) {
+                action.invoke()
+            } else {
+                onOpenApp()
+            }
+        }
+
+        currentTrayIcon = trayIcon
 
         runCatching {
             SystemTray.getSystemTray().add(trayIcon)

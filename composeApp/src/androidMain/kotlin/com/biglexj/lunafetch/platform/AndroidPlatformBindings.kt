@@ -33,6 +33,14 @@ class AndroidPlatformBindings(
     override val deviceOs: String
         get() = "android"
 
+    override fun notifyDownloadCompleted(title: String, filePath: String) {
+        DownloadForegroundService.notifyCompleted(appContext, title.ifBlank { "Archivo descargado" })
+    }
+
+    override fun notifyDownloadFailed(title: String, error: String) {
+        DownloadForegroundService.notifyFailed(appContext, if (title.isNotBlank()) "$title: $error" else error)
+    }
+
     override val defaultDestination: String
         get() = preferences.getString("downloadTree", "").orEmpty()
 

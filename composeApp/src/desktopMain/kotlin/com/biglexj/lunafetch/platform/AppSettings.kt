@@ -30,6 +30,11 @@ class AppSettings {
             applyAutoStart(v)
         }
 
+    /** Show OS notification when downloads finish or fail. */
+    var showNotifications: Boolean
+        get() = prefs.getBoolean("showNotifications", true)
+        set(v) = prefs.putBoolean("showNotifications", v)
+
     /** Window dimensions, position and maximized state persistence (desktop_app_standards.md Rule 5). */
     var windowWidth: Int
         get() = prefs.getInt("windowWidth", 1040)

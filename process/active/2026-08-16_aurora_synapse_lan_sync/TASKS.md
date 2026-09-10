@@ -24,4 +24,4 @@
 ### 4. Verificación y Documentación
 - [x] `T4.1`: Validar con tests unitarios el flujo de paquetes y parseo LAN (`SynapseLanTest.kt`).
 - [x] `T4.2`: Compilar Desktop JVM y Android (`compileKotlinDesktop`, `desktopTest`, `compileDebugKotlinAndroid`) con éxito total.
-- [x] `T4.3`: Actualizar documentación en `Core-Docs/features/aurora-synapse/apps-adaptadas/luna-fetch.md`.
+- [x] `T4.3`: Actualizar documentación en `Docs/features/aurora-synapse/apps-adaptadas/luna-fetch.md`.
