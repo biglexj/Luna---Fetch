@@ -34,6 +34,16 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 
 ## 🟢 Completado
 
+- [x] **v1.2.0**
+  - Sistema de notificaciones nativas en el sistema operativo (Windows Desktop & Android) al concluir descargas en segundo plano o ante errores.
+  - Interacción al clic en la notificación nativa para abrir el archivo descargado o la carpeta de destino.
+  - Modo de un solo uso para la extensión de navegador Chromium con auto-cierre instantáneo del popup (`window.close()`) tras despachar la descarga.
+  - Ajuste de control de notificaciones en la sección "Sistema y Ventana" del diálogo de Configuración.
+  - Diagnóstico visible de enlace de puertos en el servidor local de la extensión.
+- [x] **v1.1.9**
+  - Extensión de navegador con popup nativo (auto-relleno de URL, selector MP4/MP3 y envío directo al escritorio).
+  - Sincronización de cookies reales de navegador para yt-dlp contra restricciones anti-bot y errores HTTP 403.
+  - Propagación de avisos de actualización entre nodos Wi-Fi mediante Aurora Synapse LAN.
 - [x] **v1.1.7**
   - Protocolo de interconexión local Aurora Synapse LAN Link con descubrimiento automático UDP y handshake HTTP bidireccional (`/api/v1/synapse/ping`).
   - Envío remoto de descargas entre PC y dispositivos móviles con un solo clic.

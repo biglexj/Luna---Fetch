@@ -20,9 +20,10 @@
 - [x] `T3.1`: Implementar `notifyDownloadCompleted` y `notifyDownloadFailed` en `AndroidPlatformBindings.kt`.
 - [x] `T3.2`: Estandarizar `AndroidDownloadEngine.kt` para evitar doble notificación.
 
-### 4. Orquestación en Presenter y UI (`commonMain/`)
+### 4. Orquestación en Presenter y UI (`commonMain/` & `browser-extension/`)
 - [x] `T4.1`: Invocar notificaciones y toast en `LunaFetchPresenter.kt` al concluir la descarga y ante errores.
 - [x] `T4.2`: Añadir fila de ajuste de notificaciones en `SettingsDialog.kt` y corregir versión dinámica.
+- [x] `T4.3`: Configurar auto-cierre del popup de la extensión Chromium (`window.close()`) tras enviar la orden con éxito (comportamiento de un solo uso).
 
 ### 5. Pruebas y Validación
 - [x] `T5.1`: Crear prueba unitaria `DownloadNotificationTest.kt` validando emisión de notificaciones.

@@ -16,6 +16,12 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.2.0] — Notificaciones Nativas del Sistema Operativo y Auto-Cierre de Extensión — 2026-09-10
+
+Luna Fetch 1.2.0 incorpora un sistema integral de notificaciones nativas en el sistema operativo (Windows Desktop y Android) para confirmar la finalización o alerta de error en descargas disparadas en segundo plano. La notificación en Windows permite hacer clic para abrir directamente el archivo descargado o la carpeta de destino.
+
+La extensión de navegador Chromium adopta una mecánica de un solo uso, cerrando automáticamente su ventana flotante tras enviar el enlace al escritorio. Asimismo, se incorpora un conmutador de notificaciones en el diálogo de Ajustes y se dota de diagnóstico al enlace de sockets locales.
+
 ## [1.1.9] — Extensión con Popup Nativo, Sincronización de Cookies Anti-Bot, Single-Instance Refactor y APK Universal — 2026-08-30
 
 Luna Fetch 1.1.9 renueva la integración con el navegador mediante un popup nativo en la barra de extensiones que auto-rellena la URL de la pestaña activa, permite elegir formato (🎬 MP4 / 🎵 MP3) y envía la orden directamente a la aplicación de escritorio, eliminando la inyección invasiva en YouTube.
