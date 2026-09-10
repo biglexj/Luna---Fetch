@@ -59,9 +59,12 @@ class LunaSocketServer(
                     bind(java.net.InetSocketAddress(java.net.InetAddress.getByName("127.0.0.1"), PORT), 10)
                 }
                 serverSocket = ss
+                println("[LunaSocketServer] Servidor para extensión activo en 127.0.0.1:$PORT")
                 while (!ss.isClosed) {
                     runCatching { handleClient(ss.accept()) }
                 }
+            }.onFailure { err ->
+                System.err.println("[LunaSocketServer] No se pudo enlazar el puerto $PORT (posible instancia previa en ejecución): ${err.message}")
             }
         }
     }
