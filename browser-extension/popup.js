@@ -34,6 +34,9 @@ async function send () {
     if (resp && resp.ok !== false) {
       setStatus('✅ Enviado a Luna Fetch.', '#2ec4a3');
       urlInput.value = '';
+      setTimeout(() => {
+        window.close();
+      }, 150);
     } else {
       setStatus(resp && resp.error ? resp.error : 'No se pudo enviar.', '#ff6b6b');
     }
