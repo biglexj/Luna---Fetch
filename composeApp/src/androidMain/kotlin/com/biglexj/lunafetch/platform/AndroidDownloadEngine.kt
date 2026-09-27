@@ -40,11 +40,14 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             val message = error.message.orEmpty()
             if (message.contains("Unable to extract", ignoreCase = true) ||
                 message.contains("Unexpected response", ignoreCase = true) ||
-                message.contains("please report this issue", ignoreCase = true)
+                message.contains("please report this issue", ignoreCase = true) ||
+                message.contains("403", ignoreCase = true) ||
+                message.contains("Forbidden", ignoreCase = true) ||
+                message.contains("Unable to download webpage", ignoreCase = true)
             ) {
                 runCatching { updateYtdlpIfNeeded(forceNightly = true) }
                 runCatching { executeAnalyze(url) }.getOrElse {
-                    throw DownloadException(error.message ?: "No se pudo analizar el enlace en Android.", error)
+                    throw DownloadException(it.message ?: error.message ?: "No se pudo analizar el enlace en Android.", it)
                 }
             } else {
                 throw DownloadException(error.message ?: "No se pudo analizar el enlace en Android.", error)
@@ -174,7 +177,6 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         } else {
             req.addOption("--no-check-certificates")
         }
-        req.addOption("--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
 
         val cookieFile = File(context.filesDir, "luna_session_cookies.txt").let {
             if (it.exists() && it.length() > 0) it else File(context.cacheDir, "luna_session_cookies.txt")
@@ -186,9 +188,9 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
     }
 
     private fun updateYtdlpIfNeeded(forceNightly: Boolean = false) {
-        val preferences = context.getSharedPreferences("lunafetch-engine", Context.MODE_PRIVATE)
+        val preferences = context.getSharedPreferences("lunafetch-prefs", Context.MODE_PRIVATE)
         val lastUpdate = preferences.getLong("lastYtdlpUpdate", 0L)
-        val lastChannel = preferences.getString("lastYtdlpChannel", "")
+        val lastChannel = preferences.getString("lastYtdlpChannel", "NIGHTLY") ?: "NIGHTLY"
         val now = System.currentTimeMillis()
         if (!forceNightly && lastChannel == "NIGHTLY" && now - lastUpdate < UpdateIntervalMillis) return
 

@@ -299,8 +299,8 @@ class AndroidPlatformBindings(
     }
 
     override suspend fun getEngineChannel(): String =
-        preferences.getString("lastYtdlpChannel", com.biglexj.lunafetch.domain.EngineChannel.STABLE.wire)
-            ?: com.biglexj.lunafetch.domain.EngineChannel.STABLE.wire
+        preferences.getString("lastYtdlpChannel", com.biglexj.lunafetch.domain.EngineChannel.NIGHTLY.wire)
+            ?: com.biglexj.lunafetch.domain.EngineChannel.NIGHTLY.wire
 
     override suspend fun setEngineChannel(channel: String) {
         preferences.edit().putString("lastYtdlpChannel", channel).apply()
@@ -308,8 +308,14 @@ class AndroidPlatformBindings(
 
     override suspend fun getEngineComponentStatus(): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val channel = com.biglexj.lunafetch.domain.EngineChannel.fromWire(getEngineChannel())
-        val lastUpdate = preferences.getLong("lastYtdlpUpdate", 0L)
-        if (lastUpdate > 0) "Componentes nativos (Canal ${channel.label})" else "Componentes nativos activos (Canal ${channel.label})"
+        val version = runCatching {
+            com.yausername.youtubedl_android.YoutubeDL.version(appContext)
+        }.getOrNull()
+        if (!version.isNullOrBlank()) {
+            "yt-dlp $version (${channel.label})"
+        } else {
+            "Componentes nativos (${channel.label})"
+        }
     }
 
     override suspend fun updateEngineComponents(channel: String): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -321,9 +327,12 @@ class AndroidPlatformBindings(
             }
             com.yausername.youtubedl_android.YoutubeDL.updateYoutubeDL(appContext, updateChannel)
             preferences.edit().putLong("lastYtdlpUpdate", System.currentTimeMillis()).putString("lastYtdlpChannel", engineChannel.wire).apply()
-            Result.success("Componentes nativos actualizados al canal ${engineChannel.label}.")
-        }.getOrElse {
-            Result.success("Los componentes nativos están actualizados al canal ${engineChannel.label}.")
+            val version = runCatching { com.yausername.youtubedl_android.YoutubeDL.version(appContext) }.getOrNull()
+            val versionSuffix = if (!version.isNullOrBlank()) " a $version" else ""
+            Result.success("Controlador actualizado con éxito$versionSuffix (Canal ${engineChannel.label}).")
+        }.getOrElse { error ->
+            val message = error.message?.takeIf { it.isNotBlank() } ?: "Error de red al actualizar componentes"
+            Result.failure(com.biglexj.lunafetch.domain.DownloadException("No se pudo actualizar el motor: $message", error))
         }
     }
 }

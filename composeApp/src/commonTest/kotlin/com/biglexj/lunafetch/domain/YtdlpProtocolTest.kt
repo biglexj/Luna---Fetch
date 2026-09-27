@@ -86,4 +86,26 @@ class YtdlpProtocolTest {
         assertFalse("--user-agent" in analyzeArgs)
         assertFalse("--referer" in analyzeArgs)
     }
+
+    @Test
+    fun adultAndGenericUrlIncludesOriginHeaders() {
+        val phUrl = "https://www.pornhub.com/view_video.php?viewkey=ph60b5dae392cdc"
+        val analyzeArgs = YtdlpProtocol.buildAnalyzeArguments(phUrl)
+        assertTrue("--referer" in analyzeArgs)
+        assertTrue("https://www.pornhub.com/" in analyzeArgs)
+        assertTrue("--add-header" in analyzeArgs)
+        assertTrue("Origin:https://www.pornhub.com" in analyzeArgs)
+        assertTrue("--user-agent" in analyzeArgs)
+
+        val request = DownloadRequest(
+            url = phUrl,
+            destination = "unused",
+            format = MediaFormat.Mp4,
+            quality = FormatCatalog.qualities(MediaFormat.Mp4, 1080).first(),
+        )
+        val downloadArgs = YtdlpProtocol.buildDownloadArguments(request, "C:/Downloads/%(title)s.%(ext)s")
+        assertTrue("--referer" in downloadArgs)
+        assertTrue("https://www.pornhub.com/" in downloadArgs)
+        assertTrue("Origin:https://www.pornhub.com" in downloadArgs)
+    }
 }
