@@ -31,8 +31,9 @@ class FormatCatalogTest {
     }
 
     @Test
-    fun losslessFlacIsNotOfferedForLossySources() {
-        assertFalse(MediaFormat.entries.any { it.extension == "flac" })
+    fun losslessFlacAndWavAreSupported() {
+        assertTrue(MediaFormat.entries.any { it.extension == "flac" })
+        assertTrue(MediaFormat.entries.any { it.extension == "wav" })
     }
 
     @Test

@@ -42,6 +42,8 @@ enum class MediaFormat(
     WebM("Video WebM", "webm", false),
     Mp3("Audio MP3", "mp3", true),
     M4a("Audio M4A", "m4a", true),
+    Flac("Audio FLAC (Lossless)", "flac", true),
+    Wav("Audio WAV (Lossless)", "wav", true),
 }
 
 data class QualityOption(
@@ -53,11 +55,17 @@ data class QualityOption(
 object FormatCatalog {
     fun qualities(format: MediaFormat, maxHeight: Int): List<QualityOption> {
         if (format.isAudio) {
-            return listOf(
-                QualityOption("Mejor calidad", "bestaudio/best", "0"),
-                QualityOption("Estándar · 192 kbps", "bestaudio/best", "5"),
-                QualityOption("Ligera · 128 kbps", "bestaudio/best", "9"),
-            )
+            return if (format == MediaFormat.Flac || format == MediaFormat.Wav) {
+                listOf(
+                    QualityOption("Máxima fidelidad sin pérdidas", "bestaudio/best", "0"),
+                )
+            } else {
+                listOf(
+                    QualityOption("Mejor calidad", "bestaudio/best", "0"),
+                    QualityOption("Estándar · 192 kbps", "bestaudio/best", "5"),
+                    QualityOption("Ligera · 128 kbps", "bestaudio/best", "9"),
+                )
+            }
         }
 
         val safeHeight = maxHeight.coerceAtLeast(360)
@@ -82,11 +90,11 @@ object FormatCatalog {
     private fun videoSelector(format: MediaFormat, height: Int, maxFps: Int? = null): String {
         val fpsConstraint = if (maxFps != null) "[fps<=$maxFps]" else ""
         val preferred = when (format) {
-            MediaFormat.Mp4 -> "bestvideo[height<=$height]$fpsConstraint[ext=mp4]+bestaudio[ext=m4a]"
-            MediaFormat.WebM -> "bestvideo[height<=$height]$fpsConstraint[ext=webm]+bestaudio[ext=webm]"
+            MediaFormat.Mp4 -> "bestvideo*[height<=$height]$fpsConstraint[ext=mp4]+bestaudio[ext=m4a]/bestvideo*[height<=$height]$fpsConstraint[ext=mp4]+bestaudio/best[height<=$height][ext=mp4]"
+            MediaFormat.WebM -> "bestvideo*[height<=$height]$fpsConstraint[ext=webm]+bestaudio[ext=webm]/bestvideo*[height<=$height]$fpsConstraint[ext=webm]+bestaudio/best[height<=$height][ext=webm]"
             else -> error("El selector de vídeo requiere un formato de vídeo.")
         }
-        return "$preferred/bestvideo[height<=$height]$fpsConstraint+bestaudio/best[height<=$height]/best"
+        return "$preferred/bestvideo*[height<=$height]$fpsConstraint+bestaudio/best[height<=$height]/bestvideo*+bestaudio/best"
     }
 }
 

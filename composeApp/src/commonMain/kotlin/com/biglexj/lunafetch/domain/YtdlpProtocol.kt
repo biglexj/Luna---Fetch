@@ -79,6 +79,7 @@ object YtdlpProtocol {
     fun buildAnalyzeArguments(url: String): List<String> = listOf(
         "--ignore-config",
         "--no-colors",
+        "--no-check-certificates",
         "--dump-single-json",
         "--flat-playlist",
         "--yes-playlist",
@@ -89,6 +90,7 @@ object YtdlpProtocol {
             listOf(
                 "--ignore-config",
                 "--no-colors",
+                "--no-check-certificates",
                 "--newline",
                 "--progress",
                 "--progress-template",

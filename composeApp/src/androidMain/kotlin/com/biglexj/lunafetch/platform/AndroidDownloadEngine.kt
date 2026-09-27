@@ -167,8 +167,14 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
 
     private fun androidRequest(url: String): YoutubeDLRequest {
         val req = YoutubeDLRequest(url)
-            .addOption("--js-runtimes", "quickjs")
-            .addOption("--remote-components", "ejs:github")
+        val isYouTube = url.contains("youtube.com", ignoreCase = true) || url.contains("youtu.be", ignoreCase = true)
+        if (isYouTube) {
+            req.addOption("--js-runtimes", "quickjs")
+            req.addOption("--remote-components", "ejs:github")
+        } else {
+            req.addOption("--no-check-certificates")
+        }
+        req.addOption("--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
 
         val cookieFile = File(context.filesDir, "luna_session_cookies.txt").let {
             if (it.exists() && it.length() > 0) it else File(context.cacheDir, "luna_session_cookies.txt")
@@ -312,6 +318,8 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         "webm" -> "video/webm"
         "mp3" -> "audio/mpeg"
         "m4a" -> "audio/mp4"
+        "flac" -> "audio/flac"
+        "wav" -> "audio/wav"
         else -> "application/octet-stream"
     }
 

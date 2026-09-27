@@ -41,7 +41,7 @@ fun LinkCard(
     LaunchedEffect(Unit) {
         if (state.url.isBlank()) {
             val clip = platform.readClipboardText()?.trim().orEmpty()
-            if (clip.isNotBlank() && isYouTubeOrMediaUrl(clip)) {
+            if (clip.isNotBlank() && isMediaUrl(clip)) {
                 presenter.setUrl(clip)
                 presenter.showToast("URL detectada del portapapeles")
             }
@@ -66,7 +66,7 @@ fun LinkCard(
             placeholder = if (!isFocused) {
                 {
                     Text(
-                        "Pega acá la URL (YouTube, TikTok, Instagram...)",
+                        "Pega acá cualquier URL (YouTube, +18, TikTok, Vimeo, música...)",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
@@ -115,15 +115,6 @@ fun LinkCard(
     }
 }
 
-private fun isYouTubeOrMediaUrl(url: String): Boolean {
-    val trimmed = url.trim()
-    if (!trimmed.startsWith("http://", ignoreCase = true) && !trimmed.startsWith("https://", ignoreCase = true)) {
-        return false
-    }
-    val lower = trimmed.lowercase()
-    return lower.contains("youtube.com") || lower.contains("youtu.be") ||
-            lower.contains("tiktok.com") || lower.contains("instagram.com") ||
-            lower.contains("x.com") || lower.contains("twitter.com") ||
-            lower.contains("facebook.com") || lower.contains("fb.watch") ||
-            lower.contains("vimeo.com") || lower.contains("twitch.tv")
+private fun isMediaUrl(url: String): Boolean {
+    return LunaFetchPresenter.isSupportedUrl(url)
 }

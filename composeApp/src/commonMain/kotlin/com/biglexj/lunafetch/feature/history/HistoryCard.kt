@@ -84,6 +84,20 @@ fun HistoryCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        val platformBadge = getPlatformBadge(item.url)
+                        if (platformBadge.isNotBlank()) {
+                            Text(
+                                platformBadge,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                "•",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            )
+                        }
                         Text(
                             item.formatLabel,
                             style = MaterialTheme.typography.bodySmall,
@@ -179,3 +193,29 @@ private fun getDeviceIcon(name: String, path: String = ""): String {
     }
 }
 
+private fun getPlatformBadge(url: String): String {
+    if (url.isBlank()) return ""
+    val lower = url.lowercase()
+    return when {
+        lower.contains("youtube.com") || lower.contains("youtu.be") -> "YouTube"
+        lower.contains("tiktok.com") -> "TikTok"
+        lower.contains("instagram.com") -> "Instagram"
+        lower.contains("x.com") || lower.contains("twitter.com") -> "X / Twitter"
+        lower.contains("facebook.com") || lower.contains("fb.watch") -> "Facebook"
+        lower.contains("vimeo.com") -> "Vimeo"
+        lower.contains("twitch.tv") -> "Twitch"
+        lower.contains("bilibili.com") -> "BiliBili"
+        lower.contains("nicovideo.jp") -> "NicoVideo"
+        lower.contains("soundcloud.com") -> "SoundCloud"
+        lower.contains("bandcamp.com") -> "Bandcamp"
+        lower.contains("pornhub.com") -> "Pornhub"
+        lower.contains("xvideos.com") -> "XVideos"
+        lower.contains("spankbang.com") -> "SpankBang"
+        lower.contains("eporner.com") -> "EPorner"
+        lower.contains("rule34video.com") -> "Rule34"
+        else -> runCatching {
+            val host = url.substringAfter("://").substringBefore("/").removePrefix("www.")
+            host.split(".").firstOrNull()?.replaceFirstChar { it.uppercase() } ?: "Web"
+        }.getOrDefault("Web")
+    }
+}
