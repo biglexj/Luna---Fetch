@@ -115,7 +115,17 @@ class DesktopDownloadEngine(
         customCookieFile: String? = null,
         onLine: ((String) -> Unit)? = null,
     ): Pair<Int, Pair<String, String>> {
-        val sessionCookieFile = customCookieFile ?: File(System.getProperty("java.io.tmpdir"), "luna_session_cookies.txt").let {
+        val defaultClearance = com.biglexj.lunafetch.domain.NetscapeCookieJar.defaultClearanceForUrl(url)
+        val tempCookieFile = File(System.getProperty("java.io.tmpdir"), "luna_session_cookies.txt")
+        if (defaultClearance.isNotEmpty()) {
+            val existing = if (tempCookieFile.exists() && tempCookieFile.length() > 0) {
+                runCatching { com.biglexj.lunafetch.domain.NetscapeCookieJar.parse(tempCookieFile.readText()) }.getOrDefault(emptyList())
+            } else emptyList()
+            val merged = com.biglexj.lunafetch.domain.NetscapeCookieJar.merge(existing, defaultClearance)
+            runCatching { tempCookieFile.writeText(com.biglexj.lunafetch.domain.NetscapeCookieJar.serialize(merged)) }
+        }
+
+        val sessionCookieFile = customCookieFile ?: tempCookieFile.let {
             if (it.exists() && it.length() > 0) it.absolutePath else null
         }
 
