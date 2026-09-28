@@ -61,14 +61,31 @@ object NetscapeCookieJar {
         return list
     }
 
+    fun rootDomainOf(host: String): String {
+        val clean = host.removePrefix("https://").removePrefix("http://")
+            .substringBefore('/')
+            .substringBefore(':')
+            .trim()
+            .removePrefix(".")
+        val parts = clean.split('.')
+        return if (parts.size >= 2) {
+            "${parts[parts.size - 2]}.${parts.last()}"
+        } else {
+            clean
+        }
+    }
+
     fun parseHeaderString(domain: String, cookieHeader: String): List<NetscapeCookie> {
         val cleanDomain = domain.removePrefix("https://").removePrefix("http://")
             .substringBefore('/')
             .substringBefore(':')
             .trim()
+            .removePrefix(".")
         if (cleanDomain.isBlank()) return emptyList()
 
-        val dotDomain = if (cleanDomain.startsWith(".")) cleanDomain else ".$cleanDomain"
+        val rootDomain = rootDomainOf(cleanDomain)
+        val targetDomain = if (rootDomain.isNotBlank()) ".$rootDomain" else ".$cleanDomain"
+
         val expiry = 2147483647L // Max 32-bit timestamp
         val result = mutableListOf<NetscapeCookie>()
         val pairs = cookieHeader.split(';')
@@ -82,7 +99,7 @@ object NetscapeCookieJar {
                 if (name.isNotBlank()) {
                     result.add(
                         NetscapeCookie(
-                            domain = dotDomain,
+                            domain = targetDomain,
                             includeSubdomains = true,
                             path = "/",
                             isSecure = false,
@@ -136,42 +153,75 @@ object NetscapeCookieJar {
         }
 
         if (lower.contains("pornhub") || lower.contains("phncdn")) {
-            val phDomains = listOf("pornhub.com", "www.pornhub.com", "pornhubpremium.com")
+            val phDomains = listOf(
+                "pornhub.com",
+                "www.pornhub.com",
+                "es.pornhub.com",
+                "de.pornhub.com",
+                "fr.pornhub.com",
+                "it.pornhub.com",
+                "rt.pornhub.com",
+                "pt.pornhub.com",
+                "pornhubpremium.com",
+            )
             for (d in phDomains) {
                 add(d, "platform", "pc")
                 add(d, "age_verified", "1")
                 add(d, "accessAgeDisclaimerPH", "1")
+                add(d, "accessAgeDisclaimerUK", "1")
+                add(d, "accessPH", "1")
                 add(d, "hasVisited", "1")
                 add(d, "cookiesBanner", "1")
+                add(d, "cookieConsent", "1")
                 add(d, "ua", "7675d59b5e84e0a878ee6f0a97f9056f")
             }
         }
         if (lower.contains("redtube")) {
-            add("redtube.com", "platform", "pc")
-            add("redtube.com", "age_verified", "1")
-            add("redtube.com", "accessAgeDisclaimerPH", "1")
-            add("redtube.com", "ua", "7675d59b5e84e0a878ee6f0a97f9056f")
+            val rtDomains = listOf("redtube.com", "www.redtube.com", "es.redtube.com")
+            for (d in rtDomains) {
+                add(d, "platform", "pc")
+                add(d, "age_verified", "1")
+                add(d, "accessAgeDisclaimerPH", "1")
+                add(d, "hasVisited", "1")
+                add(d, "ua", "7675d59b5e84e0a878ee6f0a97f9056f")
+            }
         }
         if (lower.contains("youporn")) {
-            add("youporn.com", "platform", "pc")
-            add("youporn.com", "age_verified", "1")
-            add("youporn.com", "accessAgeDisclaimerPH", "1")
-            add("youporn.com", "ua", "7675d59b5e84e0a878ee6f0a97f9056f")
+            val ypDomains = listOf("youporn.com", "www.youporn.com", "es.youporn.com")
+            for (d in ypDomains) {
+                add(d, "platform", "pc")
+                add(d, "age_verified", "1")
+                add(d, "accessAgeDisclaimerPH", "1")
+                add(d, "hasVisited", "1")
+                add(d, "ua", "7675d59b5e84e0a878ee6f0a97f9056f")
+            }
         }
         if (lower.contains("xvideos")) {
-            add("xvideos.com", "age_verified", "1")
-            add("xvideos.com", "has_verified_age", "1")
+            val xvDomains = listOf("xvideos.com", "www.xvideos.com", "es.xvideos.com")
+            for (d in xvDomains) {
+                add(d, "age_verified", "1")
+                add(d, "has_verified_age", "1")
+            }
         }
         if (lower.contains("xnxx")) {
-            add("xnxx.com", "age_verified", "1")
-            add("xnxx.com", "has_verified_age", "1")
+            val xnDomains = listOf("xnxx.com", "www.xnxx.com", "es.xnxx.com")
+            for (d in xnDomains) {
+                add(d, "age_verified", "1")
+                add(d, "has_verified_age", "1")
+            }
         }
         if (lower.contains("spankbang")) {
-            add("spankbang.com", "age_verified", "1")
-            add("spankbang.com", "country_verified", "1")
+            val sbDomains = listOf("spankbang.com", "www.spankbang.com", "es.spankbang.com")
+            for (d in sbDomains) {
+                add(d, "age_verified", "1")
+                add(d, "country_verified", "1")
+            }
         }
         if (lower.contains("eporner")) {
-            add("eporner.com", "age_verified", "1")
+            val epDomains = listOf("eporner.com", "www.eporner.com", "es.eporner.com")
+            for (d in epDomains) {
+                add(d, "age_verified", "1")
+            }
         }
         return list
     }

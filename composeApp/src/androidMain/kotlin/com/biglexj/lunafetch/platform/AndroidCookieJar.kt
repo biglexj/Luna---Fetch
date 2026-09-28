@@ -52,21 +52,39 @@ object AndroidCookieJar {
             java.net.URI(url).host ?: url
         }.getOrDefault("pornhub.com")
 
-        // Pre-seed known bypass cookies in Android CookieManager
-        val seedDomain = if (targetDomain.contains("pornhub", ignoreCase = true)) ".pornhub.com" else targetDomain
+        val rootDomain = NetscapeCookieJar.rootDomainOf(targetDomain)
+        val seedDomain = if (rootDomain.isNotBlank()) ".$rootDomain" else targetDomain
         val baseProtocol = if (url.startsWith("http://", ignoreCase = true)) "http://" else "https://"
-        val baseUrl = "$baseProtocol${targetDomain.removePrefix("www.")}"
-        
-        cookieManager.setCookie(baseUrl, "platform=pc; Domain=$seedDomain; Path=/")
-        cookieManager.setCookie(baseUrl, "age_verified=1; Domain=$seedDomain; Path=/")
-        cookieManager.setCookie(baseUrl, "accessAgeDisclaimerPH=1; Domain=$seedDomain; Path=/")
-        cookieManager.setCookie(baseUrl, "ua=7675d59b5e84e0a878ee6f0a97f9056f; Domain=$seedDomain; Path=/")
+        val baseUrl = "$baseProtocol$targetDomain"
+
+        // Pre-seed known bypass cookies across root and regional domains
+        val seedUrls = listOf(
+            baseUrl,
+            "$baseProtocol$rootDomain",
+            "$baseProtocol" + "es.$rootDomain",
+            "$baseProtocol" + "www.$rootDomain",
+        )
+        val seedCookies = listOf(
+            "platform=pc; Domain=$seedDomain; Path=/",
+            "age_verified=1; Domain=$seedDomain; Path=/",
+            "accessAgeDisclaimerPH=1; Domain=$seedDomain; Path=/",
+            "accessAgeDisclaimerUK=1; Domain=$seedDomain; Path=/",
+            "accessPH=1; Domain=$seedDomain; Path=/",
+            "ua=7675d59b5e84e0a878ee6f0a97f9056f; Domain=$seedDomain; Path=/",
+            "cookiesBanner=1; Domain=$seedDomain; Path=/",
+            "cookieConsent=1; Domain=$seedDomain; Path=/",
+        )
+        for (seedUrl in seedUrls) {
+            for (c in seedCookies) {
+                cookieManager.setCookie(seedUrl, c)
+            }
+        }
         cookieManager.flush()
 
         var webView: WebView? = null
         try {
             val capturedCookies = withTimeoutOrNull(5000L) {
-                suspendCancellableCoroutine<String?> { continuation ->
+                suspendCancellableCoroutine<Pair<String?, String?>?> { continuation ->
                     val wv = WebView(context.applicationContext).apply {
                         settings.apply {
                             javaScriptEnabled = true
@@ -79,9 +97,10 @@ object AndroidCookieJar {
                             override fun onPageFinished(view: WebView?, finishedUrl: String?) {
                                 super.onPageFinished(view, finishedUrl)
                                 Handler(Looper.getMainLooper()).postDelayed({
-                                    val cookies = cookieManager.getCookie(finishedUrl ?: url)
+                                    val finalUrl = finishedUrl ?: view?.url ?: url
+                                    val cookies = cookieManager.getCookie(finalUrl) ?: cookieManager.getCookie(baseUrl)
                                     if (continuation.isActive) {
-                                        continuation.resume(cookies)
+                                        continuation.resume(Pair(cookies, finalUrl))
                                     }
                                 }, 800)
                             }
@@ -98,12 +117,16 @@ object AndroidCookieJar {
                 }
             }
 
-            if (!capturedCookies.isNullOrBlank()) {
-                Log.d(TAG, "Captured web cookies for $url: ${capturedCookies.take(120)}...")
-                saveCookieHeader(context, targetDomain, capturedCookies)
+            val cookies = capturedCookies?.first
+            val finalUrl = capturedCookies?.second ?: url
+            val finalHost = runCatching { java.net.URI(finalUrl).host }.getOrNull() ?: targetDomain
+
+            if (!cookies.isNullOrBlank()) {
+                Log.d(TAG, "Captured web cookies for $finalUrl (host=$finalHost): ${cookies.take(120)}...")
+                saveCookieHeader(context, finalHost, cookies)
                 return@withContext true
             } else {
-                val fallbackCookies = cookieManager.getCookie(baseUrl)
+                val fallbackCookies = cookieManager.getCookie(baseUrl) ?: cookieManager.getCookie(url)
                 if (!fallbackCookies.isNullOrBlank()) {
                     Log.d(TAG, "Using CookieManager fallback cookies for $baseUrl: ${fallbackCookies.take(120)}...")
                     saveCookieHeader(context, targetDomain, fallbackCookies)

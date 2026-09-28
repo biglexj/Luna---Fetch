@@ -60,6 +60,6 @@ class NetscapeCookieJarTest {
         assertEquals(3, cookies.size)
         assertEquals("age_verified", cookies[0].name)
         assertEquals("1", cookies[0].value)
-        assertEquals(".www.pornhub.com", cookies[0].domain)
+        assertEquals(".pornhub.com", cookies[0].domain)
     }
 }
