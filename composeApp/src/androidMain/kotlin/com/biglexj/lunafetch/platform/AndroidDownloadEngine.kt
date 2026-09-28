@@ -39,7 +39,8 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             executeAnalyze(url, useCookies = false)
         } catch (error: Exception) {
             val message = error.message.orEmpty()
-            android.util.Log.w("LunaFetchEngine", "Clean analyze attempt failed: $message. Checking update fallback and cookie resolution...")
+            val ver = runCatching { YoutubeDL.version(context) }.getOrNull().orEmpty()
+            android.util.Log.e("LunaFetchEngine", "Clean analyze attempt failed: $message (yt-dlp version: $ver). Running fallbacks...")
             if (message.contains("403", ignoreCase = true) ||
                 message.contains("Forbidden", ignoreCase = true) ||
                 message.contains("Unable to download webpage", ignoreCase = true) ||
@@ -50,7 +51,7 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                 message.contains("please report this issue", ignoreCase = true)
             ) {
                 // Strategy 1: Update yt-dlp to latest NIGHTLY immediately (addresses web changes like 403)
-                android.util.Log.d("LunaFetchEngine", "Triggering forced update to NIGHTLY and retrying clean analyze...")
+                android.util.Log.e("LunaFetchEngine", "Triggering forced update to NIGHTLY and retrying clean analyze...")
                 val updateRes = runCatching { updateYtdlpIfNeeded(forceNightly = true) }
                 if (updateRes.isSuccess) {
                     val retryClean = runCatching { executeAnalyze(url, useCookies = false) }
@@ -59,25 +60,22 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                     }
                 }
 
-                // Strategy 2: If session cookies exist, try with cookies
+                // Strategy 2: Retry with standard desktop User-Agent (identically to PC engine)
+                android.util.Log.e("LunaFetchEngine", "Retrying analyze with standard desktop user-agent...")
+                val desktopUa = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+                val retryUa = runCatching { executeAnalyze(url, useCookies = false, customUserAgent = desktopUa) }
+                if (retryUa.isSuccess) {
+                    return@withContext retryUa.getOrThrow()
+                }
+
+                // Strategy 3: If session cookies exist, try with cookies
                 val cookieFile = AndroidCookieJar.cookieFile(context).takeIf { it.exists() && it.length() > 0 }
                     ?: File(context.cacheDir, "luna_session_cookies.txt").takeIf { it.exists() && it.length() > 0 }
                 if (cookieFile != null) {
-                    android.util.Log.d("LunaFetchEngine", "Attempting analyze with stored cookies for $url...")
+                    android.util.Log.e("LunaFetchEngine", "Attempting analyze with stored cookies for $url...")
                     val cookieRes = runCatching { executeAnalyze(url, useCookies = true) }
                     if (cookieRes.isSuccess) {
                         return@withContext cookieRes.getOrThrow()
-                    }
-                }
-
-                // Strategy 3: Attempt fresh WebView cookie capture
-                android.util.Log.d("LunaFetchEngine", "Attempting WebView cookie resolution for $url...")
-                val cookieResolved = runCatching { AndroidCookieJar.resolveWebCookies(context, url) }.getOrDefault(false)
-                if (cookieResolved) {
-                    android.util.Log.d("LunaFetchEngine", "WebView cookies resolved successfully. Retrying analyze...")
-                    val retryRes = runCatching { executeAnalyze(url, useCookies = true) }
-                    if (retryRes.isSuccess) {
-                        return@withContext retryRes.getOrThrow()
                     }
                 }
 
@@ -88,7 +86,12 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         }
     }
 
-    private fun executeAnalyze(url: String, useCookies: Boolean = false, verbose: Boolean = false): VideoInfo {
+    private fun executeAnalyze(
+        url: String,
+        useCookies: Boolean = false,
+        customUserAgent: String? = null,
+        verbose: Boolean = false,
+    ): VideoInfo {
         val isPlaylist = url.contains("list=", ignoreCase = true) ||
             url.contains("/playlist", ignoreCase = true) ||
             url.contains("/sets/", ignoreCase = true)
@@ -109,20 +112,23 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             } else {
                 addOption("--no-warnings")
             }
+            if (!customUserAgent.isNullOrBlank()) {
+                addOption("--user-agent", customUserAgent)
+            }
             if (useCookies) {
                 val cookieFile = AndroidCookieJar.cookieFile(context).takeIf { it.exists() && it.length() > 0 }
                     ?: File(context.cacheDir, "luna_session_cookies.txt").takeIf { it.exists() && it.length() > 0 }
                 cookieFile?.let { addOption("--cookies", it.absolutePath) }
             }
         }
-        android.util.Log.d("LunaFetchEngine", "executeAnalyze url: $url, useCookies: $useCookies, isPlaylist: $isPlaylist, verbose: $verbose")
+        android.util.Log.e("LunaFetchEngine", "executeAnalyze url: $url, useCookies: $useCookies, isPlaylist: $isPlaylist, customUa: ${!customUserAgent.isNullOrBlank()}")
         val response = try {
             YoutubeDL.execute(request)
         } catch (e: Exception) {
             android.util.Log.e("LunaFetchEngine", "YoutubeDL.execute failed for $url (useCookies=$useCookies): ${e.message}")
             throw e
         }
-        android.util.Log.d("LunaFetchEngine", "executeAnalyze exitCode: ${response.exitCode}, err: ${response.err.take(500)}")
+        android.util.Log.e("LunaFetchEngine", "executeAnalyze exitCode: ${response.exitCode}, err: ${response.err.take(500)}")
         if (response.exitCode != 0) {
             throw DownloadException(response.err.ifBlank { "yt-dlp no pudo analizar el enlace." })
         }
@@ -256,10 +262,15 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             val file = AndroidCookieJar.cookieFile(context)
             if (file.exists()) {
                 val content = file.readText()
-                if (content.contains("7675d59b5e84e0a878ee6f0a97f9056f") || content.contains("ua\t7675")) {
+                if (content.contains("7675d59b5e84e0a878ee6f0a97f9056f") || content.contains("ua\t") || content.contains("pornhub")) {
                     file.delete()
                     android.util.Log.i("LunaFetchEngine", "Purged corrupted cookie file from device.")
                 }
+            }
+            val cacheFile = File(context.cacheDir, "luna_session_cookies.txt")
+            if (cacheFile.exists()) {
+                cacheFile.delete()
+                android.util.Log.i("LunaFetchEngine", "Purged cache cookie file from device.")
             }
         }
     }
