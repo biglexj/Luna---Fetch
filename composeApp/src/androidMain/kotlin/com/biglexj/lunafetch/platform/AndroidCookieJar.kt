@@ -70,7 +70,6 @@ object AndroidCookieJar {
             "accessAgeDisclaimerPH=1; Domain=$seedDomain; Path=/",
             "accessAgeDisclaimerUK=1; Domain=$seedDomain; Path=/",
             "accessPH=1; Domain=$seedDomain; Path=/",
-            "ua=7675d59b5e84e0a878ee6f0a97f9056f; Domain=$seedDomain; Path=/",
             "cookiesBanner=1; Domain=$seedDomain; Path=/",
             "cookieConsent=1; Domain=$seedDomain; Path=/",
         )

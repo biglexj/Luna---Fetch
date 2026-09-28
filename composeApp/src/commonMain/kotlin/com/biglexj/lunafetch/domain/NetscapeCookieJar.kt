@@ -173,7 +173,6 @@ object NetscapeCookieJar {
                 add(d, "hasVisited", "1")
                 add(d, "cookiesBanner", "1")
                 add(d, "cookieConsent", "1")
-                add(d, "ua", "7675d59b5e84e0a878ee6f0a97f9056f")
             }
         }
         if (lower.contains("redtube")) {
@@ -183,7 +182,6 @@ object NetscapeCookieJar {
                 add(d, "age_verified", "1")
                 add(d, "accessAgeDisclaimerPH", "1")
                 add(d, "hasVisited", "1")
-                add(d, "ua", "7675d59b5e84e0a878ee6f0a97f9056f")
             }
         }
         if (lower.contains("youporn")) {
@@ -193,7 +191,6 @@ object NetscapeCookieJar {
                 add(d, "age_verified", "1")
                 add(d, "accessAgeDisclaimerPH", "1")
                 add(d, "hasVisited", "1")
-                add(d, "ua", "7675d59b5e84e0a878ee6f0a97f9056f")
             }
         }
         if (lower.contains("xvideos")) {

@@ -25,4 +25,10 @@
    - Implementado `AndroidCookieJar` en `androidMain`: pre-siembra de clearance cookies y puente reactivo headless con `WebView` y `CookieManager` para resolver desafíos dinámicos en segundo plano.
    - Paridad en `DesktopDownloadEngine`: inyección automática de clearance cookies en el archivo temporal de cookies en caso de descarga sin extensión activa.
    - Compilación exitosa de APK: `./gradlew assembleDebug` (`BUILD SUCCESSFUL in 15s`). Suite `./gradlew test` (58 tareas pasadas exitosamente).
+7. **Reverse Engineering de Seal (`JunkFood02/Seal`) e Integración Arquitectónica**:
+   - Identificado que en Seal `android:extractNativeLibs="true"` es vital en `AndroidManifest.xml` para que los procesos fork/exec de Python carguen sockets y extensiones C (`libpython.so`) sin error de resolución DNS `[Errno 7] No address associated with hostname`.
+   - Detectado que la inyección forzada de User-Agent de escritorio y hash sintético `ua` en requests sin `curl_cffi` provocaba la detección de bot/falsificación y generaba el error `HTTP 403 Forbidden`.
+   - Adoptado el patrón canónico de Seal: requests de análisis limpios y nativos (`--dump-single-json`, `--flat-playlist`, `-R 1`, `--socket-timeout 10`, `--no-check-certificates`) sin sobreescribir las cabeceras afinadas de los 1,745 extractores de yt-dlp.
+   - Actualizadas suites de tests unitarios: `YtdlpProtocolTest` y `NetscapeCookieJarTest`. Todas las pruebas unitarias pasaron con éxito (`BUILD SUCCESSFUL`).
+   - Verificada compilación de APK Android (`./gradlew assembleDebug`: `BUILD SUCCESSFUL in 10s`).
 

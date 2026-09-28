@@ -76,35 +76,13 @@ object YtdlpProtocol {
         return null
     }
 
-    private fun originHeaders(url: String): List<String> {
-        val lower = url.lowercase()
-        if (lower.contains("tiktok.com") || lower.contains("douyin.com")) {
-            return emptyList()
-        }
-        val match = Regex("""^(https?)://([^/?#]+)""", RegexOption.IGNORE_CASE).find(url.trim())
-            ?: return emptyList()
-        val scheme = match.groupValues[1]
-        val host = match.groupValues[2]
-        val origin = "$scheme://$host"
-        return listOf(
-            "--referer", "$origin/",
-            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-        )
-    }
-
-    fun buildAnalyzeArguments(url: String): List<String> = buildList {
-        addAll(
-            listOf(
-                "--ignore-config",
-                "--no-colors",
-                "--no-check-certificates",
-                "--dump-single-json",
-                "--flat-playlist",
-                "--yes-playlist",
-            )
-        )
-        addAll(originHeaders(url))
-    }
+    fun buildAnalyzeArguments(url: String): List<String> = listOf(
+        "--ignore-config",
+        "--no-colors",
+        "--no-check-certificates",
+        "--dump-single-json",
+        "--flat-playlist",
+    )
 
     fun buildDownloadArguments(request: DownloadRequest, outputTemplate: String): List<String> = buildList {
         addAll(
@@ -124,7 +102,6 @@ object YtdlpProtocol {
                 request.quality.formatSelector,
             ),
         )
-        addAll(originHeaders(request.url))
         if (request.format.isAudio) {
             addAll(
                 listOf(

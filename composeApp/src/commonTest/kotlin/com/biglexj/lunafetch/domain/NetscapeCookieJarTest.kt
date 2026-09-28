@@ -7,15 +7,13 @@ import kotlin.test.assertTrue
 class NetscapeCookieJarTest {
 
     @Test
-    fun defaultClearanceForPornhubContainsVerifiedAndUa() {
+    fun defaultClearanceForPornhubContainsVerifiedAndPlatform() {
         val cookies = NetscapeCookieJar.defaultClearanceForUrl("https://www.pornhub.com/view_video.php?viewkey=6aa7c178f0fce")
         assertTrue(cookies.isNotEmpty())
         val names = cookies.map { it.name }
         assertTrue(names.contains("platform"))
         assertTrue(names.contains("age_verified"))
-        assertTrue(names.contains("ua"))
-        val uaCookie = cookies.first { it.name == "ua" }
-        assertEquals("7675d59b5e84e0a878ee6f0a97f9056f", uaCookie.value)
+        assertTrue(names.contains("accessAgeDisclaimerPH"))
     }
 
     @Test

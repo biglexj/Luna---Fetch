@@ -69,7 +69,7 @@ class YtdlpProtocolTest {
     }
 
     @Test
-    fun tikTokUrlUsesCleanNativeArguments() {
+    fun urlsUseCleanNativeArguments() {
         val request = DownloadRequest(
             url = "https://www.tiktok.com/@user/video/123456789",
             destination = "unused",
@@ -88,32 +88,18 @@ class YtdlpProtocolTest {
     }
 
     @Test
-    fun genericUrlIncludesOriginHeaders() {
+    fun genericAndAdultUrlsUseCleanArguments() {
         val genericUrl = "https://www.example.com/watch?v=123"
         val analyzeArgs = YtdlpProtocol.buildAnalyzeArguments(genericUrl)
-        assertTrue("--referer" in analyzeArgs)
-        assertTrue("https://www.example.com/" in analyzeArgs)
-        assertFalse("--add-header" in analyzeArgs)
-        assertTrue("--user-agent" in analyzeArgs)
+        assertTrue("--dump-single-json" in analyzeArgs)
+        assertTrue("--flat-playlist" in analyzeArgs)
+        assertFalse("--user-agent" in analyzeArgs)
+        assertFalse("--referer" in analyzeArgs)
 
-        val request = DownloadRequest(
-            url = genericUrl,
-            destination = "unused",
-            format = MediaFormat.Mp4,
-            quality = FormatCatalog.qualities(MediaFormat.Mp4, 1080).first(),
-        )
-        val downloadArgs = YtdlpProtocol.buildDownloadArguments(request, "C:/Downloads/%(title)s.%(ext)s")
-        assertTrue("--referer" in downloadArgs)
-        assertTrue("https://www.example.com/" in downloadArgs)
-        assertFalse("--add-header" in downloadArgs)
-    }
-
-    @Test
-    fun pornhubUrlIncludesBrowserUserAgentAndReferer() {
         val phUrl = "https://www.pornhub.com/view_video.php?viewkey=ph60b5dae392cdc"
-        val analyzeArgs = YtdlpProtocol.buildAnalyzeArguments(phUrl)
-        assertTrue("--referer" in analyzeArgs)
-        assertTrue("--user-agent" in analyzeArgs)
-        assertFalse("--add-header" in analyzeArgs)
+        val phArgs = YtdlpProtocol.buildAnalyzeArguments(phUrl)
+        assertTrue("--dump-single-json" in phArgs)
+        assertFalse("--user-agent" in phArgs)
+        assertFalse("--referer" in phArgs)
     }
 }

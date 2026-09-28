@@ -34,25 +34,30 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
 
     override suspend fun analyze(url: String): VideoInfo = withContext(Dispatchers.IO) {
         initialize()
-        AndroidCookieJar.ensureClearanceCookies(context, url)
         try {
-            executeAnalyze(url, useCookies = true)
+            // First attempt: clean native analyze without cookies (Seal pattern)
+            executeAnalyze(url, useCookies = false)
         } catch (error: Exception) {
             val message = error.message.orEmpty()
-            android.util.Log.w("LunaFetchEngine", "First analyze attempt failed: $message. Checking cookie resolution or update fallback...")
+            android.util.Log.w("LunaFetchEngine", "Clean analyze attempt failed: $message. Checking cookie resolution or update fallback...")
             if (message.contains("403", ignoreCase = true) ||
                 message.contains("Forbidden", ignoreCase = true) ||
                 message.contains("Unable to download webpage", ignoreCase = true) ||
                 message.contains("Unable to extract", ignoreCase = true) ||
                 message.contains("Unexpected response", ignoreCase = true) ||
+                message.contains("Sign in", ignoreCase = true) ||
+                message.contains("bot", ignoreCase = true) ||
                 message.contains("please report this issue", ignoreCase = true)
             ) {
-                // Strategy 1: Try clean unauthenticated request (no cookies), which bypasses stale or rejected session cookies
-                android.util.Log.d("LunaFetchEngine", "Attempting clean unauthenticated analyze (useCookies=false) for $url...")
-                val unauthRes = runCatching { executeAnalyze(url, useCookies = false, verbose = true) }
-                if (unauthRes.isSuccess) {
-                    android.util.Log.d("LunaFetchEngine", "Unauthenticated analyze succeeded!")
-                    return@withContext unauthRes.getOrThrow()
+                // Strategy 1: If session cookies exist, try with cookies
+                val cookieFile = AndroidCookieJar.cookieFile(context).takeIf { it.exists() && it.length() > 0 }
+                    ?: File(context.cacheDir, "luna_session_cookies.txt").takeIf { it.exists() && it.length() > 0 }
+                if (cookieFile != null) {
+                    android.util.Log.d("LunaFetchEngine", "Attempting analyze with stored cookies for $url...")
+                    val cookieRes = runCatching { executeAnalyze(url, useCookies = true) }
+                    if (cookieRes.isSuccess) {
+                        return@withContext cookieRes.getOrThrow()
+                    }
                 }
 
                 // Strategy 2: Attempt fresh WebView cookie capture
@@ -74,8 +79,8 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                 // Strategy 3: Forced Nightly update fallback
                 android.util.Log.d("LunaFetchEngine", "Triggering forced update to NIGHTLY and retrying analyze...")
                 updateYtdlpIfNeeded(forceNightly = true)
-                runCatching { executeAnalyze(url, useCookies = true) }
-                    .recoverCatching { executeAnalyze(url, useCookies = false) }
+                runCatching { executeAnalyze(url, useCookies = false) }
+                    .recoverCatching { executeAnalyze(url, useCookies = true) }
                     .getOrElse {
                         android.util.Log.e("LunaFetchEngine", "Subsequent analyze attempt also failed: ${it.message}")
                         throw DownloadException(it.message ?: error.message ?: "No se pudo analizar el enlace en Android.", it)
@@ -86,14 +91,30 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         }
     }
 
-    private fun executeAnalyze(url: String, useCookies: Boolean = true, verbose: Boolean = false): VideoInfo {
-        val baseCmds = YtdlpProtocol.buildAnalyzeArguments(url)
-        val cmds = if (verbose) baseCmds + "-v" else baseCmds + "--no-warnings"
-        android.util.Log.d("LunaFetchEngine", "executeAnalyze url: $url, useCookies: $useCookies, verbose: $verbose, commands: $cmds")
+    private fun executeAnalyze(url: String, useCookies: Boolean = false, verbose: Boolean = false): VideoInfo {
+        val request = YoutubeDLRequest(url).apply {
+            addOption("-o", "%(title).200B")
+            addOption("--dump-single-json")
+            addOption("--flat-playlist")
+            addOption("-R", "1")
+            addOption("--socket-timeout", "10")
+            addOption("--no-check-certificates")
+            addOption("--ignore-config")
+            addOption("--no-colors")
+            if (verbose) {
+                addOption("-v")
+            } else {
+                addOption("--no-warnings")
+            }
+            if (useCookies) {
+                val cookieFile = AndroidCookieJar.cookieFile(context).takeIf { it.exists() && it.length() > 0 }
+                    ?: File(context.cacheDir, "luna_session_cookies.txt").takeIf { it.exists() && it.length() > 0 }
+                cookieFile?.let { addOption("--cookies", it.absolutePath) }
+            }
+        }
+        android.util.Log.d("LunaFetchEngine", "executeAnalyze url: $url, useCookies: $useCookies, verbose: $verbose")
         val response = try {
-            YoutubeDL.execute(
-                androidRequest(url, useCookies).addCommands(cmds),
-            )
+            YoutubeDL.execute(request)
         } catch (e: Exception) {
             android.util.Log.e("LunaFetchEngine", "YoutubeDL.execute failed for $url (useCookies=$useCookies): ${e.message}")
             throw e
@@ -125,7 +146,6 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         onLog: (String) -> Unit,
     ): DownloadResult = withContext(Dispatchers.IO) {
         initialize()
-        AndroidCookieJar.ensureClearanceCookies(context, request.url)
         if (request.destination.isBlank()) {
             throw DownloadException("No se ha seleccionado una carpeta de destino en este dispositivo.")
         }
@@ -227,24 +247,13 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         }
     }
 
-    private fun androidRequest(url: String, useCookies: Boolean = true): YoutubeDLRequest {
+    private fun androidRequest(url: String, useCookies: Boolean = false): YoutubeDLRequest {
         val req = YoutubeDLRequest(url)
-        req.addOption("--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
-        val isYouTube = url.contains("youtube.com", ignoreCase = true) || url.contains("youtu.be", ignoreCase = true)
-        if (isYouTube) {
-            req.addOption("--js-runtimes", "quickjs")
-            req.addOption("--remote-components", "ejs:github")
-        } else {
-            req.addOption("--no-check-certificates")
-        }
-
+        req.addOption("--no-check-certificates")
         if (useCookies) {
-            val cookieFile = AndroidCookieJar.cookieFile(context).let {
-                if (it.exists() && it.length() > 0) it else File(context.cacheDir, "luna_session_cookies.txt")
-            }
-            if (cookieFile.exists() && cookieFile.length() > 0) {
-                req.addOption("--cookies", cookieFile.absolutePath)
-            }
+            val cookieFile = AndroidCookieJar.cookieFile(context).takeIf { it.exists() && it.length() > 0 }
+                ?: File(context.cacheDir, "luna_session_cookies.txt").takeIf { it.exists() && it.length() > 0 }
+            cookieFile?.let { req.addOption("--cookies", it.absolutePath) }
         }
         return req
     }
