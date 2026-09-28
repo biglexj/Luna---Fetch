@@ -39,7 +39,7 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             executeAnalyze(url, useCookies = false)
         } catch (error: Exception) {
             val message = error.message.orEmpty()
-            android.util.Log.w("LunaFetchEngine", "Clean analyze attempt failed: $message. Checking cookie resolution or update fallback...")
+            android.util.Log.w("LunaFetchEngine", "Clean analyze attempt failed: $message. Checking update fallback and cookie resolution...")
             if (message.contains("403", ignoreCase = true) ||
                 message.contains("Forbidden", ignoreCase = true) ||
                 message.contains("Unable to download webpage", ignoreCase = true) ||
@@ -49,7 +49,17 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                 message.contains("bot", ignoreCase = true) ||
                 message.contains("please report this issue", ignoreCase = true)
             ) {
-                // Strategy 1: If session cookies exist, try with cookies
+                // Strategy 1: Update yt-dlp to latest NIGHTLY immediately (addresses web changes like 403)
+                android.util.Log.d("LunaFetchEngine", "Triggering forced update to NIGHTLY and retrying clean analyze...")
+                val updateRes = runCatching { updateYtdlpIfNeeded(forceNightly = true) }
+                if (updateRes.isSuccess) {
+                    val retryClean = runCatching { executeAnalyze(url, useCookies = false) }
+                    if (retryClean.isSuccess) {
+                        return@withContext retryClean.getOrThrow()
+                    }
+                }
+
+                // Strategy 2: If session cookies exist, try with cookies
                 val cookieFile = AndroidCookieJar.cookieFile(context).takeIf { it.exists() && it.length() > 0 }
                     ?: File(context.cacheDir, "luna_session_cookies.txt").takeIf { it.exists() && it.length() > 0 }
                 if (cookieFile != null) {
@@ -60,31 +70,18 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                     }
                 }
 
-                // Strategy 2: Attempt fresh WebView cookie capture
-                if (message.contains("403", ignoreCase = true) ||
-                    message.contains("Forbidden", ignoreCase = true) ||
-                    message.contains("Unable to download webpage", ignoreCase = true)
-                ) {
-                    android.util.Log.d("LunaFetchEngine", "Attempting WebView cookie resolution for $url...")
-                    val cookieResolved = runCatching { AndroidCookieJar.resolveWebCookies(context, url) }.getOrDefault(false)
-                    if (cookieResolved) {
-                        android.util.Log.d("LunaFetchEngine", "WebView cookies resolved successfully. Retrying analyze...")
-                        val retryRes = runCatching { executeAnalyze(url, useCookies = true) }
-                        if (retryRes.isSuccess) {
-                            return@withContext retryRes.getOrThrow()
-                        }
+                // Strategy 3: Attempt fresh WebView cookie capture
+                android.util.Log.d("LunaFetchEngine", "Attempting WebView cookie resolution for $url...")
+                val cookieResolved = runCatching { AndroidCookieJar.resolveWebCookies(context, url) }.getOrDefault(false)
+                if (cookieResolved) {
+                    android.util.Log.d("LunaFetchEngine", "WebView cookies resolved successfully. Retrying analyze...")
+                    val retryRes = runCatching { executeAnalyze(url, useCookies = true) }
+                    if (retryRes.isSuccess) {
+                        return@withContext retryRes.getOrThrow()
                     }
                 }
 
-                // Strategy 3: Forced Nightly update fallback
-                android.util.Log.d("LunaFetchEngine", "Triggering forced update to NIGHTLY and retrying analyze...")
-                updateYtdlpIfNeeded(forceNightly = true)
-                runCatching { executeAnalyze(url, useCookies = false) }
-                    .recoverCatching { executeAnalyze(url, useCookies = true) }
-                    .getOrElse {
-                        android.util.Log.e("LunaFetchEngine", "Subsequent analyze attempt also failed: ${it.message}")
-                        throw DownloadException(it.message ?: error.message ?: "No se pudo analizar el enlace en Android.", it)
-                    }
+                throw DownloadException(error.message ?: "No se pudo analizar el enlace en Android.", error)
             } else {
                 throw DownloadException(error.message ?: "No se pudo analizar el enlace en Android.", error)
             }
@@ -92,14 +89,20 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
     }
 
     private fun executeAnalyze(url: String, useCookies: Boolean = false, verbose: Boolean = false): VideoInfo {
+        val isPlaylist = url.contains("list=", ignoreCase = true) ||
+            url.contains("/playlist", ignoreCase = true) ||
+            url.contains("/sets/", ignoreCase = true)
+
         val request = YoutubeDLRequest(url).apply {
             addOption("-o", "%(title).200B")
             addOption("--dump-single-json")
-            addOption("--flat-playlist")
+            if (isPlaylist) {
+                addOption("--flat-playlist")
+            } else {
+                addOption("--no-playlist")
+            }
             addOption("-R", "1")
             addOption("--socket-timeout", "10")
-            addOption("--no-check-certificates")
-            addOption("--ignore-config")
             addOption("--no-colors")
             if (verbose) {
                 addOption("-v")
@@ -112,7 +115,7 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                 cookieFile?.let { addOption("--cookies", it.absolutePath) }
             }
         }
-        android.util.Log.d("LunaFetchEngine", "executeAnalyze url: $url, useCookies: $useCookies, verbose: $verbose")
+        android.util.Log.d("LunaFetchEngine", "executeAnalyze url: $url, useCookies: $useCookies, isPlaylist: $isPlaylist, verbose: $verbose")
         val response = try {
             YoutubeDL.execute(request)
         } catch (e: Exception) {
@@ -240,10 +243,24 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         try {
             YoutubeDL.init(context)
             FFmpeg.init(context)
+            purgeCorruptedCookies()
             updateYtdlpIfNeeded()
             initialized = true
         } catch (error: Exception) {
             throw DownloadException("No se pudo inicializar el motor local de Android.", error)
+        }
+    }
+
+    private fun purgeCorruptedCookies() {
+        runCatching {
+            val file = AndroidCookieJar.cookieFile(context)
+            if (file.exists()) {
+                val content = file.readText()
+                if (content.contains("7675d59b5e84e0a878ee6f0a97f9056f") || content.contains("ua\t7675")) {
+                    file.delete()
+                    android.util.Log.i("LunaFetchEngine", "Purged corrupted cookie file from device.")
+                }
+            }
         }
     }
 
@@ -263,8 +280,11 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         val lastUpdate = preferences.getLong("lastYtdlpUpdate", 0L)
         val lastChannel = preferences.getString("lastYtdlpChannel", "NIGHTLY") ?: "NIGHTLY"
         val now = System.currentTimeMillis()
-        android.util.Log.d("LunaFetchEngine", "updateYtdlpIfNeeded: forceNightly=$forceNightly, lastChannel=$lastChannel, currentVersion=${runCatching { YoutubeDL.version(context) }.getOrNull()}")
-        if (!forceNightly && lastChannel == "NIGHTLY" && now - lastUpdate < UpdateIntervalMillis) {
+        val currentVer = runCatching { YoutubeDL.version(context) }.getOrNull().orEmpty()
+        val isOutdated = currentVer.isBlank() || !currentVer.startsWith("2026")
+
+        android.util.Log.d("LunaFetchEngine", "updateYtdlpIfNeeded: forceNightly=$forceNightly, lastChannel=$lastChannel, currentVersion=$currentVer, isOutdated=$isOutdated")
+        if (!forceNightly && !isOutdated && lastChannel == "NIGHTLY" && now - lastUpdate < UpdateIntervalMillis) {
             android.util.Log.d("LunaFetchEngine", "updateYtdlpIfNeeded: Skipped because updated recently (${now - lastUpdate}ms ago)")
             return
         }
