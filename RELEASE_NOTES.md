@@ -16,11 +16,15 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
-## [1.2.0] — Notificaciones Nativas del Sistema Operativo y Auto-Cierre de Extensión — 2026-09-10
+## [1.2.0] — Compatibilidad Universal, Formatos Lossless, Flujo Invertido y Notificaciones del Sistema — 2026-09-28
 
-Luna Fetch 1.2.0 incorpora un sistema integral de notificaciones nativas en el sistema operativo (Windows Desktop y Android) para confirmar la finalización o alerta de error en descargas disparadas en segundo plano. La notificación en Windows permite hacer clic para abrir directamente el archivo descargado o la carpeta de destino.
+Luna Fetch 1.2.0 introduce compatibilidad universal para descargar contenido desde más de 1,000 plataformas, portales de video, sitios de streaming y redes sociales, eliminando listas blancas restrictivas de dominios. Se expande el catálogo de formatos de audio integrando códecs de ultra alta fidelidad sin compresión (FLAC y WAV) junto a MP3, M4A y OPUS, además de optimizar la selección automática de pistas pre-ensambladas de video en máxima resolución.
 
-La extensión de navegador Chromium adopta una mecánica de un solo uso, cerrando automáticamente su ventana flotante tras enviar el enlace al escritorio. Asimismo, se incorpora un conmutador de notificaciones en el diálogo de Ajustes y se dota de diagnóstico al enlace de sockets locales.
+La experiencia móvil se renueva con el nuevo flujo de Descarga Rápida Invertido, el cual despliega instantáneamente pestañas visuales de Video y Música para iniciar la descarga al momento con la mejor calidad recomendada, sin obligar al usuario a aguardar por análisis técnicos preliminares. Al concluir la descarga en Android, la interfaz ofrece integración directa con Super Galería para reproducir el contenido o explorar su carpeta contenedora nativa.
+
+Se implementa un robusto blindaje de red que resuelve errores de acceso y miniaturas protegidas contra hotlinking (HTTP 403/410), gestionando cabeceras seguras de navegación y priorizando transmisiones directas de video de alta estabilidad. Asimismo, se incorpora la arquitectura de empaquetado optimizada para librerías nativas en Android, garantizando paridad de rendimiento con los estándares de extracción más avanzados.
+
+El sistema de notificaciones del sistema operativo notifica en segundo plano tanto en Windows como en Android el estado de cada descarga con alertas interactivas. Por su parte, la extensión de navegador de Chromium adopta una mecánica ágil de un solo uso, cerrando su ventana de forma automática tan pronto como la tarea es transferida a Luna Fetch.
 
 ## [1.1.9] — Extensión con Popup Nativo, Sincronización de Cookies Anti-Bot, Single-Instance Refactor y APK Universal — 2026-08-30
 

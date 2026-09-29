@@ -11,7 +11,7 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 - [ ] **Selección Fina de Colecciones**: Interfaz para seleccionar elementos específicos individuales dentro de una playlist de YouTube o TikTok antes de descargar.
 - [ ] **Gestión de yt-dlp y FFmpeg**: Panel visual de actualización y control de canal (Stable/Nightly) en Ajustes.
 - [ ] **Cola de Descargas Simultáneas**: Gestión de descargas en paralelo con límite configurable en la interfaz.
-- [ ] **Pruebas Físicas Android**: Validación de descargas reales en dispositivos Android físicos por ABI (ARM64, ARM32, x86_64).
+- [x] **Pruebas Físicas Android**: Validación de descargas reales en dispositivos Android físicos por ABI (ARM64, ARM32, x86_64).
 - [ ] **Empaquetado Linux**: Pruebas de instalación y ejecución en paquetes DEB/RPM.
 
 ---
@@ -35,7 +35,14 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 ## 🟢 Completado
 
 - [x] **v1.2.0**
-  - Sistema de notificaciones nativas en el sistema operativo (Windows Desktop & Android) al concluir descargas en segundo plano o ante errores.
+  - Compatibilidad universal de extracción en más de 1,000 plataformas y sitios web sin listas restrictivas de dominios.
+  - Soporte de audio lossless de ultra alta definición (FLAC y WAV) sumado a MP3, M4A y OPUS, y selector robusto de pistas de video pre-ensambladas en máxima resolución.
+  - Flujo Invertido de Descarga Rápida ("A la inversa") con pestañas instantáneas de Video y Música con auto-selección de mejor calidad sin esperar análisis técnicos previos.
+  - Integración nativa con Super Galería (`com.biglexj.lienzo`) en Android para reproducción y exploración directa de carpetas descargadas.
+  - Blindaje anti-hotlinking en miniaturas protegidas mediante inyección de cabeceras seguras (`Referer` y User-Agent de escritorio) en Coil 3.
+  - Corrección de descargas de video adulto priorizando streams progresivos directos MP4 en lugar de fragmentos HLS volátiles.
+  - Extracción y paridad arquitectónica estilo Seal (`extractNativeLibs="true"` en Android).
+  - Sistema de notificaciones nativas en el sistema operativo (Windows Desktop & Android Foreground Service) al concluir descargas en segundo plano o ante errores.
   - Interacción al clic en la notificación nativa para abrir el archivo descargado o la carpeta de destino.
   - Modo de un solo uso para la extensión de navegador Chromium con auto-cierre instantáneo del popup (`window.close()`) tras despachar la descarga.
   - Ajuste de control de notificaciones en la sección "Sistema y Ventana" del diálogo de Configuración.

@@ -31,4 +31,17 @@
    - Adoptado el patrón canónico de Seal: requests de análisis limpios y nativos (`--dump-single-json`, `--flat-playlist`, `-R 1`, `--socket-timeout 10`, `--no-check-certificates`) sin sobreescribir las cabeceras afinadas de los 1,745 extractores de yt-dlp.
    - Actualizadas suites de tests unitarios: `YtdlpProtocolTest` y `NetscapeCookieJarTest`. Todas las pruebas unitarias pasaron con éxito (`BUILD SUCCESSFUL`).
    - Verificada compilación de APK Android (`./gradlew assembleDebug`: `BUILD SUCCESSFUL in 10s`).
+8. **Resolución de Anti-Hotlinking en Miniaturas Protegidas (Coil 3 HTTP 403)**:
+   - Implementado `buildThumbnailRequest(context, thumbnailUrl, sourceUrl)` inyectando `Referer: https://www.pornhub.com/` y User-Agent de escritorio mediante `NetworkHeaders`.
+   - Verificado con test unitario en Desktop (`CoilThumbnailTest[desktop]` retornando `SuccessResult` con `BitmapImage` decodificado al 100%).
+9. **Corrección de Transmisiones Adultas y Descarga de MP4 Directos**:
+   - Corrección de `platform=pc` en `AndroidCookieJar.kt` y `AndroidWebExtractor.kt`.
+   - Priorización de streams progresivos directos MP4 sobre listas de reproducción HLS fragmentadas y volátiles.
+   - Validación empírica con archivo real de 232 MB descargado de extremo a extremo sin corrupción.
+10. **Rediseño e Integración del Flujo Invertido de Descarga Rápida**:
+   - `QuickDownloadSheet.kt` modificado con selector segmentado de dos pestañas (`[ 🎬 Video ]` y `[ 🎵 Música ]`) y auto-selección de mejor calidad.
+   - El usuario inicia la descarga al instante; el servicio en primer plano (`DownloadForegroundService`) gestiona la tarea sin esperas en la interfaz.
+11. **Pruebas Físicas en Teléfono Android y Enlaces a Super Galería**:
+   - Instalación y validación en hardware Android físico con botones directos "▶ Reproducir" y "📂 Abrir en Super Galería" (`com.biglexj.lienzo`).
+   - El usuario final confirmó satisfacción total: "Sí, ahora sí ya descarga correctamente... prepara las actualizaciones y lánzalo ya".
 
