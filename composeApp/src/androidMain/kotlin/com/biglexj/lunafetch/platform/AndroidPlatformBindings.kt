@@ -33,6 +33,10 @@ class AndroidPlatformBindings(
     override val deviceOs: String
         get() = "android"
 
+    override fun notifyDownloadStarted(title: String) {
+        DownloadForegroundService.start(appContext)
+    }
+
     override fun notifyDownloadCompleted(title: String, filePath: String) {
         DownloadForegroundService.notifyCompleted(appContext, title.ifBlank { "Archivo descargado" })
     }
@@ -138,6 +142,60 @@ class AndroidPlatformBindings(
                 )
             }
         }
+    }
+
+    /** Abre el archivo directamente en Super Galería (com.biglexj.lienzo). */
+    override fun openInSuperGaleria(filePath: String): Boolean {
+        if (filePath.isBlank()) return false
+        return runCatching {
+            val uri: Uri
+            val mimeType: String
+            if (filePath.startsWith("content://")) {
+                uri = Uri.parse(filePath)
+                mimeType = appContext.contentResolver.getType(uri) ?: "video/*"
+            } else {
+                val file = java.io.File(filePath)
+                uri = androidx.core.content.FileProvider.getUriForFile(
+                    appContext,
+                    "${appContext.packageName}.fileprovider",
+                    file,
+                )
+                val ext = file.extension.lowercase()
+                mimeType = when (ext) {
+                    "mp4", "mkv", "webm", "avi", "mov", "3gp" -> "video/*"
+                    "mp3", "m4a", "wav", "flac", "aac", "ogg", "opus" -> "audio/*"
+                    else -> "*/*"
+                }
+            }
+            // Intent explícito hacia Super Galería (com.biglexj.lienzo)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                setPackage("com.biglexj.lienzo")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            // Si Super Galería no está instalada, resolveActivity devuelve null → fallback
+            if (intent.resolveActivity(appContext.packageManager) != null) {
+                appContext.startActivity(intent)
+                true
+            } else {
+                false
+            }
+        }.getOrDefault(false)
+    }
+
+    /** Abre Super Galería en su pantalla principal para que el usuario encuentre el archivo. */
+    override fun openFolderInSuperGaleria(filePath: String): Boolean {
+        return runCatching {
+            val launchIntent = appContext.packageManager
+                .getLaunchIntentForPackage("com.biglexj.lienzo")
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                appContext.startActivity(launchIntent)
+                true
+            } else {
+                false
+            }
+        }.getOrDefault(false)
     }
 
     override fun openUrl(url: String) {

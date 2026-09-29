@@ -35,6 +35,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import coil3.network.NetworkHeaders
+import coil3.network.httpHeaders
 import com.biglexj.lunafetch.domain.CollectionEntry
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
@@ -60,8 +65,12 @@ fun VideoCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
             } else {
                 Modifier.size(width = 150.dp, height = 88.dp)
             }
+            val context = LocalPlatformContext.current
+            val imageRequest = remember(video.thumbnailUrl, video.url) {
+                buildThumbnailRequest(context, video.thumbnailUrl, video.url)
+            }
             AsyncImage(
-                model = video.thumbnailUrl,
+                model = imageRequest,
                 contentDescription = "Miniatura de ${video.title}",
                 modifier = thumbnailModifier.clip(RoundedCornerShape(18.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
@@ -99,7 +108,7 @@ fun CollectionEntriesCard(video: VideoInfo, isAudio: Boolean) {
 
     LunaCard(modifier = Modifier.animateContentSize()) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            CoverThumbnail(video.thumbnailUrl, "Portada de ${video.collectionTitle ?: "la colección"}", isAudio)
+            CoverThumbnail(video.thumbnailUrl, "Portada de ${video.collectionTitle ?: "la colección"}", isAudio, sourceUrl = video.url)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     video.collectionTitle ?: "Lista de reproducción",
@@ -173,7 +182,16 @@ fun CollectionEntriesCard(video: VideoInfo, isAudio: Boolean) {
 }
 
 @Composable
-fun CoverThumbnail(model: String, description: String, isAudio: Boolean) {
+fun CoverThumbnail(
+    model: String,
+    description: String,
+    isAudio: Boolean,
+    sourceUrl: String? = null,
+) {
+    val context = LocalPlatformContext.current
+    val imageRequest = remember(model, sourceUrl) {
+        buildThumbnailRequest(context, model, sourceUrl)
+    }
     Box(
         modifier = (if (isAudio) Modifier.size(88.dp) else Modifier.size(width = 150.dp, height = 88.dp))
             .clip(RoundedCornerShape(14.dp))
@@ -181,12 +199,47 @@ fun CoverThumbnail(model: String, description: String, isAudio: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
-            model = model,
+            model = imageRequest,
             contentDescription = description,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
     }
+}
+
+fun buildThumbnailRequest(
+    context: coil3.PlatformContext,
+    thumbnailUrl: String,
+    sourceUrl: String? = null,
+): ImageRequest {
+    val builder = ImageRequest.Builder(context)
+        .data(thumbnailUrl)
+        .crossfade(true)
+
+    val lower = thumbnailUrl.lowercase()
+    val headers = NetworkHeaders.Builder()
+    headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
+
+    if (lower.contains("phncdn.com") || lower.contains("pornhub") || lower.contains("thumbzilla")) {
+        val referer = if (!sourceUrl.isNullOrBlank() && (sourceUrl.contains("pornhub") || sourceUrl.contains("thumbzilla"))) {
+            sourceUrl
+        } else {
+            "https://www.pornhub.com/"
+        }
+        headers.set("Referer", referer)
+        headers.set("Origin", "https://www.pornhub.com")
+    } else if (!sourceUrl.isNullOrBlank() && sourceUrl.startsWith("http", ignoreCase = true)) {
+        runCatching {
+            val scheme = sourceUrl.substringBefore("://")
+            val host = sourceUrl.substringAfter("://").substringBefore("/")
+            if (host.isNotBlank()) {
+                headers.set("Referer", "$scheme://$host/")
+            }
+        }
+    }
+
+    builder.httpHeaders(headers.build())
+    return builder.build()
 }
 
 @Composable

@@ -167,7 +167,7 @@ object NetscapeCookieJar {
             for (d in phDomains) {
                 add(d, "platform", "pc")
                 add(d, "age_verified", "1")
-                add(d, "accessAgeDisclaimerPH", "1")
+                add(d, "accessAgeDisclaimerPH", "2")
                 add(d, "accessAgeDisclaimerUK", "1")
                 add(d, "accessPH", "1")
                 add(d, "hasVisited", "1")

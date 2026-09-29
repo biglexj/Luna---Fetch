@@ -20,8 +20,10 @@ import kotlin.coroutines.resume
 object AndroidCookieJar {
     private const val TAG = "LunaFetchCookieJar"
     private const val COOKIE_FILE_NAME = "luna_session_cookies.txt"
-    private const val DESKTOP_USER_AGENT =
+    const val DESKTOP_USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    const val ANDROID_USER_AGENT =
+        "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
 
     fun cookieFile(context: Context): File = File(context.filesDir, COOKIE_FILE_NAME)
 
@@ -35,6 +37,8 @@ object AndroidCookieJar {
             emptyList()
         }
 
+        // Merge: defaultCookies are the 'updates' arg, so they take precedence over existing.
+        // This ensures platform=pc and age verification are always set for direct MP4 endpoint access.
         val merged = NetscapeCookieJar.merge(existingCookies, defaultCookies)
         if (merged.isNotEmpty()) {
             val serialized = NetscapeCookieJar.serialize(merged)
@@ -57,6 +61,15 @@ object AndroidCookieJar {
         val baseProtocol = if (url.startsWith("http://", ignoreCase = true)) "http://" else "https://"
         val baseUrl = "$baseProtocol$targetDomain"
 
+        // Check if CookieManager already holds full session cookies
+        val existingCookies = cookieManager.getCookie(url) ?: cookieManager.getCookie(baseUrl)
+        if (!existingCookies.isNullOrBlank() && (existingCookies.contains("RNKEY") || existingCookies.contains("cf_clearance"))) {
+            Log.d(TAG, "Reusing existing CookieManager session cookies for $targetDomain")
+            saveCookieHeader(context, targetDomain, existingCookies)
+            ensureClearanceCookies(context, url)
+            return@withContext true
+        }
+
         // Pre-seed known bypass cookies across root and regional domains
         val seedUrls = listOf(
             baseUrl,
@@ -67,7 +80,7 @@ object AndroidCookieJar {
         val seedCookies = listOf(
             "platform=pc; Domain=$seedDomain; Path=/",
             "age_verified=1; Domain=$seedDomain; Path=/",
-            "accessAgeDisclaimerPH=1; Domain=$seedDomain; Path=/",
+            "accessAgeDisclaimerPH=2; Domain=$seedDomain; Path=/",
             "accessAgeDisclaimerUK=1; Domain=$seedDomain; Path=/",
             "accessPH=1; Domain=$seedDomain; Path=/",
             "cookiesBanner=1; Domain=$seedDomain; Path=/",
@@ -82,7 +95,7 @@ object AndroidCookieJar {
 
         var webView: WebView? = null
         try {
-            val capturedCookies = withTimeoutOrNull(5000L) {
+            val capturedCookies = withTimeoutOrNull(8000L) {
                 suspendCancellableCoroutine<Pair<String?, String?>?> { continuation ->
                     val wv = WebView(context.applicationContext).apply {
                         settings.apply {
@@ -101,7 +114,7 @@ object AndroidCookieJar {
                                     if (continuation.isActive) {
                                         continuation.resume(Pair(cookies, finalUrl))
                                     }
-                                }, 800)
+                                }, 1200)
                             }
                         }
                     }
@@ -123,12 +136,14 @@ object AndroidCookieJar {
             if (!cookies.isNullOrBlank()) {
                 Log.d(TAG, "Captured web cookies for $finalUrl (host=$finalHost): ${cookies.take(120)}...")
                 saveCookieHeader(context, finalHost, cookies)
+                ensureClearanceCookies(context, url)
                 return@withContext true
             } else {
                 val fallbackCookies = cookieManager.getCookie(baseUrl) ?: cookieManager.getCookie(url)
                 if (!fallbackCookies.isNullOrBlank()) {
                     Log.d(TAG, "Using CookieManager fallback cookies for $baseUrl: ${fallbackCookies.take(120)}...")
                     saveCookieHeader(context, targetDomain, fallbackCookies)
+                    ensureClearanceCookies(context, url)
                     return@withContext true
                 }
             }
@@ -146,8 +161,10 @@ object AndroidCookieJar {
     @Synchronized
     fun saveCookieHeader(context: Context, domain: String, cookieHeader: String) {
         val target = cookieFile(context)
-        val newCookies = NetscapeCookieJar.parseHeaderString(domain, cookieHeader)
+        var newCookies = NetscapeCookieJar.parseHeaderString(domain, cookieHeader)
         if (newCookies.isEmpty()) return
+
+
 
         val existing = if (target.exists() && target.length() > 0) {
             runCatching { NetscapeCookieJar.parse(target.readText()) }.getOrDefault(emptyList())

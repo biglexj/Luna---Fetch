@@ -96,7 +96,7 @@ fun LunaFetchApp(
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
                                 ) {
                                     DownloadOptionsCard(state, presenter, platform)
-                                    DownloadStatusCard(state, presenter)
+                                    DownloadStatusCard(state, presenter, platform)
                                     LogsCard(state)
                                 }
                             }
@@ -146,7 +146,7 @@ private fun MainCards(state: LunaFetchState, presenter: LunaFetchPresenter, plat
     LinkCard(state, presenter, platform)
     VideoCard(state, presenter)
     DownloadOptionsCard(state, presenter, platform)
-    DownloadStatusCard(state, presenter)
+    DownloadStatusCard(state, presenter, platform)
     HistoryCard(state, presenter, platform)
     LogsCard(state)
     Spacer(Modifier.height(8.dp))

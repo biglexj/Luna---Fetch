@@ -31,6 +31,7 @@ interface PlatformBindings {
     fun uninstallNativeHost() {}
     fun setNotificationsEnabled(enabled: Boolean) {}
 
+    fun notifyDownloadStarted(title: String) {}
     fun notifyDownloadCompleted(title: String, filePath: String) {}
     fun notifyDownloadFailed(title: String, error: String) {}
 
@@ -41,6 +42,8 @@ interface PlatformBindings {
     fun openDestinationFolder(destination: String) { openOutput(destination) }
     fun isLocalPathAccessible(path: String): Boolean = false
     fun openInPrisma(filePath: String): Boolean = false
+    fun openInSuperGaleria(filePath: String): Boolean = false
+    fun openFolderInSuperGaleria(filePath: String): Boolean = false
     fun openUrl(url: String) {}
     fun readClipboardText(): String? = null
 

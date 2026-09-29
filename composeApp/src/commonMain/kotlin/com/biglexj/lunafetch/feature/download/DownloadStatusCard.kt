@@ -22,10 +22,12 @@ import androidx.compose.ui.unit.dp
 import com.biglexj.lunafetch.domain.DownloadPhase
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
+import com.biglexj.lunafetch.domain.PlatformBindings
 
 @Composable
-fun DownloadStatusCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
+fun DownloadStatusCard(state: LunaFetchState, presenter: LunaFetchPresenter, platform: PlatformBindings) {
     val progress = state.progress ?: return
+    val isAndroid = platform.deviceOs == "android"
     LunaCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(progress.statusMessage, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
@@ -56,8 +58,13 @@ fun DownloadStatusCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
         } else if (progress.phase == DownloadPhase.Completed && state.completedOutput != null) {
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = presenter::playCompletedInPrisma) { Text("▶ Reproducir en Prisma") }
-                TextButton(onClick = presenter::openCompletedFolder) { Text("📂 Abrir carpeta") }
+                if (isAndroid) {
+                    TextButton(onClick = presenter::playCompletedInSuperGaleria) { Text("▶ Reproducir") }
+                    TextButton(onClick = presenter::openCompletedInSuperGaleria) { Text("📂 Abrir en Super Galería") }
+                } else {
+                    TextButton(onClick = presenter::playCompletedInPrisma) { Text("▶ Reproducir en Prisma") }
+                    TextButton(onClick = presenter::openCompletedFolder) { Text("📂 Abrir carpeta") }
+                }
             }
         }
     }

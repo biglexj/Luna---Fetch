@@ -389,6 +389,23 @@ class LunaFetchPresenter(
         
         setUrl(url)
         selectFormat(format)
+        platform.notifyDownloadStarted("Iniciando descarga de ${format.displayName}…")
+
+        // If video info is already analyzed, start downloading immediately
+        val currentVideo = state.value.video
+        if (currentVideo != null && currentVideo.url == url) {
+            val qualities = FormatCatalog.qualities(format, currentVideo.maxHeight)
+            val matchedQuality = qualities.first()
+            _state.update { current ->
+                current.copy(
+                    selectedFormat = format,
+                    qualities = qualities,
+                    selectedQuality = matchedQuality,
+                )
+            }
+            download()
+            return
+        }
 
         operation?.cancel()
         operation = scope.launch {
@@ -546,6 +563,22 @@ class LunaFetchPresenter(
 
     fun playCompletedInPrisma() {
         state.value.completedOutput?.let(::playInPrisma)
+    }
+
+    fun playCompletedInSuperGaleria() {
+        val path = state.value.completedOutput ?: return
+        if (!platform.isLocalPathAccessible(path)) {
+            showToast("Este archivo no está disponible localmente.")
+            return
+        }
+        val success = platform.openInSuperGaleria(path)
+        if (!success) platform.openOutput(path)
+    }
+
+    fun openCompletedInSuperGaleria() {
+        val path = state.value.completedOutput ?: return
+        val success = platform.openFolderInSuperGaleria(path)
+        if (!success) platform.openDestinationFolder(path)
     }
 
     fun redownloadHistoryItem(item: DownloadHistoryItem) {

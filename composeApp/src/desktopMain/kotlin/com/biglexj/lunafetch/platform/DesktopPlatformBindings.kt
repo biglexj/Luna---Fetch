@@ -41,6 +41,17 @@ class DesktopPlatformBindings : PlatformBindings {
     }
     override fun uninstallNativeHost() { settings.uninstallNativeHost() }
 
+    override fun notifyDownloadStarted(title: String) {
+        if (settings.showNotifications) {
+            ModernTrayManager.showNotification(
+                title = "Luna Fetch",
+                message = title.ifBlank { "Iniciando descarga en segundo plano…" },
+                isError = false,
+                onClick = null,
+            )
+        }
+    }
+
     override fun notifyDownloadCompleted(title: String, filePath: String) {
         if (settings.showNotifications) {
             ModernTrayManager.showNotification(
