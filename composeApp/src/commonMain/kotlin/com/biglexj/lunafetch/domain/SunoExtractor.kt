@@ -126,23 +126,19 @@ object SunoExtractor {
         onProgress(DownloadProgress(0.0, phase = DownloadPhase.Preparing))
         onLog("Iniciando extracción de Suno AI para: ${meta.title}")
 
-        // Priorizar stream de audio original para solicitudes de música
-        val sourceStreamUrl = if (isAudio && meta.audioUrl.isNotBlank()) {
-            meta.audioUrl
-        } else {
-            meta.videoUrl.ifBlank { "https://cdn1.suno.ai/$id.mp4" }
-        }
+        // El stream MP4 canónico de Suno (cdn1.suno.ai/$id.mp4) contiene el audio AAC a 48kHz sin cifrar.
+        // Los streams .m4a de CloudFront usan cifrado propietario (encoding: 1.0.0), por lo que siempre usamos el stream canónico de cdn1.
+        val sourceStreamUrl = "https://cdn1.suno.ai/$id.mp4"
 
         val finalExtension = request.format.extension
         val finalFile = File(destinationDir, "$sanitizedTitle.$finalExtension")
         val tempSourceFile = if (isAudio) {
-            val sourceExt = if (sourceStreamUrl.contains(".m4a")) "m4a" else "mp4"
-            File(destinationDir, "${sanitizedTitle}_suno_source.$sourceExt")
+            File(destinationDir, "${sanitizedTitle}_suno_source.mp4")
         } else {
             finalFile
         }
 
-        val logDescription = if (isAudio && meta.audioUrl.isNotBlank()) "stream de audio original (.m4a)" else "stream de video (.mp4)"
+        val logDescription = if (isAudio) "stream fuente canónico (.mp4)" else "stream de video (.mp4)"
         onLog("Descargando $logDescription: $sourceStreamUrl")
 
         downloadHttpStream(sourceStreamUrl, tempSourceFile) { pct, speed, size ->
@@ -150,31 +146,35 @@ object SunoExtractor {
         }
 
         // Si se pidió audio, procesar / transcodificar con FFmpeg si está disponible o preservar stream nativo
+        var actualOutputFile = finalFile
         if (isAudio) {
             onProgress(DownloadProgress(100.0, phase = DownloadPhase.Processing))
             onLog("Procesando audio en formato ${request.format.displayName}…")
             val ffmpegSuccess = convertAudioWithFfmpeg(tempSourceFile, finalFile, request.format, meta, onLog)
-            if (!ffmpegSuccess) {
-                if (tempSourceFile.extension.equals(finalFile.extension, ignoreCase = true)) {
-                    tempSourceFile.renameTo(finalFile)
-                } else {
-                    val preservedFile = File(destinationDir, "$sanitizedTitle.${tempSourceFile.extension}")
-                    tempSourceFile.renameTo(preservedFile)
-                    onLog("Audio original guardado como: ${preservedFile.name}")
-                }
-            } else {
+            if (ffmpegSuccess && finalFile.exists() && finalFile.length() > 0) {
+                actualOutputFile = finalFile
                 runCatching { tempSourceFile.delete() }
+            } else {
+                // Si FFmpeg no está disponible o la conversión falló, preservar el MP4 original descargado
+                val preservedFile = File(destinationDir, "$sanitizedTitle.mp4")
+                if (tempSourceFile.exists()) {
+                    tempSourceFile.renameTo(preservedFile)
+                }
+                actualOutputFile = preservedFile
+                onLog("⚠️ Transcodificación no completada. Stream original preservado en: ${preservedFile.name}")
             }
         }
 
         // Guardar la letra de la canción si existe en un archivo .txt acompañante
-        if (meta.lyricsPrompt.isNotBlank() && !meta.lyricsPrompt.contains("[Instrumental]", ignoreCase = true)) {
+        if (meta.lyricsPrompt.isNotBlank() && !meta.lyricsPrompt.equals("Prompt", ignoreCase = true)) {
             runCatching {
                 val lyricsFile = File(destinationDir, "$sanitizedTitle.lyrics.txt")
                 lyricsFile.writeText(buildString {
-                    appendLine("${meta.title}")
+                    appendLine(meta.title)
                     appendLine("Autor: ${meta.displayName} (@${meta.creatorHandle})")
-                    appendLine("Estilo/Tags: ${meta.tags}")
+                    if (meta.tags.isNotBlank()) {
+                        appendLine("Estilo/Tags: ${meta.tags}")
+                    }
                     appendLine("URL: https://suno.com/song/$id")
                     appendLine()
                     appendLine("--- LETRA DE LA CANCIÓN ---")
@@ -187,9 +187,15 @@ object SunoExtractor {
         onProgress(DownloadProgress(100.0, phase = DownloadPhase.Completed))
         onLog("✅ Descarga de Suno completada con éxito.")
 
+        val outputList = mutableListOf(actualOutputFile.absolutePath)
+        val lyricsCandidate = File(destinationDir, "$sanitizedTitle.lyrics.txt")
+        if (lyricsCandidate.exists()) {
+            outputList.add(lyricsCandidate.absolutePath)
+        }
+
         DownloadResult(
-            outputPaths = listOf(finalFile.absolutePath),
-            openPath = finalFile.absolutePath,
+            outputPaths = outputList,
+            openPath = actualOutputFile.absolutePath,
         )
     }
 
@@ -245,16 +251,41 @@ object SunoExtractor {
         val tagsMatch = Regex("""\\?"tags\\?"\s*:\s*\\?"([^"\\\r\n]{1,300})\\?"""").find(html, startIndex = clipIdx)
         val tags = tagsMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
 
-        val audioUrl = Regex("""https://[a-zA-Z0-9.\-_/]+/[a-zA-Z0-9.\-_/]+\.m4a""").find(html)?.value ?: ""
-        val videoUrl = Regex("""https://[a-zA-Z0-9.\-_/]+/[a-zA-Z0-9.\-_/]+\.mp4""").find(html)?.value
-            ?: "https://cdn1.suno.ai/$id.mp4"
+        val videoUrl = "https://cdn1.suno.ai/$id.mp4"
         val coverUrl = Regex("""https://[a-zA-Z0-9.\-_/]+/[a-zA-Z0-9.\-_/]+image[a-zA-Z0-9._\-]*\.jpeg""").find(html)?.value
             ?: "https://cdn2.suno.ai/image_large_$id.jpeg"
 
-        // Letra lírica (prompt de texto)
-        val promptIdx = html.indexOf("\"prompt\"").takeIf { it >= 0 } ?: html.indexOf("""\"prompt\"""").coerceAtLeast(0)
-        val promptMatch = Regex("""\\?"prompt\\?"\s*:\s*\\?"([^"\\\r\n]{1,8000})\\?"""").find(html, startIndex = promptIdx)
-        val prompt = promptMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
+        // Letra lírica (prompt de texto o chunk de hidratación Next.js)
+        var lyricsPrompt = ""
+        val promptMatch = Regex("""\\?"prompt\\?"\s*:\s*\\?"([^"\\\r\n]+)\\?"""").find(html, startIndex = clipIdx)
+        val promptRaw = promptMatch?.groupValues?.get(1)?.trim().orEmpty()
+
+        if (promptRaw.startsWith("$")) {
+            val chunkId = promptRaw.removePrefix("$")
+            val chunkPrefix = "$chunkId:T"
+            val chunkIndex = html.indexOf(chunkPrefix)
+            if (chunkIndex >= 0) {
+                val commaIndex = html.indexOf(',', startIndex = chunkIndex)
+                if (commaIndex > chunkIndex && commaIndex - chunkIndex < 25) {
+                    val contentStart = commaIndex + 1
+                    val nextChunkRegex = Regex("""\n\d+:|\d+:\[|\d+:\{|\d+:T[0-9a-fA-F]+,""")
+                    val endMatch = nextChunkRegex.find(html, startIndex = contentStart)
+                    val contentEnd = endMatch?.range?.first ?: html.length
+                    lyricsPrompt = html.substring(contentStart, contentEnd).unescapeJson().trim()
+                }
+            }
+        } else if (promptRaw.isNotBlank() && !promptRaw.equals("Prompt", ignoreCase = true)) {
+            lyricsPrompt = promptRaw.unescapeJson().trim()
+        }
+
+        // Fallback: si aún está vacía o es literal "Prompt", buscar chunks con estructura lírica
+        if (lyricsPrompt.isBlank() || lyricsPrompt.equals("Prompt", ignoreCase = true)) {
+            val lyricChunkRegex = Regex("""\d+:T[0-9a-fA-F]+,(\[(?:Intro|Verse|Chorus|Pre-Chorus|Bridge|Outro|Hook|Refrain|Female|Male)[^\r\n]*\][\s\S]+?)(?=\n\d+:|\d+:\[|\d+:\{|$)""")
+            val fallbackMatch = lyricChunkRegex.find(html)
+            if (fallbackMatch != null) {
+                lyricsPrompt = fallbackMatch.groupValues[1].unescapeJson().trim()
+            }
+        }
 
         return SunoSongMetadata(
             id = id,
@@ -262,11 +293,11 @@ object SunoExtractor {
             creatorHandle = handle,
             displayName = displayName,
             durationSeconds = duration,
-            lyricsPrompt = prompt,
+            lyricsPrompt = lyricsPrompt,
             tags = tags,
             coverUrl = coverUrl,
             videoUrl = videoUrl,
-            audioUrl = audioUrl,
+            audioUrl = "",
         )
     }
 
@@ -341,7 +372,7 @@ object SunoExtractor {
         return runCatching {
             val audioCodec = when (format) {
                 MediaFormat.Mp3 -> listOf("-c:a", "libmp3lame", "-q:a", "0")
-                MediaFormat.M4a -> listOf("-c:a", "aac", "-b:a", "256k")
+                MediaFormat.M4a -> listOf("-c:a", "copy")
                 MediaFormat.Flac -> listOf("-c:a", "flac")
                 MediaFormat.Wav -> listOf("-c:a", "pcm_s16le")
                 else -> listOf("-c:a", "copy")
