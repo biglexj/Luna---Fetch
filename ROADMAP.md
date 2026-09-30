@@ -11,6 +11,9 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 - [ ] **Selección Fina de Colecciones**: Interfaz para seleccionar elementos específicos individuales dentro de una playlist de YouTube o TikTok antes de descargar.
 - [ ] **Gestión de yt-dlp y FFmpeg**: Panel visual de actualización y control de canal (Stable/Nightly) en Ajustes.
 - [ ] **Cola de Descargas Simultáneas**: Gestión de descargas en paralelo con límite configurable en la interfaz.
+- [x] **Extractor Nativo Suno AI**: Descarga directa de audio/video de canciones de Suno AI con metadatos ID3 y letras sincronizadas (.lyrics.txt).
+- [x] **Diagnósticos y Logs Persistentes (48 Horas)**: Almacenamiento local de errores e incidentes técnicos con TTL de 48h y botón de exportación en un clic en la interfaz.
+- [x] **Resiliencia en Extracción de TikTok**: Mitigación de bloqueos de impersonación y status code 0 mediante fallback de endpoints API y cookies de navegador.
 - [x] **Pruebas Físicas Android**: Validación de descargas reales en dispositivos Android físicos por ABI (ARM64, ARM32, x86_64).
 - [ ] **Empaquetado Linux**: Pruebas de instalación y ejecución en paquetes DEB/RPM.
 

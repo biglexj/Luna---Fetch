@@ -35,6 +35,9 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
     private var initialized = false
 
     override suspend fun analyze(url: String): VideoInfo = withContext(Dispatchers.IO) {
+        if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(url)) {
+            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.analyze(url)
+        }
         initialize()
         val canonicalUrl = AndroidWebExtractor.canonicalUrl(url)
         val isImpersonateDomain = AndroidWebExtractor.isExtractorSupported(canonicalUrl)
@@ -206,6 +209,19 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             ?: throw DownloadException("Selecciona una carpeta de destino válida con permisos de almacenamiento.")
         val workRoot = File(context.cacheDir, "downloads")
         val workDirectory = File(workRoot, System.currentTimeMillis().toString()).apply { mkdirs() }
+
+        if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(request.url)) {
+            val sunoRequest = request.copy(destination = workDirectory.absolutePath)
+            com.biglexj.lunafetch.domain.SunoExtractor.download(sunoRequest, onProgress, onLog)
+            val downloadedFiles = workDirectory.walkTopDown().filter { it.isFile && it.length() > 0 }.toList()
+            val resultUris = copyToTree(downloadedFiles, treeUri)
+            workDirectory.deleteRecursively()
+            return@withContext DownloadResult(
+                outputPaths = resultUris.map(Uri::toString),
+                openPath = if (resultUris.size == 1) resultUris.first().toString() else treeUri.toString(),
+            )
+        }
+
         val outputTemplate = File(
             workDirectory,
             if (request.downloadCollection) "%(playlist_index)03d - %(title)s.%(ext)s" else "%(title)s.%(ext)s",

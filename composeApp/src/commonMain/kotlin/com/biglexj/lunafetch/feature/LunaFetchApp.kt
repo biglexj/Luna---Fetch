@@ -97,7 +97,7 @@ fun LunaFetchApp(
                                 ) {
                                     DownloadOptionsCard(state, presenter, platform)
                                     DownloadStatusCard(state, presenter, platform)
-                                    LogsCard(state)
+                                    LogsCard(state, presenter)
                                 }
                             }
                         }
@@ -148,6 +148,6 @@ private fun MainCards(state: LunaFetchState, presenter: LunaFetchPresenter, plat
     DownloadOptionsCard(state, presenter, platform)
     DownloadStatusCard(state, presenter, platform)
     HistoryCard(state, presenter, platform)
-    LogsCard(state)
+    LogsCard(state, presenter)
     Spacer(Modifier.height(8.dp))
 }

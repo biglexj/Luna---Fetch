@@ -31,6 +31,10 @@ class DesktopDownloadEngine(
     override suspend fun analyze(url: String): VideoInfo = analyzeWithCookieFile(url, null)
 
     suspend fun analyzeWithCookieFile(url: String, customCookieFile: String? = null): VideoInfo = withContext(Dispatchers.IO) {
+        if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(url)) {
+            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.analyze(url)
+        }
+
         val analyzeOptions = YtdlpProtocol.buildAnalyzeArguments(url)
 
         val (exitCode, outputs) = executeWithCookieFallback(analyzeOptions, url, customCookieFile = customCookieFile)
@@ -53,6 +57,10 @@ class DesktopDownloadEngine(
         onProgress: (DownloadProgress) -> Unit,
         onLog: (String) -> Unit,
     ): DownloadResult = withContext(Dispatchers.IO) {
+        if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(request.url)) {
+            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.download(request, onProgress, onLog)
+        }
+
         val destination = File(request.destination)
         if (!destination.exists() && !destination.mkdirs()) {
             throw DownloadException("No se pudo crear la carpeta de destino.")
@@ -104,6 +112,8 @@ class DesktopDownloadEngine(
             "La plataforma rechazó la descarga (HTTP 403). Suele ser detección anti-bot del sitio. Intenta el canal del motor Nocturno o deja que se extraigan las cookies del navegador, y vuelve a intentar."
         combinedError.contains("sign in to confirm", ignoreCase = true) ->
             "El sitio pide confirmar el inicio de sesión (anti-bot). Deja que se extraigan las cookies del navegador o actualiza el motor a Nocturno."
+        combinedError.contains("tiktok", ignoreCase = true) && (combinedError.contains("impersonation", ignoreCase = true) || combinedError.contains("status code 0", ignoreCase = true) || combinedError.contains("not available", ignoreCase = true)) ->
+            "TikTok bloqueó la extracción (impersonación / status code 0). Luna Fetch ha registrado el diagnóstico de 48h. Intenta actualizar al canal Nocturno o usa cookies del navegador."
         combinedError.contains("unable to download video data", ignoreCase = true) ->
             "No se pudo descargar el video (los datos fueron rechazados por el servidor). Intenta cambiar el canal del motor o revisa el registro técnico para el detalle."
         else -> "yt-dlp terminó con código $exitCode. Revisa el registro técnico."
@@ -129,9 +139,10 @@ class DesktopDownloadEngine(
             if (it.exists() && it.length() > 0) it.absolutePath else null
         }
 
-        fun runWith(cookieBrowser: String? = null, cookieFilePath: String? = null): Pair<Int, Pair<String, String>> {
+        fun runWith(cookieBrowser: String? = null, cookieFilePath: String? = null, extraArgs: List<String> = emptyList()): Pair<Int, Pair<String, String>> {
             val command = mutableListOf(executable).apply {
                 addAll(options)
+                addAll(extraArgs)
                 if (!cookieFilePath.isNullOrBlank()) {
                     addAll(listOf("--cookies", cookieFilePath))
                 } else if (!cookieBrowser.isNullOrBlank()) {
@@ -184,10 +195,23 @@ class DesktopDownloadEngine(
         val (stdout, stderr) = outputs
         val combinedError = "$stdout\n$stderr"
 
-        // 3. Fallback to browser cookies if bot detection error occurs
-        if (code != 0 && (combinedError.contains("Sign in to confirm", ignoreCase = true) ||
-                          combinedError.contains("cookies", ignoreCase = true) ||
-                          combinedError.contains("bot", ignoreCase = true))) {
+        // 3. Fallback to browser cookies or alternate API if bot detection/impersonation occurs
+        val isBotOrImpersonation = code != 0 && (
+            combinedError.contains("Sign in to confirm", ignoreCase = true) ||
+            combinedError.contains("cookies", ignoreCase = true) ||
+            combinedError.contains("bot", ignoreCase = true) ||
+            combinedError.contains("impersonation", ignoreCase = true) ||
+            combinedError.contains("status code 0", ignoreCase = true) ||
+            (combinedError.contains("tiktok", ignoreCase = true) && combinedError.contains("not available", ignoreCase = true))
+        )
+
+        if (isBotOrImpersonation) {
+            // If TikTok, first attempt with API hostname extractor arg
+            if (com.biglexj.lunafetch.domain.TikTokUtils.isTikTokUrl(url)) {
+                val apiFallback = runWith(extraArgs = listOf("--extractor-args", "tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com"))
+                if (apiFallback.first == 0) return apiFallback
+            }
+
             val browsers = listOf("edge", "chrome", "firefox", "brave", "opera")
             for (browser in browsers) {
                 val fallbackRes = runWith(cookieBrowser = browser)

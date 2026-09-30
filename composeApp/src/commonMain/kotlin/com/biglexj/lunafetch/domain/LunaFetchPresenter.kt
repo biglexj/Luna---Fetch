@@ -37,6 +37,7 @@ data class LunaFetchState(
     val discoveredPeers: List<com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice> = emptyList(),
     val selectedTargetPeer: com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice? = null,
     val isSendingToPeer: Boolean = false,
+    val diagnostics: List<DiagnosticEntry> = emptyList(),
 )
 
 class LunaFetchPresenter(
@@ -95,6 +96,7 @@ class LunaFetchPresenter(
 
     init {
         refreshHistory()
+        refreshDiagnostics()
         checkForUpdates()
         startLanServices()
     }
@@ -127,6 +129,42 @@ class LunaFetchPresenter(
             platform.saveHistory(migrated)
         }
         _state.update { it.copy(history = migrated) }
+    }
+
+    fun refreshDiagnostics() {
+        val loaded = platform.loadDiagnostics()
+        val purged = DiagnosticStore.purgeExpired(loaded)
+        if (purged.size != loaded.size) {
+            platform.saveDiagnostics(purged)
+        }
+        _state.update { it.copy(diagnostics = purged) }
+    }
+
+    fun recordDiagnostic(
+        url: String,
+        operation: String,
+        errorMessage: String,
+        technicalDetails: String,
+    ) {
+        val newEntry = DiagnosticEntry(
+            id = "${System.currentTimeMillis()}_${(1000..9999).random()}",
+            timestampMs = System.currentTimeMillis(),
+            url = url,
+            operation = operation,
+            errorMessage = errorMessage,
+            technicalDetails = technicalDetails,
+            originDevice = platform.deviceName,
+        )
+        val current = platform.loadDiagnostics()
+        val updated = DiagnosticStore.addEntry(current, newEntry)
+        platform.saveDiagnostics(updated)
+        _state.update { it.copy(diagnostics = updated) }
+    }
+
+    fun clearDiagnostics() {
+        platform.saveDiagnostics(emptyList())
+        _state.update { it.copy(diagnostics = emptyList()) }
+        showToast("🧹 Diagnósticos eliminados.")
     }
 
     fun showToast(message: String) {
@@ -372,6 +410,8 @@ class LunaFetchPresenter(
                         val msg = error.userMessage("No se pudo analizar el enlace.")
                         appendLog("ERROR: $msg")
                         _state.update { it.copy(isAnalyzing = false, error = msg) }
+                        val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
+                        recordDiagnostic(url = url, operation = "ANALYZE", errorMessage = msg, technicalDetails = techDetails)
                     }
                 }
         }
@@ -442,6 +482,8 @@ class LunaFetchPresenter(
                         _state.update { it.copy(isAnalyzing = false, error = msg) }
                         showToast("❌ $msg")
                         platform.notifyDownloadFailed("Error al analizar enlace", msg)
+                        val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
+                        recordDiagnostic(url = url, operation = "ANALYZE_DIRECT", errorMessage = msg, technicalDetails = techDetails)
                     }
                 }
         }
@@ -536,6 +578,8 @@ class LunaFetchPresenter(
                 val downloadTitle = video.collectionTitle ?: video.title.ifBlank { "Descarga" }
                 showToast("❌ $msg")
                 platform.notifyDownloadFailed(downloadTitle, msg)
+                val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
+                recordDiagnostic(url = video.url, operation = "DOWNLOAD", errorMessage = msg, technicalDetails = techDetails)
             }
         }
     }

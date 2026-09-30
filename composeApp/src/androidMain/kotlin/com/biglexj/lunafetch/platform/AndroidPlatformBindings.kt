@@ -356,6 +356,26 @@ class AndroidPlatformBindings(
         }
     }
 
+    override fun loadDiagnostics(): List<com.biglexj.lunafetch.domain.DiagnosticEntry> {
+        val raw = preferences.getString("diagnosticHistory", null) ?: return emptyList()
+        return runCatching {
+            val decoded = jsonSerializer.decodeFromString<List<com.biglexj.lunafetch.domain.DiagnosticEntry>>(raw)
+            val purged = com.biglexj.lunafetch.domain.DiagnosticStore.purgeExpired(decoded)
+            if (purged.size != decoded.size) {
+                saveDiagnostics(purged)
+            }
+            purged
+        }.getOrDefault(emptyList())
+    }
+
+    override fun saveDiagnostics(diagnostics: List<com.biglexj.lunafetch.domain.DiagnosticEntry>) {
+        runCatching {
+            val purged = com.biglexj.lunafetch.domain.DiagnosticStore.purgeExpired(diagnostics)
+            val json = jsonSerializer.encodeToString(purged)
+            preferences.edit().putString("diagnosticHistory", json).apply()
+        }
+    }
+
     override suspend fun getEngineChannel(): String =
         preferences.getString("lastYtdlpChannel", com.biglexj.lunafetch.domain.EngineChannel.NIGHTLY.wire)
             ?: com.biglexj.lunafetch.domain.EngineChannel.NIGHTLY.wire

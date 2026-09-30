@@ -70,6 +70,9 @@ interface PlatformBindings {
     fun loadHistory(): List<DownloadHistoryItem> = emptyList()
     fun saveHistory(history: List<DownloadHistoryItem>) {}
 
+    fun loadDiagnostics(): List<DiagnosticEntry> = emptyList()
+    fun saveDiagnostics(diagnostics: List<DiagnosticEntry>) {}
+
     suspend fun getEngineChannel(): String = EngineChannel.STABLE.wire
     suspend fun setEngineChannel(channel: String) {}
     suspend fun getEngineComponentStatus(): String = "Componentes activos"
