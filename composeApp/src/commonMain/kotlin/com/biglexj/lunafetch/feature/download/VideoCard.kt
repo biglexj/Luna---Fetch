@@ -54,7 +54,9 @@ fun VideoCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
         return
     }
     val openModifier = if (state.completedOutput != null) {
-        Modifier.clickable(onClick = presenter::openCompletedOutput)
+        Modifier.clickable {
+            runCatching { presenter.openCompletedOutput() }
+        }
     } else {
         Modifier
     }

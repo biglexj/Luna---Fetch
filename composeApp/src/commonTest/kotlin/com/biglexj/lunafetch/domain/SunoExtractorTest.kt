@@ -29,9 +29,9 @@ class SunoExtractorTest {
     }
 
     @Test
-    fun testRealSongFetch() {
+    fun testShortUrlFetch() {
         kotlinx.coroutines.runBlocking {
-            val info = SunoExtractor.analyze("https://suno.com/song/a9c47ba5-fa8f-4d2b-bb2d-f80fba6e8251")
+            val info = SunoExtractor.analyze("https://suno.com/s/fWsmzN5UEkCxls3m")
             assertEquals("Hola, Cómo Estás", info.title)
             assertTrue(info.uploader.contains("Biglex J"))
             assertTrue(info.durationSeconds > 300)
