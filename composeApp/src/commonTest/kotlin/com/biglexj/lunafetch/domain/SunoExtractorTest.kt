@@ -27,4 +27,15 @@ class SunoExtractorTest {
         assertEquals(uuid, SunoExtractor.extractId("https://cdn1.suno.ai/$uuid.mp4"))
         assertEquals(uuid, SunoExtractor.extractId("https://cdn2.suno.ai/image_large_$uuid.jpeg"))
     }
+
+    @Test
+    fun testRealSongFetch() {
+        kotlinx.coroutines.runBlocking {
+            val info = SunoExtractor.analyze("https://suno.com/song/a9c47ba5-fa8f-4d2b-bb2d-f80fba6e8251")
+            assertEquals("Hola, Cómo Estás", info.title)
+            assertTrue(info.uploader.contains("Biglex J"))
+            assertTrue(info.durationSeconds > 300)
+            assertTrue(info.thumbnailUrl.isNotBlank())
+        }
+    }
 }

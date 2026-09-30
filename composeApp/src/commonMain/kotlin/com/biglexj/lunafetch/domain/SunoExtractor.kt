@@ -72,10 +72,11 @@ object SunoExtractor {
         val tags: String,
         val coverUrl: String,
         val videoUrl: String,
+        val audioUrl: String = "",
     )
 
     /**
-     * Analiza una pista de Suno y obtiene todos sus metadatos (título, autor, portada, letra y video).
+     * Analiza una pista de Suno y obtiene todos sus metadatos (título, autor, portada, letra, audio y video).
      */
     suspend fun analyze(rawUrl: String): VideoInfo = withContext(Dispatchers.IO) {
         val canonicalUrl = resolveCanonicalUrl(rawUrl)
@@ -103,6 +104,7 @@ object SunoExtractor {
 
     /**
      * Descarga el video o audio de Suno AI con reporte de progreso en vivo.
+     * Si se solicita audio, prioriza el stream de audio nativo (.m4a) evitando descargar streams de video pesados.
      */
     suspend fun download(
         request: DownloadRequest,
@@ -124,30 +126,44 @@ object SunoExtractor {
         onProgress(DownloadProgress(0.0, phase = DownloadPhase.Preparing))
         onLog("Iniciando extracción de Suno AI para: ${meta.title}")
 
-        val sourceVideoUrl = meta.videoUrl.ifBlank { "https://cdn1.suno.ai/$id.mp4" }
+        // Priorizar stream de audio original para solicitudes de música
+        val sourceStreamUrl = if (isAudio && meta.audioUrl.isNotBlank()) {
+            meta.audioUrl
+        } else {
+            meta.videoUrl.ifBlank { "https://cdn1.suno.ai/$id.mp4" }
+        }
 
-        // Archivo destino
         val finalExtension = request.format.extension
         val finalFile = File(destinationDir, "$sanitizedTitle.$finalExtension")
-        val tempVideoFile = if (isAudio) File(destinationDir, "${sanitizedTitle}_suno_temp.mp4") else finalFile
+        val tempSourceFile = if (isAudio) {
+            val sourceExt = if (sourceStreamUrl.contains(".m4a")) "m4a" else "mp4"
+            File(destinationDir, "${sanitizedTitle}_suno_source.$sourceExt")
+        } else {
+            finalFile
+        }
 
-        // Descarga del stream MP4
-        onLog("Descargando stream directo de Suno: $sourceVideoUrl")
-        downloadHttpStream(sourceVideoUrl, tempVideoFile) { pct, speed, size ->
+        val logDescription = if (isAudio && meta.audioUrl.isNotBlank()) "stream de audio original (.m4a)" else "stream de video (.mp4)"
+        onLog("Descargando $logDescription: $sourceStreamUrl")
+
+        downloadHttpStream(sourceStreamUrl, tempSourceFile) { pct, speed, size ->
             onProgress(DownloadProgress(pct, speed = speed, size = size, phase = DownloadPhase.Downloading))
         }
 
-        // Si se pidió audio, procesar / extraer mediante FFmpeg si está disponible
+        // Si se pidió audio, procesar / transcodificar con FFmpeg si está disponible o preservar stream nativo
         if (isAudio) {
             onProgress(DownloadProgress(100.0, phase = DownloadPhase.Processing))
-            onLog("Extrayendo audio en formato ${request.format.displayName}…")
-            val ffmpegSuccess = convertAudioWithFfmpeg(tempVideoFile, finalFile, request.format, meta, onLog)
+            onLog("Procesando audio en formato ${request.format.displayName}…")
+            val ffmpegSuccess = convertAudioWithFfmpeg(tempSourceFile, finalFile, request.format, meta, onLog)
             if (!ffmpegSuccess) {
-                // Si FFmpeg no está disponible o falla, simplemente renombramos o entregamos el archivo
-                onLog("FFmpeg no disponible en el sistema. Guardando stream de audio original.")
-                tempVideoFile.renameTo(finalFile)
+                if (tempSourceFile.extension.equals(finalFile.extension, ignoreCase = true)) {
+                    tempSourceFile.renameTo(finalFile)
+                } else {
+                    val preservedFile = File(destinationDir, "$sanitizedTitle.${tempSourceFile.extension}")
+                    tempSourceFile.renameTo(preservedFile)
+                    onLog("Audio original guardado como: ${preservedFile.name}")
+                }
             } else {
-                runCatching { tempVideoFile.delete() }
+                runCatching { tempSourceFile.delete() }
             }
         }
 
@@ -181,15 +197,18 @@ object SunoExtractor {
         val targetUrl = "https://suno.com/song/$id"
         val connection = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
-            connectTimeout = 10_000
-            readTimeout = 10_000
-            setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+            connectTimeout = 12_000
+            readTimeout = 12_000
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+            setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
+            setRequestProperty("Referer", "https://suno.com/")
         }
 
         val html = try {
             connection.inputStream.bufferedReader().use { it.readText() }
-        } catch (e: Exception) {
-            // Fallback con metadatos basados en CDN
+        } catch (t: Throwable) {
+            // Fallback con CDN predeterminado
             return SunoSongMetadata(
                 id = id,
                 title = "Canción Suno $id",
@@ -200,29 +219,42 @@ object SunoExtractor {
                 tags = "",
                 coverUrl = "https://cdn2.suno.ai/image_large_$id.jpeg",
                 videoUrl = "https://cdn1.suno.ai/$id.mp4",
+                audioUrl = "",
             )
         }
 
-        val titleMatch = Regex(""""title"\s*:\s*"([^"]+)"""").find(html)
-        val title = titleMatch?.groupValues?.get(1)?.unescapeJson() ?: "Canción Suno ${id.take(8)}"
+        // Localizar el bloque central del "clip" para aislar los metadatos específicos de la canción
+        val clipIdx = html.indexOf("\"clip\"").takeIf { it >= 0 }
+            ?: html.indexOf("""\"clip\"""").takeIf { it >= 0 }
+            ?: 0
 
-        val handleMatch = Regex(""""handle"\s*:\s*"([^"]+)"""").find(html)
+        val titleMatch = Regex("""\\?"title\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
+        val title = titleMatch?.groupValues?.get(1)?.unescapeJson()?.ifBlank { null } ?: "Canción Suno ${id.take(8)}"
+
+        val authorMatch = Regex("""\\?"user_display_name\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
+            ?: Regex("""\\?"display_name\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
+        val displayName = authorMatch?.groupValues?.get(1)?.unescapeJson() ?: "Suno AI"
+
+        val handleMatch = Regex("""\\?"user_handle\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
+            ?: Regex("""\\?"handle\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
         val handle = handleMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
 
-        val displayMatch = Regex(""""display_name"\s*:\s*"([^"]+)"""").find(html)
-        val displayName = displayMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
-
-        val durationMatch = Regex(""""duration"\s*:\s*([0-9.]+)""").find(html)
+        val durationMatch = Regex("""\\?"duration\\?"\s*:\s*([0-9.]+)""").find(html, startIndex = clipIdx)
         val duration = durationMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 120.0
 
-        val promptMatch = Regex(""""prompt"\s*:\s*"((?:\\.|[^"\\])*)"""").find(html)
-        val prompt = promptMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
-
-        val tagsMatch = Regex(""""tags"\s*:\s*"((?:\\.|[^"\\])*)"""").find(html)
+        val tagsMatch = Regex("""\\?"tags\\?"\s*:\s*\\?"([^"\\\r\n]{1,300})\\?"""").find(html, startIndex = clipIdx)
         val tags = tagsMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
 
-        val coverUrl = "https://cdn2.suno.ai/image_large_$id.jpeg"
-        val videoUrl = "https://cdn1.suno.ai/$id.mp4"
+        val audioUrl = Regex("""https://[a-zA-Z0-9.\-_/]+/[a-zA-Z0-9.\-_/]+\.m4a""").find(html)?.value ?: ""
+        val videoUrl = Regex("""https://[a-zA-Z0-9.\-_/]+/[a-zA-Z0-9.\-_/]+\.mp4""").find(html)?.value
+            ?: "https://cdn1.suno.ai/$id.mp4"
+        val coverUrl = Regex("""https://[a-zA-Z0-9.\-_/]+/[a-zA-Z0-9.\-_/]+image[a-zA-Z0-9._\-]*\.jpeg""").find(html)?.value
+            ?: "https://cdn2.suno.ai/image_large_$id.jpeg"
+
+        // Letra lírica (prompt de texto)
+        val promptIdx = html.indexOf("\"prompt\"").takeIf { it >= 0 } ?: html.indexOf("""\"prompt\"""").coerceAtLeast(0)
+        val promptMatch = Regex("""\\?"prompt\\?"\s*:\s*\\?"([^"\\\r\n]{1,8000})\\?"""").find(html, startIndex = promptIdx)
+        val prompt = promptMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
 
         return SunoSongMetadata(
             id = id,
@@ -234,6 +266,7 @@ object SunoExtractor {
             tags = tags,
             coverUrl = coverUrl,
             videoUrl = videoUrl,
+            audioUrl = audioUrl,
         )
     }
 
@@ -242,11 +275,32 @@ object SunoExtractor {
         targetFile: File,
         onProgress: (percentage: Double, speed: String, size: String) -> Unit,
     ) {
-        val connection = (URL(streamUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 12_000
-            readTimeout = 12_000
-            setRequestProperty("User-Agent", "Mozilla/5.0")
+        var currentUrl = streamUrl
+        var redirectCount = 0
+        var connection: HttpURLConnection
+
+        while (true) {
+            val url = URL(currentUrl)
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = false
+                requestMethod = "GET"
+                connectTimeout = 15_000
+                readTimeout = 20_000
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+                setRequestProperty("Accept", "*/*")
+                setRequestProperty("Referer", "https://suno.com/")
+                setRequestProperty("Origin", "https://suno.com")
+            }
+
+            val status = connection.responseCode
+            if (status in 300..399 && redirectCount < 5) {
+                val loc = connection.getHeaderField("Location") ?: break
+                currentUrl = if (loc.startsWith("http")) loc else URL(url, loc).toString()
+                redirectCount++
+                connection.disconnect()
+                continue
+            }
+            break
         }
 
         if (connection.responseCode !in 200..299) {
