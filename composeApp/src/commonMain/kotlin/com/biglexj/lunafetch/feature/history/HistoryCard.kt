@@ -36,7 +36,6 @@ fun HistoryCard(
     state: LunaFetchState,
     presenter: LunaFetchPresenter,
     platform: PlatformBindings,
-    columns: Int = 1,
 ) {
     if (state.history.isEmpty()) return
 
@@ -52,30 +51,11 @@ fun HistoryCard(
             }
         }
         Spacer(Modifier.height(8.dp))
-        val columnCount = columns.coerceAtLeast(1)
-        if (columnCount == 1) {
-            state.history.forEach { item ->
-                HistoryRow(item = item, state = state, presenter = presenter, platform = platform)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-            }
-        } else {
-            state.history.chunked(columnCount).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    rowItems.forEach { item ->
-                        Column(modifier = Modifier.weight(1f)) {
-                            HistoryRow(item = item, state = state, presenter = presenter, platform = platform)
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-                        }
-                    }
-                    // Rellena la última fila para que las columnas queden alineadas.
-                    repeat(columnCount - rowItems.size) {
-                        Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
+        // El historial va en una sola columna: en varias los títulos quedaban
+        // ilegibles y los avisos se apilaban letra por letra.
+        state.history.forEach { item ->
+            HistoryRow(item = item, state = state, presenter = presenter, platform = platform)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
         }
     }
 }
@@ -87,7 +67,9 @@ private fun HistoryRow(
     presenter: LunaFetchPresenter,
     platform: PlatformBindings,
 ) {
-    val isLocal = platform.isLocalPathAccessible(item.path)
+    val fileState = platform.localFileState(item.path)
+    val isLocal = fileState != com.biglexj.lunafetch.domain.LocalFileState.Missing
+    val isDamaged = fileState == com.biglexj.lunafetch.domain.LocalFileState.Empty
     val isWindowsPath = item.path.matches(Regex("^[a-zA-Z]:[/\\\\].*"))
     val isAndroidContent = item.path.startsWith("content://")
     val isFromOtherDevice = (item.originDevice.isNotBlank() && !item.originDevice.equals(platform.deviceName, ignoreCase = true)) ||
@@ -137,6 +119,8 @@ private fun HistoryRow(
                     item.formatLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (isFromOtherDevice) {
                     val icon = getDeviceIcon(deviceLabel, item.path)
@@ -145,6 +129,17 @@ private fun HistoryRow(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else if (isDamaged) {
+                    Text(
+                        "• ⚠️ Archivo dañado (vacío)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 } else if (!isLocal && item.path.isNotBlank()) {
                     Text(
@@ -152,6 +147,8 @@ private fun HistoryRow(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
                         fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -167,11 +164,22 @@ private fun HistoryRow(
                     onClick = { platform.openUrl(item.url) },
                 )
             }
-            if (isLocal) {
+            if (isLocal && !isDamaged) {
                 HistoryActionButton(
                     icon = "▶️",
                     tooltip = "Reproducir",
                     onClick = { presenter.playInPrisma(item.path) },
+                )
+                HistoryActionButton(
+                    icon = "📁",
+                    tooltip = "Abrir ubicación",
+                    onClick = { platform.openDestinationFolder(item.path) },
+                )
+            } else if (isDamaged) {
+                HistoryActionButton(
+                    icon = "♻️",
+                    tooltip = "Rehacer la descarga y reemplazar el archivo",
+                    onClick = { presenter.repairHistoryItem(item) },
                 )
                 HistoryActionButton(
                     icon = "📁",

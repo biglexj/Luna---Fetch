@@ -81,13 +81,9 @@ fun LunaFetchApp(
                                 MainCards(state, presenter, platform)
                             }
                         } else {
-                            // Pantallas anchas: el historial ocupa todo el ancho
-                            // repartido en tres columnas, bien a la izquierda.
-                            val historyColumns = when {
-                                maxWidth >= 1100.dp -> 3
-                                maxWidth >= 780.dp -> 2
-                                else -> 1
-                            }
+                            // Pantallas anchas: tres columnas. El historial ocupa la
+                            // columna de la derecha y reparte sus elementos en
+                            // varias columnas según el ancho disponible.
                             Column(
                                 modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(24.dp),
                                 verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -97,14 +93,14 @@ fun LunaFetchApp(
                                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                                 ) {
                                     Column(
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(0.95f),
                                         verticalArrangement = Arrangement.spacedBy(16.dp),
                                     ) {
                                         LinkCard(state, presenter, platform)
                                         VideoCard(state, presenter)
                                     }
                                     Column(
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1.05f),
                                         verticalArrangement = Arrangement.spacedBy(16.dp),
                                     ) {
                                         QueueCard(state, presenter)
@@ -112,8 +108,13 @@ fun LunaFetchApp(
                                         DownloadStatusCard(state, presenter, platform)
                                         LogsCard(state, presenter)
                                     }
+                                    Column(
+                                        modifier = Modifier.weight(1.2f),
+                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    ) {
+                                        HistoryCard(state, presenter, platform)
+                                    }
                                 }
-                                HistoryCard(state, presenter, platform, columns = historyColumns)
                             }
                         }
                     }

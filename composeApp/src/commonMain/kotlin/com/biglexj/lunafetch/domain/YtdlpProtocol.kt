@@ -125,6 +125,10 @@ object YtdlpProtocol {
             addAll(listOf("--merge-output-format", request.format.extension))
         }
         add(if (request.downloadCollection) "--yes-playlist" else "--no-playlist")
+        // Por defecto yt-dlp no sobrescribe un archivo existente: lo marca como
+        // ya descargado y lo omite. Al reparar un archivo dañado hay que
+        // forzar la escritura.
+        if (request.replaceExisting) add("--force-overwrites")
         addAll(listOf("-o", outputTemplate))
     }
 

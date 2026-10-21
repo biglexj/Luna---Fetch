@@ -21,7 +21,7 @@ import java.net.URLDecoder
  *   OPTIONS /...  (CORS preflight)
  */
 class LunaSocketServer(
-    private val onDownloadRequest: (url: String, format: String, quality: String?, cookieFile: String?) -> Int,
+    private val onDownloadRequest: (url: String, format: String, quality: String?, cookieFile: String?) -> com.biglexj.lunafetch.domain.EnqueueResult,
     private val onAnalyzeRequest: (suspend (url: String, cookieFile: String?) -> Pair<List<com.biglexj.lunafetch.domain.QualityOption>, List<com.biglexj.lunafetch.domain.QualityOption>>)? = null,
     private val port: Int = System.getProperty("lunafetch.port")?.toIntOrNull() ?: PORT,
 ) {
@@ -165,11 +165,22 @@ class LunaSocketServer(
             }
 
             if (!url.isNullOrBlank()) {
-                val pending = onDownloadRequest(url, format, quality, cookieFile)
-                if (pending < 0) {
-                    sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL no válida"}""")
-                } else {
-                    sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true,"queued":true,"pending":$pending}""")
+                val result = onDownloadRequest(url, format, quality, cookieFile)
+                when (result.outcome) {
+                    com.biglexj.lunafetch.domain.EnqueueOutcome.InvalidUrl ->
+                        sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL no válida"}""")
+                    com.biglexj.lunafetch.domain.EnqueueOutcome.DuplicateInQueue ->
+                        sendJsonResponse(
+                            "HTTP/1.1 200 OK",
+                            """{"ok":true,"queued":false,"reason":"duplicate_queue","pending":${result.pending}}""",
+                        )
+                    com.biglexj.lunafetch.domain.EnqueueOutcome.AlreadyDownloaded ->
+                        sendJsonResponse(
+                            "HTTP/1.1 200 OK",
+                            """{"ok":true,"queued":false,"reason":"already_downloaded","pending":${result.pending}}""",
+                        )
+                    com.biglexj.lunafetch.domain.EnqueueOutcome.Queued ->
+                        sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true,"queued":true,"pending":${result.pending}}""")
                 }
             } else {
                 sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL vacía"}""")

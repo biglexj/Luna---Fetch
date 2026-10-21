@@ -197,7 +197,7 @@ fun main(args: Array<String>) {
                     exitApplication()
                 }
             },
-            title = "Luna Fetch",
+            title = if (SingleInstanceLock.isDevMode()) "Luna Fetch [DEV]" else "Luna Fetch",
             icon = icon,
             state = windowState,
             visible = isVisible,

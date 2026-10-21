@@ -127,7 +127,13 @@ private fun QueueRow(item: QueuedDownload, presenter: LunaFetchPresenter) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "${item.formatLabel} · ${item.source}${item.quality?.let { " · $it" } ?: ""}",
+                text = buildString {
+                    append(item.formatLabel)
+                    append(" · ")
+                    append(item.source)
+                    if (item.isRepair) append(" · ♻️ reparación")
+                    item.quality?.let { append(" · $it") }
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

@@ -146,6 +146,28 @@ class DesktopPlatformBindings : PlatformBindings {
         return runCatching { File(path).exists() }.getOrDefault(false)
     }
 
+    override fun isDevBuild(): Boolean = SingleInstanceLock.isDevMode()
+
+    override fun localFileState(path: String): com.biglexj.lunafetch.domain.LocalFileState {
+        if (path.isBlank()) return com.biglexj.lunafetch.domain.LocalFileState.Missing
+        return runCatching {
+            val file = File(path)
+            when {
+                !file.exists() -> com.biglexj.lunafetch.domain.LocalFileState.Missing
+                file.length() <= 0L -> com.biglexj.lunafetch.domain.LocalFileState.Empty
+                else -> com.biglexj.lunafetch.domain.LocalFileState.Present
+            }
+        }.getOrDefault(com.biglexj.lunafetch.domain.LocalFileState.Missing)
+    }
+
+    override fun deleteOutput(path: String): Boolean {
+        if (path.isBlank()) return false
+        return runCatching {
+            val file = File(path)
+            file.exists() && file.delete()
+        }.getOrDefault(false)
+    }
+
     override fun openInPrisma(filePath: String): Boolean {
         return com.biglexj.lunafetch.platform.synapse.SynapseOutboundClient.openMediaInPrisma(filePath)
     }
@@ -287,6 +309,20 @@ class DesktopPlatformBindings : PlatformBindings {
         runCatching {
             val json = jsonSerializer.encodeToString(history)
             preferences.put("downloadHistory", json)
+        }
+    }
+
+    override fun loadDownloadRegistry(): List<com.biglexj.lunafetch.domain.DownloadRegistryEntry> {
+        val raw = preferences.get("downloadRegistry", null) ?: return emptyList()
+        return runCatching {
+            jsonSerializer.decodeFromString<List<com.biglexj.lunafetch.domain.DownloadRegistryEntry>>(raw)
+        }.getOrDefault(emptyList())
+    }
+
+    override fun saveDownloadRegistry(entries: List<com.biglexj.lunafetch.domain.DownloadRegistryEntry>) {
+        runCatching {
+            val json = jsonSerializer.encodeToString(entries)
+            preferences.put("downloadRegistry", json)
         }
     }
 

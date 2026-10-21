@@ -32,13 +32,21 @@ async function send () {
       quality: ''
     });
     if (resp && resp.ok !== false) {
-      const pending = resp.response && typeof resp.response.pending === 'number' ? resp.response.pending : 0;
-      setStatus(
-        pending > 1
-          ? `✅ Encolado · ${pending} en espera. Sigue pegando el siguiente enlace.`
-          : '✅ Encolado en Luna Fetch. Puedes pegar el siguiente enlace.',
-        '#2ec4a3'
-      );
+      const data = (resp.response && typeof resp.response === 'object') ? resp.response : {};
+      const pending = typeof data.pending === 'number' ? data.pending : 0;
+      if (data.queued === false) {
+        const duplicate = data.reason === 'duplicate_queue'
+          ? '⏭️ Ese enlace ya está en la cola de Luna Fetch.'
+          : '✅ Ese video ya está descargado.';
+        setStatus(duplicate, '#f4a261');
+      } else {
+        setStatus(
+          pending > 1
+            ? `✅ Encolado · ${pending} en espera. Sigue pegando el siguiente enlace.`
+            : '✅ Encolado en Luna Fetch. Puedes pegar el siguiente enlace.',
+          '#2ec4a3'
+        );
+      }
       urlInput.value = '';
       urlInput.focus();
     } else {

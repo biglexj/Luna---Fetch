@@ -63,6 +63,12 @@ class LunaFetchPresenter(
     private var queuePaused = false
     private var cancelRequested = false
 
+    // ── Registro de descargas ────────────────────────────────────────────
+    // Mapa enlace → archivo ya descargado. Permite reconocer duplicados y
+    // distinguir un archivo movido de uno dañado.
+    private val registryLock = Any()
+    private var downloadRegistry: List<DownloadRegistryEntry> = emptyList()
+
     private val localDeviceId = "luna_${(platform.deviceName + platform.deviceOs).hashCode().toString(16)}"
 
     private val lanDiscovery = com.biglexj.lunafetch.domain.synapse.lan.SynapseLanDiscovery(
@@ -110,9 +116,16 @@ class LunaFetchPresenter(
     init {
         refreshHistory()
         refreshDiagnostics()
+        refreshDownloadRegistry()
         checkForUpdates()
         startLanServices()
         startQueueWorker()
+    }
+
+    /** Recarga el registro de descargas desde el almacenamiento persistente. */
+    fun refreshDownloadRegistry() {
+        val loaded = platform.loadDownloadRegistry()
+        synchronized(registryLock) { downloadRegistry = loaded }
     }
 
     private fun startLanServices() {
@@ -438,16 +451,59 @@ class LunaFetchPresenter(
  * immediately, so several links sent in a row are downloaded one after the
  * other instead of replacing each other.
      *
-     * @return Number of links waiting in the queue, or -1 when the URL is invalid.
+     * Before enqueueing, the link is checked against the queue and the
+     * download registry:
+     *  - If the same link is already pending or downloading, it is ignored.
+     *  - If it was already downloaded and the file is in place, it is ignored.
+     *  - If the file exists but is empty (damaged), the download is repeated
+     *    and replaces the damaged file in place.
+     *  - If the file no longer exists (moved or deleted), the download is
+     *    repeated normally, because a moved file is not a damaged file.
+     *
+     * @param force Ignores the registry check. Used by explicit user actions.
+     * @param repairPath Path of the damaged file to replace.
+     * @return Result of the enqueue, with the number of pending links.
      */
     fun startDirectDownload(
         rawUrl: String,
         formatName: String = "mp4",
         requestedQuality: String? = null,
         source: String = "Extensión",
-    ): Int {
+        force: Boolean = false,
+        repairPath: String? = null,
+    ): EnqueueResult {
         val url = TikTokUtils.sanitizeUrl(rawUrl)
-        if (!isSupportedUrl(url)) return -1
+        if (!isSupportedUrl(url)) return EnqueueResult(EnqueueOutcome.InvalidUrl)
+
+        val canonicalKey = LinkCanonicalizer.canonicalKey(url)
+        val formatKey = resolveMediaFormat(formatName).extension
+
+        // 1. El enlace ya fue descargado: se verifica el archivo.
+        var repairTarget = repairPath.orEmpty()
+        if (!force && repairTarget.isBlank()) {
+            val known = synchronized(registryLock) {
+                DownloadRegistry.find(downloadRegistry, canonicalKey, formatKey)
+            }
+            if (known != null) {
+                when (platform.localFileState(known.path)) {
+                    LocalFileState.Present -> {
+                        showToast("✅ Ya está descargado: ${known.title.ifBlank { "el archivo" }}")
+                        return EnqueueResult(EnqueueOutcome.AlreadyDownloaded, pendingCount())
+                    }
+                    LocalFileState.Empty -> {
+                        // El archivo existe pero está vacío: está dañado. Se rehace
+                        // la descarga y se reemplaza en el mismo sitio.
+                        repairTarget = known.path
+                        showToast("♻️ Archivo dañado, se vuelve a descargar: ${known.title.ifBlank { "el archivo" }}")
+                    }
+                    LocalFileState.Missing -> {
+                        // El archivo se movió o se eliminó. No está dañado: se
+                        // descarga de nuevo con normalidad.
+                        showToast("📥 El archivo anterior ya no está, se descarga de nuevo")
+                    }
+                }
+            }
+        }
 
         val item = QueuedDownload(
             id = "${System.currentTimeMillis()}_${(1000..9999).random()}",
@@ -455,20 +511,50 @@ class LunaFetchPresenter(
             formatName = formatName,
             quality = requestedQuality,
             source = source,
+            canonicalKey = canonicalKey,
+            repairPath = repairTarget,
         )
-        val pending = synchronized(queueLock) {
-            queueItems.add(item)
-            trimQueueLocked()
-            queueItems.count { !it.isFinished }
+
+        // La comprobación de duplicados y el encolado ocurren en el mismo
+        // bloque: si no, dos envíos simultáneos del mismo enlace podrían pasar
+        // los dos el filtro y encolarse dos veces.
+        val enqueued = synchronized(queueLock) {
+            // El mismo enlace ya está pendiente o descargándose. El formato
+            // distingue el video de su audio: son archivos distintos.
+            val duplicate = queueItems.any {
+                it.canonicalKey == canonicalKey &&
+                    resolveMediaFormat(it.formatName).extension == formatKey &&
+                    !it.isFinished
+            }
+            if (duplicate) {
+                null
+            } else {
+                queueItems.add(item)
+                trimQueueLocked()
+                item
+            }
         }
+
+        if (enqueued == null) {
+            showToast("⏭️ Ese enlace ya está en la cola")
+            return EnqueueResult(EnqueueOutcome.DuplicateInQueue, pendingCount())
+        }
+
+        val pending = pendingCount()
         publishQueue()
         showToast(
-            if (pending > 1) "📥 Encolado · $pending en espera"
-            else "📥 Encolado en Luna Fetch"
+            when {
+                repairTarget.isNotBlank() -> "♻️ Reparando archivo dañado"
+                pending > 1 -> "📥 Encolado · $pending en espera"
+                else -> "📥 Encolado en Luna Fetch"
+            }
         )
         queueSignal.trySend(Unit)
-        return pending
+        return EnqueueResult(EnqueueOutcome.Queued, pending)
     }
+
+    /** Número de enlaces de la cola que aún no terminaron. */
+    private fun pendingCount(): Int = synchronized(queueLock) { queueItems.count { !it.isFinished } }
 
     // ── Queue worker ────────────────────────────────────────────────────
 
@@ -506,7 +592,13 @@ class LunaFetchPresenter(
     private suspend fun processQueueItem(item: QueuedDownload) {
         val url = item.url
         val format = resolveMediaFormat(item.formatName)
-        val destination = state.value.destination
+        // Una reparación se escribe en la misma carpeta del archivo dañado para
+        // poder reemplazarlo en el sitio.
+        val destination = if (item.isRepair) {
+            parentFolderOf(item.repairPath).ifBlank { state.value.destination }
+        } else {
+            state.value.destination
+        }
 
         setUrl(url)
         selectFormat(format)
@@ -570,14 +662,31 @@ class LunaFetchPresenter(
             format = format,
             quality = matchedQuality,
             downloadCollection = shouldDownloadCollection,
+            replaceExisting = item.isRepair,
         )
 
-        when (runDownload(request = request, video = video, format = format, quality = matchedQuality)) {
-            DownloadOutcome.Completed -> updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Completed) }
+        when (runDownload(request = request, video = video, format = format, quality = matchedQuality, canonicalKey = item.canonicalKey)) {
+            DownloadOutcome.Completed -> {
+                updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Completed) }
+                removeReplacedFile(item)
+            }
             DownloadOutcome.Cancelled -> updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Cancelled) }
             DownloadOutcome.Failed -> updateQueueItem(item.id) {
                 it.copy(status = QueueItemStatus.Failed, errorMessage = state.value.error)
             }
+        }
+    }
+
+    /**
+     * Si la descarga reparadora produjo un archivo con otro nombre, el archivo
+     * dañado original deja de ser necesario y se elimina.
+     */
+    private fun removeReplacedFile(item: QueuedDownload) {
+        if (!item.isRepair) return
+        val produced = state.value.completedOutput ?: return
+        if (produced.isBlank() || produced.equals(item.repairPath, ignoreCase = true)) return
+        if (platform.localFileState(item.repairPath) != LocalFileState.Missing) {
+            platform.deleteOutput(item.repairPath)
         }
     }
 
@@ -694,6 +803,7 @@ class LunaFetchPresenter(
                 video = video,
                 format = current.selectedFormat,
                 quality = current.selectedQuality,
+                canonicalKey = LinkCanonicalizer.canonicalKey(current.url),
             )
         }
     }
@@ -707,6 +817,7 @@ class LunaFetchPresenter(
         video: VideoInfo,
         format: MediaFormat,
         quality: QualityOption,
+        canonicalKey: String = "",
     ): DownloadOutcome {
         _state.update {
             it.copy(
@@ -745,6 +856,13 @@ class LunaFetchPresenter(
                 )
             }
             autoBroadcastHistorySync()
+            registerDownload(
+                canonicalKey = canonicalKey,
+                format = format,
+                quality = quality,
+                title = downloadTitle,
+                path = result.openPath,
+            )
             showToast("✅ Descarga completada: $downloadTitle")
             platform.notifyDownloadCompleted(downloadTitle, result.openPath ?: "")
             DownloadOutcome.Completed
@@ -823,9 +941,64 @@ class LunaFetchPresenter(
     fun redownloadHistoryItem(item: DownloadHistoryItem) {
         if (item.url.isBlank()) return
         showToast("🔄 Iniciando descarga de nuevo: ${item.title}")
-        val formatName = if (item.formatLabel.contains("Audio", ignoreCase = true) || item.formatLabel.contains("MP3", ignoreCase = true) || item.formatLabel.contains("M4A", ignoreCase = true)) "mp3" else "mp4"
-        val qualityName = item.formatLabel.substringAfter("·", "").trim().takeIf { it.isNotBlank() }
-        startDirectDownload(item.url, formatName = formatName, requestedQuality = qualityName, source = "Historial")
+        val formatName = historyFormatName(item)
+        val qualityName = historyQualityName(item)
+        startDirectDownload(item.url, formatName = formatName, requestedQuality = qualityName, source = "Historial", force = true)
+    }
+
+    /**
+     * Rehace un archivo dañado y lo reemplaza en el sitio donde estaba.
+     *
+     * El archivo vacío no está corrupto en su contenido sino incompleto, así que
+     * la descarga se repite sobre la misma carpeta con sobrescritura forzada.
+     */
+    fun repairHistoryItem(item: DownloadHistoryItem) {
+        if (item.url.isBlank()) return
+        showToast("♻️ Reparando archivo dañado: ${item.title}")
+        val formatName = historyFormatName(item)
+        val qualityName = historyQualityName(item)
+        startDirectDownload(
+            item.url,
+            formatName = formatName,
+            requestedQuality = qualityName,
+            source = "Historial",
+            force = true,
+            repairPath = item.path,
+        )
+    }
+
+    private fun historyFormatName(item: DownloadHistoryItem): String =
+        if (item.formatLabel.contains("Audio", ignoreCase = true) ||
+            item.formatLabel.contains("MP3", ignoreCase = true) ||
+            item.formatLabel.contains("M4A", ignoreCase = true)
+        ) "mp3" else "mp4"
+
+    private fun historyQualityName(item: DownloadHistoryItem): String? =
+        item.formatLabel.substringAfter("·", "").trim().takeIf { it.isNotBlank() }
+
+    /**
+     * Guarda la descarga en el registro para reconocer futuros duplicados y
+     * para poder distinguir un archivo movido de uno dañado.
+     */
+    private fun registerDownload(
+        canonicalKey: String,
+        format: MediaFormat,
+        quality: QualityOption,
+        title: String,
+        path: String?,
+    ) {
+        if (canonicalKey.isBlank() || path.isNullOrBlank()) return
+        val entry = DownloadRegistryEntry(
+            canonicalKey = canonicalKey,
+            formatKey = format.extension,
+            formatLabel = "${format.displayName} · ${quality.displayName}",
+            path = path,
+            title = title,
+        )
+        synchronized(registryLock) {
+            downloadRegistry = DownloadRegistry.upsert(downloadRegistry, entry)
+            platform.saveDownloadRegistry(downloadRegistry)
+        }
     }
 
     fun handleSynapseAction(action: com.biglexj.lunafetch.domain.synapse.SynapseAction) {

@@ -22,7 +22,21 @@ object SingleInstanceLock {
 
     fun isDevMode(): Boolean {
         return System.getProperty("lunafetch.dev") == "true" ||
-                System.getProperty("idea.active") != null
+                System.getProperty("idea.active") != null ||
+                System.getProperty("lunafetch.channel")?.equals("dev", ignoreCase = true) == true ||
+                runsFromProjectClasses()
+    }
+
+    /**
+     * La instancia de desarrollo se ejecuta desde las clases compiladas por
+     * Gradle dentro del proyecto. La aplicación instalada corre desde el
+     * paquete de jpackage, así que no coincide con este patrón.
+     */
+    private fun runsFromProjectClasses(): Boolean {
+        val location = runCatching {
+            SingleInstanceLock::class.java.protectionDomain?.codeSource?.location?.toString()
+        }.getOrNull().orEmpty()
+        return location.contains("build/classes") || location.contains("build\\classes")
     }
 
     fun acquireOrTransfer(args: Array<String> = emptyArray()): Boolean {

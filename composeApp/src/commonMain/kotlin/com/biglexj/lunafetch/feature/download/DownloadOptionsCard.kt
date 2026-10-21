@@ -116,12 +116,15 @@ fun DownloadOptionsCard(
         Spacer(Modifier.height(6.dp))
 
         androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val columns = when {
+            val maxColumns = when {
                 maxWidth >= 880.dp -> 4
                 maxWidth >= 520.dp -> 3
                 else -> 2
             }
             val allTargets = listOf<com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice?>(null) + state.discoveredPeers
+            // Nunca hay más columnas que dispositivos: una ranura vacía dejaba
+            // el nombre del móvil cortado y desperdiciaba el espacio.
+            val columns = maxColumns.coerceAtMost(allTargets.size).coerceAtLeast(1)
             val rows = allTargets.chunked(columns)
 
             Column(
@@ -153,7 +156,10 @@ fun DownloadOptionsCard(
                             ) {
                                 Text(
                                     if (target == null) "📍 Este equipo" else "${target.icon} ${target.name}",
-                                    maxLines = 1,
+                                    // El nombre puede ocupar dos líneas antes de
+                                    // recortarse: "Motorola motorola edge 60
+                                    // fusion" no cabía en una sola.
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 )

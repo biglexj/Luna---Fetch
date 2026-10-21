@@ -36,6 +36,13 @@ data class QueuedDownload(
     val status: QueueItemStatus = QueueItemStatus.Pending,
     val title: String = "",
     val errorMessage: String? = null,
+    /** Clave canónica del enlace, para detectar duplicados dentro de la cola. */
+    val canonicalKey: String = "",
+    /**
+     * Ruta del archivo dañado que hay que rehacer. Cuando está presente la
+     * descarga se escribe en la misma carpeta y reemplaza el archivo original.
+     */
+    val repairPath: String = "",
 ) {
     val isPending: Boolean get() = status == QueueItemStatus.Pending
     val isRunning: Boolean get() = status == QueueItemStatus.Running
@@ -54,4 +61,34 @@ data class QueuedDownload(
             formatName.contains("webm", ignoreCase = true) -> "WEBM"
             else -> formatName.uppercase().ifBlank { "MP4" }
         }
+
+    /** Indica que este enlace repara un archivo dañado y debe reemplazarlo. */
+    val isRepair: Boolean get() = repairPath.isNotBlank()
+}
+
+/**
+ * Resultado de intentar encolar un enlace.
+ */
+enum class EnqueueOutcome {
+    /** El enlace se encoló y se descargará. */
+    Queued,
+
+    /** El enlace no es válido o no está soportado. */
+    InvalidUrl,
+
+    /** El mismo enlace ya está pendiente o descargándose en la cola. */
+    DuplicateInQueue,
+
+    /** El enlace ya fue descargado y su archivo está en pie. */
+    AlreadyDownloaded,
+}
+
+/**
+ * Resultado de encolar un enlace, con el número de pendientes en la cola.
+ */
+data class EnqueueResult(
+    val outcome: EnqueueOutcome,
+    val pending: Int = 0,
+) {
+    val isQueued: Boolean get() = outcome == EnqueueOutcome.Queued
 }

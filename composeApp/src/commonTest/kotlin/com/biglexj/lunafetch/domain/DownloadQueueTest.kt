@@ -2,6 +2,7 @@ package com.biglexj.lunafetch.domain
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -37,6 +38,7 @@ class DownloadQueueTest {
     ) : DownloadEngine {
         val analyzedUrls = mutableListOf<String>()
         val downloadedUrls = mutableListOf<String>()
+        val requests = mutableListOf<DownloadRequest>()
         var maxConcurrentDownloads = 0
         private var activeDownloads = 0
 
@@ -61,6 +63,7 @@ class DownloadQueueTest {
             if (activeDownloads > maxConcurrentDownloads) maxConcurrentDownloads = activeDownloads
             try {
                 downloadedUrls.add(request.url)
+                requests.add(request)
                 if (request.url in failingUrls) {
                     throw DownloadException("Fallo simulado para ${request.url}")
                 }
@@ -81,17 +84,37 @@ class DownloadQueueTest {
         override val engine: DownloadEngine,
         override val defaultDestination: String = "C:/Downloads",
     ) : PlatformBindings {
+        var registry: List<DownloadRegistryEntry> = emptyList()
+        val fileStates = mutableMapOf<String, LocalFileState>()
+        val deletedPaths = mutableListOf<String>()
+
         override suspend fun checkUpdate(): UpdateRelease? = null
         override suspend fun chooseDestination(current: String): String? = null
         override fun destinationLabel(destination: String): String = destination
         override fun rememberDestination(destination: String) {}
         override fun openOutput(path: String) {}
+        override fun loadDownloadRegistry(): List<DownloadRegistryEntry> = registry
+        override fun saveDownloadRegistry(entries: List<DownloadRegistryEntry>) {
+            registry = entries
+        }
+        override fun localFileState(path: String): LocalFileState =
+            fileStates[path] ?: LocalFileState.Missing
+        override fun deleteOutput(path: String): Boolean {
+            deletedPaths.add(path)
+            fileStates.remove(path)
+            return true
+        }
     }
 
     private fun presenterFor(
         engine: DownloadEngine,
         scope: kotlinx.coroutines.CoroutineScope,
     ): LunaFetchPresenter = LunaFetchPresenter(FakePlatformBindings(engine), scope = scope)
+
+    private fun presenterFor(
+        platform: FakePlatformBindings,
+        scope: kotlinx.coroutines.CoroutineScope,
+    ): LunaFetchPresenter = LunaFetchPresenter(platform, scope = scope)
 
     @Test
     fun queuedLinksAreDownloadedInOrder() = runTest(testDispatcher) {
@@ -162,10 +185,185 @@ class DownloadQueueTest {
         val presenter = presenterFor(engine, kotlinx.coroutines.CoroutineScope(testDispatcher + job))
 
         try {
-            assertEquals(1, presenter.startDirectDownload("https://youtu.be/uno", "mp4"))
-            assertEquals(2, presenter.startDirectDownload("https://youtu.be/dos", "mp4"))
-            assertEquals(3, presenter.startDirectDownload("https://youtu.be/tres", "mp4"))
-            assertEquals(-1, presenter.startDirectDownload("no-es-una-url", "mp4"))
+            assertEquals(EnqueueOutcome.Queued, presenter.startDirectDownload("https://youtu.be/uno", "mp4").outcome)
+            // El mismo enlace otra vez: se ignora, pero sigue habiendo un pendiente.
+            assertEquals(EnqueueOutcome.DuplicateInQueue, presenter.startDirectDownload("https://youtu.be/uno", "mp4").outcome)
+            assertEquals(1, presenter.startDirectDownload("https://youtu.be/uno", "mp4").pending)
+            assertEquals(2, presenter.startDirectDownload("https://youtu.be/dos", "mp4").pending)
+            assertEquals(3, presenter.startDirectDownload("https://youtu.be/tres", "mp4").pending)
+            assertEquals(EnqueueOutcome.InvalidUrl, presenter.startDirectDownload("no-es-una-url", "mp4").outcome)
+        } finally {
+            job.cancel()
+        }
+    }
+
+    // ── Duplicados y verificación de archivos ─────────────────────────────
+
+    @Test
+    fun duplicateLinkInTheQueueIsIgnored() = runTest(testDispatcher) {
+        val engine = RecordingEngine()
+        val job = kotlinx.coroutines.Job()
+        val presenter = presenterFor(engine, kotlinx.coroutines.CoroutineScope(testDispatcher + job))
+
+        try {
+            val first = presenter.startDirectDownload("https://youtu.be/repetido", "mp4")
+            val second = presenter.startDirectDownload("https://youtu.be/repetido", "mp4")
+
+            assertEquals(EnqueueOutcome.Queued, first.outcome)
+            assertEquals(EnqueueOutcome.DuplicateInQueue, second.outcome)
+
+            testScheduler.advanceUntilIdle()
+            assertEquals(listOf("https://youtu.be/repetido"), engine.downloadedUrls)
+        } finally {
+            job.cancel()
+        }
+    }
+
+    @Test
+    fun equivalentLinksOfDifferentFormatsAreNotDuplicates() = runTest(testDispatcher) {
+        val engine = RecordingEngine()
+        val job = kotlinx.coroutines.Job()
+        val presenter = presenterFor(engine, kotlinx.coroutines.CoroutineScope(testDispatcher + job))
+
+        try {
+            presenter.startDirectDownload("https://youtu.be/mismo", "mp4")
+            val audio = presenter.startDirectDownload("https://www.youtube.com/watch?v=mismo", "mp3")
+
+            assertEquals(EnqueueOutcome.Queued, audio.outcome)
+            testScheduler.advanceUntilIdle()
+            assertEquals(2, engine.downloadedUrls.size)
+        } finally {
+            job.cancel()
+        }
+    }
+
+    @Test
+    fun alreadyDownloadedLinkIsIgnoredWhenTheFileIsPresent() = runTest(testDispatcher) {
+        val engine = RecordingEngine()
+        val platform = FakePlatformBindings(engine)
+        platform.registry = listOf(
+            DownloadRegistryEntry(
+                canonicalKey = "yt:listo",
+                formatKey = "mp4",
+                path = "C:/Downloads/listo.mp4",
+                title = "Video listo",
+            )
+        )
+        platform.fileStates["C:/Downloads/listo.mp4"] = LocalFileState.Present
+        val job = kotlinx.coroutines.Job()
+        val presenter = presenterFor(platform, kotlinx.coroutines.CoroutineScope(testDispatcher + job))
+
+        try {
+            val result = presenter.startDirectDownload("https://youtu.be/listo", "mp4")
+            assertEquals(EnqueueOutcome.AlreadyDownloaded, result.outcome)
+
+            testScheduler.advanceUntilIdle()
+            assertTrue(engine.downloadedUrls.isEmpty())
+        } finally {
+            job.cancel()
+        }
+    }
+
+    @Test
+    fun damagedFileIsDownloadedAgainAndReplacedInPlace() = runTest(testDispatcher) {
+        val engine = RecordingEngine()
+        val platform = FakePlatformBindings(engine)
+        platform.registry = listOf(
+            DownloadRegistryEntry(
+                canonicalKey = "yt:danado",
+                formatKey = "mp4",
+                path = "C:/Downloads/danado.mp4",
+                title = "Video dañado",
+            )
+        )
+        // El archivo existe pero está vacío: está dañado, no movido.
+        platform.fileStates["C:/Downloads/danado.mp4"] = LocalFileState.Empty
+        val job = kotlinx.coroutines.Job()
+        val presenter = presenterFor(platform, kotlinx.coroutines.CoroutineScope(testDispatcher + job))
+
+        try {
+            val result = presenter.startDirectDownload("https://youtu.be/danado", "mp4")
+            assertEquals(EnqueueOutcome.Queued, result.outcome)
+
+            testScheduler.advanceUntilIdle()
+            assertEquals(listOf("https://youtu.be/danado"), engine.downloadedUrls)
+            val request = engine.requests.first()
+            assertTrue(request.replaceExisting, "La reparación debe sobrescribir el archivo dañado")
+            assertEquals("C:/Downloads", request.destination, "La reparación se escribe en la carpeta original")
+        } finally {
+            job.cancel()
+        }
+    }
+
+    @Test
+    fun movedFileIsDownloadedAgainWithoutReplacing() = runTest(testDispatcher) {
+        val engine = RecordingEngine()
+        val platform = FakePlatformBindings(engine)
+        platform.registry = listOf(
+            DownloadRegistryEntry(
+                canonicalKey = "yt:movido",
+                formatKey = "mp4",
+                path = "C:/Downloads/movido.mp4",
+                title = "Video movido",
+            )
+        )
+        // El archivo ya no está: se movió, no está dañado.
+        platform.fileStates["C:/Downloads/movido.mp4"] = LocalFileState.Missing
+        val job = kotlinx.coroutines.Job()
+        val presenter = presenterFor(platform, kotlinx.coroutines.CoroutineScope(testDispatcher + job))
+
+        try {
+            val result = presenter.startDirectDownload("https://youtu.be/movido", "mp4")
+            assertEquals(EnqueueOutcome.Queued, result.outcome)
+
+            testScheduler.advanceUntilIdle()
+            assertEquals(listOf("https://youtu.be/movido"), engine.downloadedUrls)
+            val request = engine.requests.first()
+            assertTrue(!request.replaceExisting, "Un archivo movido se descarga de nuevo con normalidad")
+            assertEquals("C:/Downloads", request.destination)
+        } finally {
+            job.cancel()
+        }
+    }
+
+    @Test
+    fun concurrentDuplicatesAreEnqueuedOnlyOnce() = runTest(testDispatcher) {
+        val engine = RecordingEngine()
+        val job = kotlinx.coroutines.Job()
+        val presenter = presenterFor(engine, kotlinx.coroutines.CoroutineScope(testDispatcher + job))
+
+        try {
+            // La comprobación de duplicados y el encolado deben ser atómicos:
+            // varios envíos simultáneos del mismo enlace solo pueden encolar uno.
+            val results = kotlinx.coroutines.coroutineScope {
+                (1..8).map {
+                    this.async(Dispatchers.Default) {
+                        presenter.startDirectDownload("https://youtu.be/concurrente", "mp4")
+                    }
+                }.map { it.await() }
+            }
+
+            assertEquals(1, results.count { it.outcome == EnqueueOutcome.Queued })
+            assertEquals(7, results.count { it.outcome == EnqueueOutcome.DuplicateInQueue })
+        } finally {
+            job.cancel()
+        }
+    }
+
+    @Test
+    fun completedDownloadIsRegisteredForFutureDuplicates() = runTest(testDispatcher) {
+        val engine = RecordingEngine()
+        val platform = FakePlatformBindings(engine)
+        val job = kotlinx.coroutines.Job()
+        val presenter = presenterFor(platform, kotlinx.coroutines.CoroutineScope(testDispatcher + job))
+
+        try {
+            presenter.startDirectDownload("https://youtu.be/registrado", "mp4")
+            testScheduler.advanceUntilIdle()
+
+            val entry = platform.registry.firstOrNull { it.canonicalKey == "yt:registrado" }
+            assertTrue(entry != null, "La descarga completada debe quedar en el registro")
+            assertEquals("mp4", entry.formatKey)
         } finally {
             job.cancel()
         }

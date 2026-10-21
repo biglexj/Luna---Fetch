@@ -78,6 +78,51 @@ class AndroidPlatformBindings(
         }.getOrDefault(false)
     }
 
+    override fun localFileState(path: String): com.biglexj.lunafetch.domain.LocalFileState {
+        if (path.isBlank()) return com.biglexj.lunafetch.domain.LocalFileState.Missing
+        // Si es una ruta típica de Windows (ej. D:\ o C:\), no es local en Android.
+        if (path.matches(Regex("^[a-zA-Z]:[/\\\\].*"))) return com.biglexj.lunafetch.domain.LocalFileState.Missing
+        return runCatching {
+            if (path.startsWith("content://")) {
+                val uri = Uri.parse(path)
+                val size = runCatching {
+                    appContext.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize }
+                }.getOrNull() ?: -1L
+                when {
+                    size == 0L -> com.biglexj.lunafetch.domain.LocalFileState.Empty
+                    size > 0L -> com.biglexj.lunafetch.domain.LocalFileState.Present
+                    else -> {
+                        val readable = appContext.contentResolver.openInputStream(uri)?.use { true } == true
+                        if (readable) {
+                            com.biglexj.lunafetch.domain.LocalFileState.Present
+                        } else {
+                            com.biglexj.lunafetch.domain.LocalFileState.Missing
+                        }
+                    }
+                }
+            } else {
+                val file = java.io.File(path)
+                when {
+                    !file.exists() -> com.biglexj.lunafetch.domain.LocalFileState.Missing
+                    file.length() <= 0L -> com.biglexj.lunafetch.domain.LocalFileState.Empty
+                    else -> com.biglexj.lunafetch.domain.LocalFileState.Present
+                }
+            }
+        }.getOrDefault(com.biglexj.lunafetch.domain.LocalFileState.Missing)
+    }
+
+    override fun deleteOutput(path: String): Boolean {
+        if (path.isBlank()) return false
+        return runCatching {
+            if (path.startsWith("content://")) {
+                appContext.contentResolver.delete(Uri.parse(path), null, null) > 0
+            } else {
+                val file = java.io.File(path)
+                file.exists() && file.delete()
+            }
+        }.getOrDefault(false)
+    }
+
     override fun openOutput(path: String) {
         if (path.isBlank() || !isLocalPathAccessible(path)) return
         runCatching {
@@ -353,6 +398,20 @@ class AndroidPlatformBindings(
         runCatching {
             val json = jsonSerializer.encodeToString(history)
             preferences.edit().putString("downloadHistory", json).apply()
+        }
+    }
+
+    override fun loadDownloadRegistry(): List<com.biglexj.lunafetch.domain.DownloadRegistryEntry> {
+        val raw = preferences.getString("downloadRegistry", null) ?: return emptyList()
+        return runCatching {
+            jsonSerializer.decodeFromString<List<com.biglexj.lunafetch.domain.DownloadRegistryEntry>>(raw)
+        }.getOrDefault(emptyList())
+    }
+
+    override fun saveDownloadRegistry(entries: List<com.biglexj.lunafetch.domain.DownloadRegistryEntry>) {
+        runCatching {
+            val json = jsonSerializer.encodeToString(entries)
+            preferences.edit().putString("downloadRegistry", json).apply()
         }
     }
 

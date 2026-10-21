@@ -512,22 +512,61 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
                 DocumentsContract.getTreeDocumentId(treeUri),
             )
             sources.map { source ->
-                val created = DocumentsContract.createDocument(
+                // Si ya existe un documento con el mismo nombre se sobrescribe
+                // en lugar de crear una copia "(1)": así una reparación
+                // reemplaza el archivo dañado en su sitio.
+                val existing = findDocumentByName(treeUri, source.name)
+                val target = existing ?: DocumentsContract.createDocument(
                     resolver,
                     parent,
                     mimeType(source.extension),
                     source.name,
                 ) ?: throw DownloadException("Android no permitió crear el archivo en la carpeta elegida.")
-                resolver.openOutputStream(created, "w")?.use { output ->
+                resolver.openOutputStream(target, "wt")?.use { output ->
                     source.inputStream().use { input -> input.copyTo(output) }
                 } ?: throw DownloadException("Android no permitió escribir el archivo descargado.")
-                created
+                target
             }
         } catch (se: SecurityException) {
             throw DownloadException("Permiso de almacenamiento revocado o carpeta inaccesible. Vuelve a seleccionarla en Luna Fetch.", se)
         } catch (iae: IllegalArgumentException) {
             throw DownloadException("La carpeta seleccionada ya no es válida. Vuelve a seleccionarla en Luna Fetch.", iae)
         }
+    }
+
+    /**
+     * Busca un documento con el mismo nombre dentro del árbol de destino.
+     *
+     * @return El URI del documento existente o null si no hay ninguno.
+     */
+    private fun findDocumentByName(treeUri: Uri, name: String): Uri? {
+        val resolver = context.contentResolver
+        return runCatching {
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(
+                treeUri,
+                DocumentsContract.getTreeDocumentId(treeUri),
+            )
+            resolver.query(
+                children,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                ),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                if (idIndex < 0 || nameIndex < 0) return@use null
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(nameIndex) == name) {
+                        return@use DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(idIndex))
+                    }
+                }
+                null
+            }
+        }.getOrNull()
     }
 
     private fun String.toVideoInfo(url: String): VideoInfo {

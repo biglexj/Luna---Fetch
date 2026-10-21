@@ -41,6 +41,25 @@ interface PlatformBindings {
     fun openOutput(path: String)
     fun openDestinationFolder(destination: String) { openOutput(destination) }
     fun isLocalPathAccessible(path: String): Boolean = false
+
+    /**
+     * Indica que la aplicación es la instancia de desarrollo. La interfaz
+     * muestra un distintivo para no confundirla con la versión instalada.
+     */
+    fun isDevBuild(): Boolean = false
+
+    /**
+     * Estado del archivo en el sistema de archivos local.
+     *
+     * Permite distinguir tres situaciones que la simple existencia no separa:
+     * el archivo nunca existió (fue movido o eliminado), existe pero está
+     * vacío (descarga dañada) o existe con contenido.
+     */
+    fun localFileState(path: String): LocalFileState =
+        if (isLocalPathAccessible(path)) LocalFileState.Present else LocalFileState.Missing
+
+    /** Elimina un archivo descargado. Devuelve true si se eliminó. */
+    fun deleteOutput(path: String): Boolean = false
     fun openInPrisma(filePath: String): Boolean = false
     fun openInSuperGaleria(filePath: String): Boolean = false
     fun openFolderInSuperGaleria(filePath: String): Boolean = false
@@ -69,6 +88,13 @@ interface PlatformBindings {
 
     fun loadHistory(): List<DownloadHistoryItem> = emptyList()
     fun saveHistory(history: List<DownloadHistoryItem>) {}
+
+    /**
+     * Registro persistente de descargas realizadas. Conserva más entradas que
+     * el historial visible para reconocer duplicados antiguos.
+     */
+    fun loadDownloadRegistry(): List<DownloadRegistryEntry> = emptyList()
+    fun saveDownloadRegistry(entries: List<DownloadRegistryEntry>) {}
 
     fun loadDiagnostics(): List<DiagnosticEntry> = emptyList()
     fun saveDiagnostics(diagnostics: List<DiagnosticEntry>) {}

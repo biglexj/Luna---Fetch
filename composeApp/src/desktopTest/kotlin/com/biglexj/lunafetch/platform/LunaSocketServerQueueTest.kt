@@ -28,7 +28,7 @@ import kotlin.test.assertTrue
  */
 class LunaSocketServerQueueTest {
 
-    private class RecordingEngine : DownloadEngine {
+    private class RecordingEngine(private val delayMs: Long = 30) : DownloadEngine {
         val downloadedUrls = java.util.Collections.synchronizedList(mutableListOf<String>())
         var maxConcurrent = 0
         private var active = 0
@@ -52,7 +52,7 @@ class LunaSocketServerQueueTest {
                 if (active > maxConcurrent) maxConcurrent = active
             }
             try {
-                delay(30)
+                delay(delayMs)
                 downloadedUrls.add(request.url)
                 onProgress(DownloadProgress(100.0, phase = DownloadPhase.Completed))
                 return DownloadResult(outputPaths = listOf("C:/Downloads/${request.url.substringAfterLast('/')}.mp4"))
@@ -121,6 +121,43 @@ class LunaSocketServerQueueTest {
                 engine.downloadedUrls.toList(),
             )
             assertEquals(1, engine.maxConcurrent)
+        } finally {
+            server.stop()
+            presenterScope.cancel()
+        }
+    }
+
+    /**
+     * Un enlace repetido no se encola dos veces: el servidor responde que ya
+     * estaba en la cola en lugar desumar otra descarga.
+     */
+    @Test
+    fun repeatedLinkIsReportedAsDuplicate() = runBlocking {
+        val engine = RecordingEngine(delayMs = 2000)
+        val presenterScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        val presenter = LunaFetchPresenter(FakePlatform(engine), scope = presenterScope)
+        val server = LunaSocketServer(
+            onDownloadRequest = { url, format, quality, cookieFile ->
+                presenter.startDirectDownload(url, format, quality)
+            },
+            port = 0,
+        )
+        server.start()
+
+        try {
+            withTimeout(5000) {
+                while (server.boundPort == 0) delay(20)
+            }
+            val port = server.boundPort
+            val encoded = java.net.URLEncoder.encode("https://youtu.be/repetido", "UTF-8")
+
+            val first = httpGet(port, "/download?url=$encoded&format=mp4")
+            val second = httpGet(port, "/download?url=$encoded&format=mp4")
+
+            assertTrue(first.contains("\"ok\":true"), "Respuesta inesperada: $first")
+            assertTrue(first.contains("\"queued\":true"), "El primer envío debe encolarse: $first")
+            assertTrue(second.contains("\"queued\":false"), "El enlace repetido no debe encolarse: $second")
+            assertTrue(second.contains("duplicate_queue"), "Debe informar que ya está en la cola: $second")
         } finally {
             server.stop()
             presenterScope.cancel()

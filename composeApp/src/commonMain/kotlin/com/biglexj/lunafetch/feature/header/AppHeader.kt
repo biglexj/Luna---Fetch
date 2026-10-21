@@ -21,6 +21,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
@@ -44,6 +45,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.biglexj.lunafetch.core.theme.ThemeMode
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
@@ -66,12 +68,20 @@ fun AppHeader(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        "Luna Fetch",
+                    Row(
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Luna Fetch",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (platform.isDevBuild()) {
+                            Spacer(Modifier.width(8.dp))
+                            DevBadge()
+                        }
+                    }
                     if (state.discoveredPeers.isNotEmpty()) {
                         LanMeshBadge(state, presenter)
                         Spacer(Modifier.width(6.dp))
@@ -93,7 +103,13 @@ fun AppHeader(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Luna Fetch", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Luna Fetch", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        if (platform.isDevBuild()) {
+                            Spacer(Modifier.width(10.dp))
+                            DevBadge()
+                        }
+                    }
                     Text(
                         "Descarga videos y audio en alta calidad",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -112,6 +128,29 @@ fun AppHeader(
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f))
+}
+
+/**
+ * Distintivo de la instancia de desarrollo.
+ *
+ * Permite saber de un vistazo si la ventana abierta es la que se compila en
+ * el proyecto o la versión instalada para uso diario.
+ */
+@Composable
+private fun DevBadge() {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Text(
+            text = "DEV",
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+        )
+    }
 }
 
 @Composable

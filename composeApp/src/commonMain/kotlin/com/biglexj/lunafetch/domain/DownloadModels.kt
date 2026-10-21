@@ -104,6 +104,11 @@ data class DownloadRequest(
     val format: MediaFormat,
     val quality: QualityOption,
     val downloadCollection: Boolean = false,
+    /**
+     * Indica que la descarga debe sobrescribir el archivo que ya existe en la
+     * carpeta de destino. Se usa para reparar un archivo dañado.
+     */
+    val replaceExisting: Boolean = false,
 )
 
 enum class DownloadPhase {
