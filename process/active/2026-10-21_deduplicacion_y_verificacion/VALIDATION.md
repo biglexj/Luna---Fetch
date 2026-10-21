@@ -104,6 +104,12 @@ Capturas de la aplicación real en `temp/verificacion/`:
   - Historial en una sola columna, con los títulos completos.
   - Los dispositivos de descarga ocupan dos columnas y usan todo el ancho:
     "Este equipo" y "Motorola motorola edge 60 fusion" se leen enteros.
+- `luna-cola-izquierda.png`: la cola de descargas vive en la columna izquierda,
+  debajo del enlace, con dos elementos encolados. El botón "Descargar MP4"
+  conserva su sitio en la tarjeta de descarga: antes, la cola iba en la columna
+  central y lo desplazaba hacia abajo.
+  - La versión compacta mantiene el mismo orden: enlace, cola, vista previa,
+    opciones, estado, historial y registro.
 - `luna-tres-columnas-dev.png`: la primera versión con el historial repartido
   en varias columnas internas, que se descartó porque los títulos quedaban
   ilegibles y los avisos se apilaban letra por letra.

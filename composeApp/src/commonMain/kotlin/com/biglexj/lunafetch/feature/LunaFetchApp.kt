@@ -82,8 +82,9 @@ fun LunaFetchApp(
                             }
                         } else {
                             // Pantallas anchas: tres columnas. El historial ocupa la
-                            // columna de la derecha y reparte sus elementos en
-                            // varias columnas según el ancho disponible.
+                            // columna de la derecha y la cola de descargas va en la
+                            // columna izquierda, junto al enlace: así no empuja
+                            // hacia abajo el botón de descarga.
                             Column(
                                 modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(24.dp),
                                 verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -97,13 +98,13 @@ fun LunaFetchApp(
                                         verticalArrangement = Arrangement.spacedBy(16.dp),
                                     ) {
                                         LinkCard(state, presenter, platform)
+                                        QueueCard(state, presenter)
                                         VideoCard(state, presenter)
                                     }
                                     Column(
                                         modifier = Modifier.weight(1.05f),
                                         verticalArrangement = Arrangement.spacedBy(16.dp),
                                     ) {
-                                        QueueCard(state, presenter)
                                         DownloadOptionsCard(state, presenter, platform)
                                         DownloadStatusCard(state, presenter, platform)
                                         LogsCard(state, presenter)

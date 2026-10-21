@@ -44,6 +44,8 @@
 
 ## 7. Interfaz
 - [x] Layout de escritorio en tres columnas con el historial en la más derecha.
+- [x] Cola de descargas en la columna izquierda, junto al enlace, para que no
+      desplace hacia abajo el botón de descarga.
 - [x] Historial en una sola columna (en varias los títulos quedaban ilegibles).
 - [x] Distintivo "DEV" en el encabezado y en el título de la ventana.
 - [x] Dispositivos de descarga en dos columnas que usan todo el ancho, sin
