@@ -187,7 +187,7 @@ fun DownloadOptionsCard(
         Button(
             onClick = presenter::download,
             modifier = Modifier.fillMaxWidth().height(54.dp),
-            enabled = state.video != null && !state.isDownloading,
+            enabled = state.video != null && !state.isDownloading && state.activeQueueItemId == null,
             shape = RoundedCornerShape(50),
         ) {
             Text(

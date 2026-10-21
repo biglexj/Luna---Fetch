@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -33,6 +34,7 @@ import com.biglexj.lunafetch.feature.download.DownloadOptionsCard
 import com.biglexj.lunafetch.feature.download.DownloadStatusCard
 import com.biglexj.lunafetch.feature.download.LinkCard
 import com.biglexj.lunafetch.feature.download.QuickDownloadSheet
+import com.biglexj.lunafetch.feature.download.QueueCard
 import com.biglexj.lunafetch.feature.download.VideoCard
 import com.biglexj.lunafetch.feature.header.AppHeader
 import com.biglexj.lunafetch.feature.history.HistoryCard
@@ -79,30 +81,43 @@ fun LunaFetchApp(
                                 MainCards(state, presenter, platform)
                             }
                         } else {
-                            Row(
-                                modifier = Modifier.fillMaxSize().padding(24.dp),
-                                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                            // Pantallas anchas: el historial ocupa todo el ancho
+                            // repartido en tres columnas, bien a la izquierda.
+                            val historyColumns = when {
+                                maxWidth >= 1100.dp -> 3
+                                maxWidth >= 780.dp -> 2
+                                else -> 1
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(24.dp),
+                                verticalArrangement = Arrangement.spacedBy(18.dp),
                             ) {
-                                Column(
-                                    modifier = Modifier.weight(1f).verticalScroll(scroll),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(18.dp),
                                 ) {
-                                    LinkCard(state, presenter, platform)
-                                    VideoCard(state, presenter)
-                                    HistoryCard(state, presenter, platform)
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    ) {
+                                        LinkCard(state, presenter, platform)
+                                        VideoCard(state, presenter)
+                                    }
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    ) {
+                                        QueueCard(state, presenter)
+                                        DownloadOptionsCard(state, presenter, platform)
+                                        DownloadStatusCard(state, presenter, platform)
+                                        LogsCard(state, presenter)
+                                    }
                                 }
-                                Column(
-                                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                                ) {
-                                    DownloadOptionsCard(state, presenter, platform)
-                                    DownloadStatusCard(state, presenter, platform)
-                                    LogsCard(state, presenter)
-                                }
+                                HistoryCard(state, presenter, platform, columns = historyColumns)
                             }
                         }
                     }
-                }
+                    }
                 // Floating Top Toast Notification
                 val toastMsg = state.toastMessage
                 if (toastMsg != null) {
@@ -144,6 +159,7 @@ fun LunaFetchApp(
 @Composable
 private fun MainCards(state: LunaFetchState, presenter: LunaFetchPresenter, platform: PlatformBindings) {
     LinkCard(state, presenter, platform)
+    QueueCard(state, presenter)
     VideoCard(state, presenter)
     DownloadOptionsCard(state, presenter, platform)
     DownloadStatusCard(state, presenter, platform)

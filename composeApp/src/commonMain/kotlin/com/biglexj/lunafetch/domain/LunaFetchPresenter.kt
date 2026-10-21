@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.Channel
 
 data class LunaFetchState(
     val url: String = "",
@@ -38,6 +39,8 @@ data class LunaFetchState(
     val selectedTargetPeer: com.biglexj.lunafetch.domain.synapse.lan.SynapseDevice? = null,
     val isSendingToPeer: Boolean = false,
     val diagnostics: List<DiagnosticEntry> = emptyList(),
+    val queue: List<QueuedDownload> = emptyList(),
+    val activeQueueItemId: String? = null,
 )
 
 class LunaFetchPresenter(
@@ -49,6 +52,16 @@ class LunaFetchPresenter(
     private var operation: Job? = null
     private var updateJob: Job? = null
     private var autoClearUpdateMessageJob: Job? = null
+
+    // ── Cola de descargas ───────────────────────────────────────────────
+    // Los envíos externos (extensión, Synapse, Launcher nativo) se encolan aquí
+    // y se procesan de uno en uno: cada enlace se analiza y descarga por
+    // completo antes de tomar el siguiente.
+    private val queueLock = Any()
+    private val queueItems = mutableListOf<QueuedDownload>()
+    private val queueSignal = Channel<Unit>(Channel.CONFLATED)
+    private var queuePaused = false
+    private var cancelRequested = false
 
     private val localDeviceId = "luna_${(platform.deviceName + platform.deviceOs).hashCode().toString(16)}"
 
@@ -74,7 +87,7 @@ class LunaFetchPresenter(
             } else {
                 showToast("📥 Descarga remota desde ${req.sourceDevice}...")
             }
-            startDirectDownload(req.url, req.mediaType, req.quality)
+            startDirectDownload(req.url, req.mediaType, req.quality, source = "Aurora LAN")
         },
         onHistorySyncReceived = { remoteItems ->
             val local = state.value.history
@@ -99,6 +112,7 @@ class LunaFetchPresenter(
         refreshDiagnostics()
         checkForUpdates()
         startLanServices()
+        startQueueWorker()
     }
 
     private fun startLanServices() {
@@ -419,74 +433,225 @@ class LunaFetchPresenter(
 
     /**
      * Triggered by browser extension / external requests.
-     * Analyzes the URL and starts downloading automatically in the background
-     * without showing popups or asking for user confirmation.
+     *
+     * The link is appended to the download queue instead of being processed
+ * immediately, so several links sent in a row are downloaded one after the
+ * other instead of replacing each other.
+     *
+     * @return Number of links waiting in the queue, or -1 when the URL is invalid.
      */
-    fun startDirectDownload(rawUrl: String, formatName: String = "mp4", requestedQuality: String? = null) {
+    fun startDirectDownload(
+        rawUrl: String,
+        formatName: String = "mp4",
+        requestedQuality: String? = null,
+        source: String = "Extensión",
+    ): Int {
         val url = TikTokUtils.sanitizeUrl(rawUrl)
-        if (!isSupportedUrl(url)) return
-        val format = if (formatName.contains("audio", ignoreCase = true) || formatName.contains("mp3", ignoreCase = true) || formatName.contains("m4a", ignoreCase = true)) MediaFormat.Mp3 else MediaFormat.Mp4
-        
+        if (!isSupportedUrl(url)) return -1
+
+        val item = QueuedDownload(
+            id = "${System.currentTimeMillis()}_${(1000..9999).random()}",
+            url = url,
+            formatName = formatName,
+            quality = requestedQuality,
+            source = source,
+        )
+        val pending = synchronized(queueLock) {
+            queueItems.add(item)
+            trimQueueLocked()
+            queueItems.count { !it.isFinished }
+        }
+        publishQueue()
+        showToast(
+            if (pending > 1) "📥 Encolado · $pending en espera"
+            else "📥 Encolado en Luna Fetch"
+        )
+        queueSignal.trySend(Unit)
+        return pending
+    }
+
+    // ── Queue worker ────────────────────────────────────────────────────
+
+    private fun startQueueWorker() {
+        scope.launch {
+            for (signal in queueSignal) {
+                drainQueue()
+            }
+        }
+    }
+
+    /**
+     * Processes the pending links one by one. The worker is the only coroutine
+     * that touches the engine for queued items, so two downloads never overlap.
+     */
+    private suspend fun drainQueue() {
+        while (!queuePaused) {
+            val item = synchronized(queueLock) {
+                queueItems.firstOrNull { it.status == QueueItemStatus.Pending }
+            } ?: return
+
+            updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Running) }
+            _state.update { it.copy(activeQueueItemId = item.id) }
+            try {
+                processQueueItem(item)
+            } catch (cancelled: CancellationException) {
+                updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Cancelled) }
+                throw cancelled
+            } finally {
+                _state.update { it.copy(activeQueueItemId = null) }
+            }
+        }
+    }
+
+    private suspend fun processQueueItem(item: QueuedDownload) {
+        val url = item.url
+        val format = resolveMediaFormat(item.formatName)
+        val destination = state.value.destination
+
         setUrl(url)
         selectFormat(format)
         platform.notifyDownloadStarted("Iniciando descarga de ${format.displayName}…")
+        _state.update { it.copy(isAnalyzing = true, video = null, error = null, completedOutput = null) }
 
-        // If video info is already analyzed, start downloading immediately
-        val currentVideo = state.value.video
-        if (currentVideo != null && currentVideo.url == url) {
-            val qualities = FormatCatalog.qualities(format, currentVideo.maxHeight)
-            val matchedQuality = qualities.first()
-            _state.update { current ->
-                current.copy(
-                    selectedFormat = format,
-                    qualities = qualities,
-                    selectedQuality = matchedQuality,
-                )
-            }
-            download()
+        val video = try {
+            platform.engine.analyze(url)
+        } catch (cancelled: CancellationException) {
+            updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Cancelled) }
+            throw cancelled
+        } catch (error: Throwable) {
+            val msg = error.userMessage("No se pudo analizar el enlace.")
+            appendLog("ERROR: $msg")
+            _state.update { it.copy(isAnalyzing = false, error = msg) }
+            showToast("❌ $msg")
+            platform.notifyDownloadFailed("Error al analizar enlace", msg)
+            val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
+            recordDiagnostic(url = url, operation = "ANALYZE_DIRECT", errorMessage = msg, technicalDetails = techDetails)
+            updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Failed, errorMessage = msg) }
             return
         }
 
-        operation?.cancel()
-        operation = scope.launch {
-            _state.update { it.copy(isAnalyzing = true, video = null, error = null, completedOutput = null) }
-            runCatching { platform.engine.analyze(url) }
-                .onSuccess { video ->
-                    val qualities = FormatCatalog.qualities(format, video.maxHeight)
-                    val matchedQuality = if (!requestedQuality.isNullOrBlank()) {
-                        qualities.firstOrNull { 
-                            it.displayName.contains(requestedQuality, ignoreCase = true) ||
-                            it.formatSelector.contains(requestedQuality, ignoreCase = true)
-                        } ?: qualities.first()
-                    } else {
-                        qualities.first()
-                    }
-                    val hasSingleVideoId = url.contains("watch?v=") || url.contains("v=") || url.contains("youtu.be/")
-                    val shouldDefaultToCollection = video.isCollection && !hasSingleVideoId
-                    _state.update { current ->
-                        current.copy(
-                            video = video,
-                            selectedFormat = format,
-                            qualities = qualities,
-                            selectedQuality = matchedQuality,
-                            downloadCollection = shouldDefaultToCollection,
-                            isAnalyzing = false,
-                        )
-                    }
-                    download()
-                }
-                .onFailure { error ->
-                    if (error !is CancellationException) {
-                        val msg = error.userMessage("No se pudo analizar el enlace.")
-                        appendLog("ERROR: $msg")
-                        _state.update { it.copy(isAnalyzing = false, error = msg) }
-                        showToast("❌ $msg")
-                        platform.notifyDownloadFailed("Error al analizar enlace", msg)
-                        val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
-                        recordDiagnostic(url = url, operation = "ANALYZE_DIRECT", errorMessage = msg, technicalDetails = techDetails)
-                    }
-                }
+        if (destination.isBlank()) {
+            val msg = "Selecciona una carpeta de destino para guardar las descargas."
+            val title = video.collectionTitle ?: video.title
+            _state.update { it.copy(isAnalyzing = false, error = msg) }
+            showToast("⚠️ $msg")
+            platform.notifyDownloadFailed(title.ifBlank { "Descarga detenida" }, msg)
+            updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Failed, errorMessage = msg, title = title) }
+            // La cola queda en pausa hasta que el usuario elija una carpeta.
+            queuePaused = true
+            return
         }
+
+        val qualities = FormatCatalog.qualities(format, video.maxHeight)
+        val matchedQuality = item.quality?.let { requested ->
+            qualities.firstOrNull {
+                it.displayName.contains(requested, ignoreCase = true) ||
+                    it.formatSelector.contains(requested, ignoreCase = true)
+            }
+        } ?: qualities.first()
+        val hasSingleVideoId = url.contains("watch?v=") || url.contains("v=") || url.contains("youtu.be/")
+        val shouldDownloadCollection = video.isCollection && !hasSingleVideoId
+
+        _state.update { current ->
+            current.copy(
+                video = video,
+                selectedFormat = format,
+                qualities = qualities,
+                selectedQuality = matchedQuality,
+                downloadCollection = shouldDownloadCollection,
+                isAnalyzing = false,
+            )
+        }
+        updateQueueItem(item.id) { it.copy(title = video.collectionTitle ?: video.title) }
+
+        val request = DownloadRequest(
+            url = video.url,
+            destination = destination,
+            format = format,
+            quality = matchedQuality,
+            downloadCollection = shouldDownloadCollection,
+        )
+
+        when (runDownload(request = request, video = video, format = format, quality = matchedQuality)) {
+            DownloadOutcome.Completed -> updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Completed) }
+            DownloadOutcome.Cancelled -> updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Cancelled) }
+            DownloadOutcome.Failed -> updateQueueItem(item.id) {
+                it.copy(status = QueueItemStatus.Failed, errorMessage = state.value.error)
+            }
+        }
+    }
+
+    private fun resolveMediaFormat(formatName: String): MediaFormat = when {
+        formatName.contains("audio", ignoreCase = true) ||
+            formatName.contains("mp3", ignoreCase = true) ||
+            formatName.contains("m4a", ignoreCase = true) ||
+            formatName.contains("flac", ignoreCase = true) ||
+            formatName.contains("wav", ignoreCase = true) -> MediaFormat.Mp3
+        else -> MediaFormat.Mp4
+    }
+
+    // ── Queue state helpers ─────────────────────────────────────────────
+
+    private fun publishQueue() {
+        val snapshot = synchronized(queueLock) { queueItems.toList() }
+        _state.update { it.copy(queue = snapshot) }
+    }
+
+    private fun updateQueueItem(id: String, transform: (QueuedDownload) -> QueuedDownload) {
+        synchronized(queueLock) {
+            val index = queueItems.indexOfFirst { it.id == id }
+            if (index >= 0) {
+                queueItems[index] = transform(queueItems[index])
+            }
+        }
+        publishQueue()
+    }
+
+    /** Keeps the queue bounded by dropping the oldest finished links. */
+    private fun trimQueueLocked() {
+        val maxItems = 30
+        var excess = queueItems.size - maxItems
+        if (excess <= 0) return
+        val iterator = queueItems.iterator()
+        while (iterator.hasNext() && excess > 0) {
+            val candidate = iterator.next()
+            if (candidate.isFinished) {
+                iterator.remove()
+                excess--
+            }
+        }
+    }
+
+    /** Removes a pending link from the queue. Running links are kept. */
+    fun removeQueueItem(id: String) {
+        synchronized(queueLock) {
+            val target = queueItems.firstOrNull { it.id == id } ?: return
+            if (target.status == QueueItemStatus.Running) return
+            queueItems.removeAll { it.id == id }
+        }
+        publishQueue()
+    }
+
+    /** Removes the links that already finished (completed, failed or cancelled). */
+    fun clearFinishedQueueItems() {
+        synchronized(queueLock) {
+            queueItems.removeAll { it.isFinished }
+        }
+        publishQueue()
+    }
+
+    /** Removes every pending link, keeping the one that is currently running. */
+    fun clearPendingQueueItems() {
+        synchronized(queueLock) {
+            queueItems.removeAll { it.status == QueueItemStatus.Pending }
+        }
+        publishQueue()
+    }
+
+    /** Reactivates a paused queue (for example after choosing the destination). */
+    private fun resumeQueue() {
+        queuePaused = false
+        queueSignal.trySend(Unit)
     }
 
     fun chooseDestination() {
@@ -494,6 +659,7 @@ class LunaFetchPresenter(
             platform.chooseDestination(state.value.destination)?.let { destination ->
                 platform.rememberDestination(destination)
                 _state.update { it.copy(destination = destination, error = null) }
+                resumeQueue()
             }
         }
     }
@@ -523,68 +689,97 @@ class LunaFetchPresenter(
         )
         operation?.cancel()
         operation = scope.launch {
+            runDownload(
+                request = request,
+                video = video,
+                format = current.selectedFormat,
+                quality = current.selectedQuality,
+            )
+        }
+    }
+
+    /**
+     * Runs the download itself and reports the outcome. Shared by the manual
+     * download button and by the queue worker so both behave identically.
+     */
+    private suspend fun runDownload(
+        request: DownloadRequest,
+        video: VideoInfo,
+        format: MediaFormat,
+        quality: QualityOption,
+    ): DownloadOutcome {
+        _state.update {
+            it.copy(
+                isDownloading = true,
+                progress = DownloadProgress(0.0, phase = DownloadPhase.Preparing),
+                logs = emptyList(),
+                error = null,
+                completedOutput = null,
+            )
+        }
+        return try {
+            val result = platform.engine.download(
+                request = request,
+                onProgress = { progress -> _state.update { it.copy(progress = progress) } },
+                onLog = ::appendLog,
+            )
+            val downloadTitle = video.collectionTitle ?: video.title
+            val newItem = DownloadHistoryItem(
+                id = "${System.currentTimeMillis()}_${(1000..9999).random()}",
+                title = downloadTitle,
+                formatLabel = "${format.displayName} · ${quality.displayName}",
+                path = result.openPath ?: "",
+                url = video.url,
+                originDevice = platform.deviceName,
+            )
             _state.update {
+                val updatedHistory = (listOf(newItem) + it.history)
+                    .distinctBy { h -> if (h.url.isNotBlank()) "${h.url}_${h.formatLabel}" else h.id }
+                    .take(10)
+                platform.saveHistory(updatedHistory)
                 it.copy(
-                    isDownloading = true,
-                    progress = DownloadProgress(0.0, phase = DownloadPhase.Preparing),
-                    logs = emptyList(),
-                    error = null,
-                    completedOutput = null,
+                    isDownloading = false,
+                    progress = DownloadProgress(100.0, phase = DownloadPhase.Completed),
+                    completedOutput = result.openPath,
+                    history = updatedHistory,
                 )
             }
-            try {
-                val result = platform.engine.download(
-                    request = request,
-                    onProgress = { progress -> _state.update { it.copy(progress = progress) } },
-                    onLog = ::appendLog,
-                )
-                val downloadTitle = video.collectionTitle ?: video.title
-                val newItem = DownloadHistoryItem(
-                    id = "${System.currentTimeMillis()}_${(1000..9999).random()}",
-                    title = downloadTitle,
-                    formatLabel = "${current.selectedFormat.displayName} · ${current.selectedQuality.displayName}",
-                    path = result.openPath ?: "",
-                    url = video.url,
-                    originDevice = platform.deviceName,
-                )
-                _state.update {
-                    val updatedHistory = (listOf(newItem) + it.history)
-                        .distinctBy { h -> if (h.url.isNotBlank()) "${h.url}_${h.formatLabel}" else h.id }
-                        .take(10)
-                    platform.saveHistory(updatedHistory)
-                    it.copy(
-                        isDownloading = false,
-                        progress = DownloadProgress(100.0, phase = DownloadPhase.Completed),
-                        completedOutput = result.openPath,
-                        history = updatedHistory,
-                    )
-                }
-                autoBroadcastHistorySync()
-                showToast("✅ Descarga completada: $downloadTitle")
-                platform.notifyDownloadCompleted(downloadTitle, result.openPath ?: "")
-            } catch (cancelled: CancellationException) {
+            autoBroadcastHistorySync()
+            showToast("✅ Descarga completada: $downloadTitle")
+            platform.notifyDownloadCompleted(downloadTitle, result.openPath ?: "")
+            DownloadOutcome.Completed
+        } catch (cancelled: CancellationException) {
+            _state.update {
+                it.copy(isDownloading = false, progress = DownloadProgress(0.0, phase = DownloadPhase.Cancelled))
+            }
+            DownloadOutcome.Cancelled
+        } catch (error: Throwable) {
+            if (cancelRequested) {
+                cancelRequested = false
                 _state.update {
                     it.copy(isDownloading = false, progress = DownloadProgress(0.0, phase = DownloadPhase.Cancelled))
                 }
-            } catch (error: Throwable) {
-                val msg = error.userMessage("La descarga no pudo completarse.")
-                appendLog("ERROR: $msg")
-                _state.update {
-                    it.copy(
-                        isDownloading = false,
-                        error = msg,
-                    )
-                }
-                val downloadTitle = video.collectionTitle ?: video.title.ifBlank { "Descarga" }
-                showToast("❌ $msg")
-                platform.notifyDownloadFailed(downloadTitle, msg)
-                val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
-                recordDiagnostic(url = video.url, operation = "DOWNLOAD", errorMessage = msg, technicalDetails = techDetails)
+                return DownloadOutcome.Cancelled
             }
+            val msg = error.userMessage("La descarga no pudo completarse.")
+            appendLog("ERROR: $msg")
+            _state.update {
+                it.copy(
+                    isDownloading = false,
+                    error = msg,
+                )
+            }
+            val downloadTitle = video.collectionTitle ?: video.title.ifBlank { "Descarga" }
+            showToast("❌ $msg")
+            platform.notifyDownloadFailed(downloadTitle, msg)
+            val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
+            recordDiagnostic(url = video.url, operation = "DOWNLOAD", errorMessage = msg, technicalDetails = techDetails)
+            DownloadOutcome.Failed
         }
     }
 
     fun cancel() {
+        cancelRequested = true
         platform.engine.cancel()
         operation?.cancel()
     }
@@ -630,7 +825,7 @@ class LunaFetchPresenter(
         showToast("🔄 Iniciando descarga de nuevo: ${item.title}")
         val formatName = if (item.formatLabel.contains("Audio", ignoreCase = true) || item.formatLabel.contains("MP3", ignoreCase = true) || item.formatLabel.contains("M4A", ignoreCase = true)) "mp3" else "mp4"
         val qualityName = item.formatLabel.substringAfter("·", "").trim().takeIf { it.isNotBlank() }
-        startDirectDownload(item.url, formatName = formatName, requestedQuality = qualityName)
+        startDirectDownload(item.url, formatName = formatName, requestedQuality = qualityName, source = "Historial")
     }
 
     fun handleSynapseAction(action: com.biglexj.lunafetch.domain.synapse.SynapseAction) {
@@ -640,7 +835,7 @@ class LunaFetchPresenter(
                     showToast("📥 Descargando desde Aurora Synapse...")
                 }
                 val format = if (action.mediaType.equals("audio", ignoreCase = true)) MediaFormat.Mp3 else MediaFormat.Mp4
-                startDirectDownload(action.url, format.extension, action.quality)
+                startDirectDownload(action.url, format.extension, action.quality, source = "Aurora Synapse")
             }
             is com.biglexj.lunafetch.domain.synapse.SynapseAction.AnalyzeUrl -> {
                 setUrl(action.url)
@@ -743,4 +938,11 @@ private fun Throwable.userMessage(fallback: String): String {
         raw.isNotBlank() -> raw
         else -> fallback
     }
+}
+
+/** Resultado interno de una descarga, compartido por el botón manual y la cola. */
+private enum class DownloadOutcome {
+    Completed,
+    Failed,
+    Cancelled,
 }

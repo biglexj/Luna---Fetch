@@ -34,3 +34,11 @@ Esta extensión conecta tu navegador (**Google Chrome**, **Microsoft Edge**, **B
 Una vez instalada la extensión:
 - Aparecerá el botón o icono de **Luna Fetch** en la barra de herramientas del navegador.
 - Al navegar en **YouTube**, podrás pulsar el icono para enviar la URL del video directamente a Luna Fetch y descargarla sin copiar ni pegar enlaces manualmente.
+
+### 📥 Envío de varios enlaces
+
+- El popup **no se cierra** al enviar: puedes pegar el siguiente enlace y enviarlo
+  sin volver a abrirlo.
+- Cada enlace se **encola** en Luna Fetch y se descarga **uno tras otro**, en el
+  orden en que se envió. La tarjeta "Cola de descargas" muestra cuántos enlaces
+  faltan y el estado de cada uno.

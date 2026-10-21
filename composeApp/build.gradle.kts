@@ -194,5 +194,6 @@ compose.desktop {
 tasks.withType<JavaExec> {
     if (name == "run") {
         systemProperty("lunafetch.dev", "true")
+        providers.gradleProperty("lunafetch.port").orNull?.let { systemProperty("lunafetch.port", it) }
     }
 }

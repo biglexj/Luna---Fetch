@@ -21,8 +21,9 @@ import java.net.URLDecoder
  *   OPTIONS /...  (CORS preflight)
  */
 class LunaSocketServer(
-    private val onDownloadRequest: (url: String, format: String, quality: String?, cookieFile: String?) -> Unit,
+    private val onDownloadRequest: (url: String, format: String, quality: String?, cookieFile: String?) -> Int,
     private val onAnalyzeRequest: (suspend (url: String, cookieFile: String?) -> Pair<List<com.biglexj.lunafetch.domain.QualityOption>, List<com.biglexj.lunafetch.domain.QualityOption>>)? = null,
+    private val port: Int = System.getProperty("lunafetch.port")?.toIntOrNull() ?: PORT,
 ) {
     companion object {
         const val PORT = 51234
@@ -51,17 +52,25 @@ class LunaSocketServer(
     private val scope = CoroutineScope(Dispatchers.IO)
     private var serverSocket: ServerSocket? = null
 
+    /** Puerto real en escucha (útil cuando se pide un puerto efímero en pruebas). */
+    var boundPort: Int = port
+        private set
+
     fun start() {
         scope.launch {
             runCatching {
                 val ss = ServerSocket().apply {
                     reuseAddress = true
-                    bind(java.net.InetSocketAddress(java.net.InetAddress.getByName("127.0.0.1"), PORT), 10)
+                    bind(java.net.InetSocketAddress(java.net.InetAddress.getByName("127.0.0.1"), port), 10)
                 }
                 serverSocket = ss
-                println("[LunaSocketServer] Servidor para extensión activo en 127.0.0.1:$PORT")
+                boundPort = ss.localPort
+                println("[LunaSocketServer] Servidor para extensión activo en 127.0.0.1:$boundPort")
                 while (!ss.isClosed) {
-                    runCatching { handleClient(ss.accept()) }
+                    val client = runCatching { ss.accept() }.getOrNull() ?: break
+                    // Cada conexión se atiende en su propia corrutina para que
+                    // varios envíos simultáneos (cola de enlaces) no se bloqueen.
+                    scope.launch { runCatching { handleClient(client) } }
                 }
             }.onFailure { err ->
                 System.err.println("[LunaSocketServer] No se pudo enlazar el puerto $PORT (posible instancia previa en ejecución): ${err.message}")
@@ -73,7 +82,7 @@ class LunaSocketServer(
         runCatching { serverSocket?.close() }
     }
 
-    private fun handleClient(socket: Socket) {
+    private suspend fun handleClient(socket: Socket) {
         socket.use { s ->
             s.soTimeout = 8000
             val reader = s.getInputStream().bufferedReader()
@@ -139,26 +148,29 @@ class LunaSocketServer(
             }
 
             val method = firstLine.substringBefore(" ")
-            if (path.startsWith("/analyze") && (method == "GET" || method == "POST") && !url.isNullOrBlank() && onAnalyzeRequest != null) {
-                kotlinx.coroutines.runBlocking {
-                    runCatching { onAnalyzeRequest.invoke(url, cookieFile) }
-                        .onSuccess { (videoQualities, audioQualities) ->
-                            val vqJson = videoQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
-                            val aqJson = audioQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
-                            val body = """{"ok":true,"videoQualities":[$vqJson],"audioQualities":[$aqJson]}"""
-                            sendJsonResponse("HTTP/1.1 200 OK", body)
-                        }
-                        .onFailure { error ->
-                            val body = """{"ok":false,"error":"${error.message ?: "No se pudo analizar el enlace"}"}"""
-                            sendJsonResponse("HTTP/1.1 400 Bad Request", body)
-                        }
-                }
+            val analyzeHandler = onAnalyzeRequest
+            if (path.startsWith("/analyze") && (method == "GET" || method == "POST") && !url.isNullOrBlank() && analyzeHandler != null) {
+                runCatching { analyzeHandler.invoke(url, cookieFile) }
+                    .onSuccess { (videoQualities, audioQualities) ->
+                        val vqJson = videoQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
+                        val aqJson = audioQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
+                        val body = """{"ok":true,"videoQualities":[$vqJson],"audioQualities":[$aqJson]}"""
+                        sendJsonResponse("HTTP/1.1 200 OK", body)
+                    }
+                    .onFailure { error ->
+                        val body = """{"ok":false,"error":"${error.message ?: "No se pudo analizar el enlace"}"}"""
+                        sendJsonResponse("HTTP/1.1 400 Bad Request", body)
+                    }
                 return
             }
 
             if (!url.isNullOrBlank()) {
-                onDownloadRequest(url, format, quality, cookieFile)
-                sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true}""")
+                val pending = onDownloadRequest(url, format, quality, cookieFile)
+                if (pending < 0) {
+                    sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL no válida"}""")
+                } else {
+                    sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true,"queued":true,"pending":$pending}""")
+                }
             } else {
                 sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL vacía"}""")
             }

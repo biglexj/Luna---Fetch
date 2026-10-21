@@ -60,18 +60,48 @@ object NativeMessagingHost {
 
     // ── forward message to running Luna Fetch instance ───────────────────────
     private fun forwardToLunaFetch(json: String): String {
+        val url = jsonField(json, "url")
+        if (url.isNullOrBlank()) {
+            return """{"ok":false,"error":"El mensaje no incluye una URL."}"""
+        }
+        val format = jsonField(json, "format") ?: "mp4"
+        val quality = jsonField(json, "quality")
+        val query = buildString {
+            append("/download?url=")
+            append(java.net.URLEncoder.encode(url, "UTF-8"))
+            append("&format=")
+            append(java.net.URLEncoder.encode(format, "UTF-8"))
+            if (!quality.isNullOrBlank()) {
+                append("&quality=")
+                append(java.net.URLEncoder.encode(quality, "UTF-8"))
+            }
+        }
+        val request = "GET $query HTTP/1.1\r\nHost: 127.0.0.1:$LUNA_PORT\r\nConnection: close\r\n\r\n"
         return try {
             Socket("127.0.0.1", LUNA_PORT).use { socket ->
-                socket.soTimeout = 3000
-                val out = DataOutputStream(socket.getOutputStream())
-                val line = json.trimEnd() + "\n"
-                out.write(line.toByteArray(Charsets.UTF_8))
+                socket.soTimeout = 8000
+                val out = socket.getOutputStream()
+                out.write(request.toByteArray(Charsets.UTF_8))
                 out.flush()
-                val response = socket.getInputStream().bufferedReader().readLine()
-                response ?: """{"ok":true}"""
+                val raw = socket.getInputStream().bufferedReader().readText()
+                extractJsonBody(raw) ?: """{"ok":true}"""
             }
         } catch (e: Exception) {
             """{"ok":false,"error":"Luna Fetch no est\u00e1 abierto. \u00c1brelo primero."}"""
         }
+    }
+
+    // ── helpers ────────────────────────────────────────────────────────────
+    private fun jsonField(json: String, key: String): String? {
+        val pattern = Regex(""""$key"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""")
+        return pattern.find(json)?.groupValues?.get(1)
+    }
+
+    /** Extrae el cuerpo JSON de una respuesta HTTP. */
+    private fun extractJsonBody(raw: String): String? {
+        val start = raw.indexOf('{')
+        val end = raw.lastIndexOf('}')
+        if (start < 0 || end <= start) return null
+        return raw.substring(start, end + 1)
     }
 }

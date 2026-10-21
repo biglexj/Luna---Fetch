@@ -32,11 +32,15 @@ async function send () {
       quality: ''
     });
     if (resp && resp.ok !== false) {
-      setStatus('✅ Enviado a Luna Fetch.', '#2ec4a3');
+      const pending = resp.response && typeof resp.response.pending === 'number' ? resp.response.pending : 0;
+      setStatus(
+        pending > 1
+          ? `✅ Encolado · ${pending} en espera. Sigue pegando el siguiente enlace.`
+          : '✅ Encolado en Luna Fetch. Puedes pegar el siguiente enlace.',
+        '#2ec4a3'
+      );
       urlInput.value = '';
-      setTimeout(() => {
-        window.close();
-      }, 150);
+      urlInput.focus();
     } else {
       setStatus(resp && resp.error ? resp.error : 'No se pudo enviar.', '#ff6b6b');
     }

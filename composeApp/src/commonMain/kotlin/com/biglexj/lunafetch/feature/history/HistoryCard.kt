@@ -36,6 +36,7 @@ fun HistoryCard(
     state: LunaFetchState,
     presenter: LunaFetchPresenter,
     platform: PlatformBindings,
+    columns: Int = 1,
 ) {
     if (state.history.isEmpty()) return
 
@@ -51,113 +52,144 @@ fun HistoryCard(
             }
         }
         Spacer(Modifier.height(8.dp))
-        state.history.forEach { item ->
-            val isLocal = platform.isLocalPathAccessible(item.path)
-            val isWindowsPath = item.path.matches(Regex("^[a-zA-Z]:[/\\\\].*"))
-            val isAndroidContent = item.path.startsWith("content://")
-            val isFromOtherDevice = (item.originDevice.isNotBlank() && !item.originDevice.equals(platform.deviceName, ignoreCase = true)) ||
-                (!isLocal && isWindowsPath && platform.deviceOs == "android") ||
-                (!isLocal && isAndroidContent && platform.deviceOs != "android")
-            val deviceLabel = if (item.originDevice.isNotBlank() && !item.originDevice.equals(platform.deviceName, ignoreCase = true)) {
-                item.originDevice
-            } else if (isWindowsPath && platform.deviceOs == "android") {
-                state.discoveredPeers.firstOrNull { it.os.contains("win", ignoreCase = true) || it.type == "desktop" }?.name ?: "biglexj"
-            } else if (isAndroidContent && platform.deviceOs != "android") {
-                state.discoveredPeers.firstOrNull { it.os.contains("android", ignoreCase = true) || it.type == "mobile" }?.name ?: "Móvil"
-            } else {
-                item.originDevice.ifBlank { platform.deviceName }
+        val columnCount = columns.coerceAtLeast(1)
+        if (columnCount == 1) {
+            state.history.forEach { item ->
+                HistoryRow(item = item, state = state, presenter = presenter, platform = platform)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        item.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        val platformBadge = getPlatformBadge(item.url)
-                        if (platformBadge.isNotBlank()) {
-                            Text(
-                                platformBadge,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.secondary,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                "•",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            )
-                        }
-                        Text(
-                            item.formatLabel,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (isFromOtherDevice) {
-                            val icon = getDeviceIcon(deviceLabel, item.path)
-                            Text(
-                                "• $icon $deviceLabel",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        } else if (!isLocal && item.path.isNotBlank()) {
-                            Text(
-                                "• ⚠️ Archivo movido o eliminado",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-                                fontWeight = FontWeight.Normal,
-                            )
-                        }
-                    }
-                }
+        } else {
+            state.history.chunked(columnCount).forEach { rowItems ->
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
-                    if (item.url.isNotBlank()) {
-                        HistoryActionButton(
-                            icon = "🌐",
-                            tooltip = "Ver enlace original en la web",
-                            onClick = { platform.openUrl(item.url) },
-                        )
+                    rowItems.forEach { item ->
+                        Column(modifier = Modifier.weight(1f)) {
+                            HistoryRow(item = item, state = state, presenter = presenter, platform = platform)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                        }
                     }
-                    if (isLocal) {
-                        HistoryActionButton(
-                            icon = "▶️",
-                            tooltip = "Reproducir",
-                            onClick = { presenter.playInPrisma(item.path) },
-                        )
-                        HistoryActionButton(
-                            icon = "📁",
-                            tooltip = "Abrir ubicación",
-                            onClick = { platform.openDestinationFolder(item.path) },
-                        )
-                    } else if (item.url.isNotBlank()) {
-                        HistoryActionButton(
-                            icon = if (isFromOtherDevice) "⬇️" else "🔄",
-                            tooltip = if (isFromOtherDevice) "Descargar en este equipo" else "Volver a descargar (archivo no encontrado)",
-                            onClick = { presenter.redownloadHistoryItem(item) },
-                        )
+                    // Rellena la última fila para que las columnas queden alineadas.
+                    repeat(columnCount - rowItems.size) {
+                        Spacer(Modifier.weight(1f))
                     }
-                    HistoryActionButton(
-                        icon = "🗑️",
-                        tooltip = "Eliminar del historial",
-                        onClick = { presenter.removeFromHistory(item.id) },
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryRow(
+    item: com.biglexj.lunafetch.domain.DownloadHistoryItem,
+    state: LunaFetchState,
+    presenter: LunaFetchPresenter,
+    platform: PlatformBindings,
+) {
+    val isLocal = platform.isLocalPathAccessible(item.path)
+    val isWindowsPath = item.path.matches(Regex("^[a-zA-Z]:[/\\\\].*"))
+    val isAndroidContent = item.path.startsWith("content://")
+    val isFromOtherDevice = (item.originDevice.isNotBlank() && !item.originDevice.equals(platform.deviceName, ignoreCase = true)) ||
+        (!isLocal && isWindowsPath && platform.deviceOs == "android") ||
+        (!isLocal && isAndroidContent && platform.deviceOs != "android")
+    val deviceLabel = if (item.originDevice.isNotBlank() && !item.originDevice.equals(platform.deviceName, ignoreCase = true)) {
+        item.originDevice
+    } else if (isWindowsPath && platform.deviceOs == "android") {
+        state.discoveredPeers.firstOrNull { it.os.contains("win", ignoreCase = true) || it.type == "desktop" }?.name ?: "biglexj"
+    } else if (isAndroidContent && platform.deviceOs != "android") {
+        state.discoveredPeers.firstOrNull { it.os.contains("android", ignoreCase = true) || it.type == "mobile" }?.name ?: "Móvil"
+    } else {
+        item.originDevice.ifBlank { platform.deviceName }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                item.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val platformBadge = getPlatformBadge(item.url)
+                if (platformBadge.isNotBlank()) {
+                    Text(
+                        platformBadge,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "•",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    )
+                }
+                Text(
+                    item.formatLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (isFromOtherDevice) {
+                    val icon = getDeviceIcon(deviceLabel, item.path)
+                    Text(
+                        "• $icon $deviceLabel",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                } else if (!isLocal && item.path.isNotBlank()) {
+                    Text(
+                        "• ⚠️ Archivo movido o eliminado",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.Normal,
                     )
                 }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (item.url.isNotBlank()) {
+                HistoryActionButton(
+                    icon = "🌐",
+                    tooltip = "Ver enlace original en la web",
+                    onClick = { platform.openUrl(item.url) },
+                )
+            }
+            if (isLocal) {
+                HistoryActionButton(
+                    icon = "▶️",
+                    tooltip = "Reproducir",
+                    onClick = { presenter.playInPrisma(item.path) },
+                )
+                HistoryActionButton(
+                    icon = "📁",
+                    tooltip = "Abrir ubicación",
+                    onClick = { platform.openDestinationFolder(item.path) },
+                )
+            } else if (item.url.isNotBlank()) {
+                HistoryActionButton(
+                    icon = if (isFromOtherDevice) "⬇️" else "🔄",
+                    tooltip = if (isFromOtherDevice) "Descargar en este equipo" else "Volver a descargar (archivo no encontrado)",
+                    onClick = { presenter.redownloadHistoryItem(item) },
+                )
+            }
+            HistoryActionButton(
+                icon = "🗑️",
+                tooltip = "Eliminar del historial",
+                onClick = { presenter.removeFromHistory(item.id) },
+            )
         }
     }
 }
