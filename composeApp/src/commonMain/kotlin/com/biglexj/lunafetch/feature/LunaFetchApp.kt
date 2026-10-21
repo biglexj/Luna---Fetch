@@ -38,6 +38,7 @@ import com.biglexj.lunafetch.feature.download.QueueCard
 import com.biglexj.lunafetch.feature.download.VideoCard
 import com.biglexj.lunafetch.feature.header.AppHeader
 import com.biglexj.lunafetch.feature.history.HistoryCard
+import com.biglexj.lunafetch.feature.logs.DownloadErrorCard
 import com.biglexj.lunafetch.feature.logs.LogsCard
 import com.biglexj.lunafetch.feature.update.UpdateBanner
 import com.biglexj.lunafetch.feature.update.UpdateModalDialog
@@ -102,6 +103,10 @@ fun LunaFetchApp(
                                     ) {
                                         LinkCard(state, presenter, platform)
                                         QueueCard(state, presenter)
+                                        // El mensaje de los fallos va debajo de
+                                        // la cola, no al lado del historial.
+                                        DownloadErrorCard(state)
+                                        DownloadStatusCard(state, presenter, platform)
                                         VideoCard(state, presenter)
                                     }
                                     Column(
@@ -112,7 +117,6 @@ fun LunaFetchApp(
                                         if (!wideLayout) {
                                             HistoryCard(state, presenter, platform)
                                         }
-                                        DownloadStatusCard(state, presenter, platform)
                                         LogsCard(state, presenter)
                                     }
                                     if (wideLayout) {
@@ -170,12 +174,14 @@ fun LunaFetchApp(
 private fun MainCards(state: LunaFetchState, presenter: LunaFetchPresenter, platform: PlatformBindings) {
     LinkCard(state, presenter, platform)
     QueueCard(state, presenter)
+    // El mensaje de los fallos va debajo de la cola.
+    DownloadErrorCard(state)
+    DownloadStatusCard(state, presenter, platform)
     VideoCard(state, presenter)
     DownloadOptionsCard(state, presenter, platform)
     // El historial va debajo del selector de calidad, igual que en la versión
     // de dos columnas.
     HistoryCard(state, presenter, platform)
-    DownloadStatusCard(state, presenter, platform)
     LogsCard(state, presenter)
     Spacer(Modifier.height(8.dp))
 }

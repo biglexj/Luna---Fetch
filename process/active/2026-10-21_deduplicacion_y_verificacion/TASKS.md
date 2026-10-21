@@ -47,6 +47,8 @@
       expandida (a partir de 1500 dp de ancho).
 - [x] Cola de descargas en la columna izquierda, junto al enlace, para que no
       desplace hacia abajo el botón de descarga.
+- [x] Mensaje de fallos en su propia tarjeta, debajo de la cola y no al lado
+      del historial.
 - [x] Historial debajo del selector de calidad en las dos versiones anchas, y
       en una sola columna de elementos.
 - [x] Distintivo "DEV" en el encabezado y en el título de la ventana.

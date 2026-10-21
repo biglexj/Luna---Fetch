@@ -95,6 +95,10 @@ video de su audio.
 
 Capturas de la aplicación real en `temp/verificacion/`:
 
+- `luna-error-bajo-cola.png` (1850 px): el mensaje "⚠️ Detalles del error" sale
+  en su propia tarjeta, justo debajo de la cola de descargas, y no al lado del
+  historial. Para eso se extrajo del registro de la sesión, que se quedó con
+  las líneas de log y los diagnósticos de 48 h en la columna central.
 - `luna-dos-columnas.png` (1047 px, ventana normal): **dos columnas**. Izquierda,
   enlace de descarga y cola de descargas; derecha, la tarjeta de descarga con
   el selector de calidad y, justo debajo, el historial. Con tres columnas en

@@ -43,7 +43,9 @@ fun LogsCard(state: LunaFetchState, presenter: LunaFetchPresenter? = null) {
     val hasError = !state.error.isNullOrBlank()
     val hasDiagnostics = state.diagnostics.isNotEmpty()
 
-    if (!hasLogs && !hasError && !hasDiagnostics) return
+    // El mensaje de error se muestra en su propia tarjeta (DownloadErrorCard),
+    // debajo de la cola de descargas.
+    if (!hasLogs && !hasDiagnostics) return
 
     var expandedLiveLogs by remember(hasError) { mutableStateOf(hasError) }
     var expandedDiagnostics by remember { mutableStateOf(false) }
@@ -70,37 +72,8 @@ fun LogsCard(state: LunaFetchState, presenter: LunaFetchPresenter? = null) {
 
     LunaCard {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (hasError) {
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text("⚠️", style = MaterialTheme.typography.titleMedium)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Detalles del error",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                            )
-                            Text(
-                                state.error.orEmpty(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Sección de Registro en Vivo
-            if (hasLogs || hasError) {
+            // Sección de Registro en Vivo. El error ya tiene su propia tarjeta.
+            if (hasLogs) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
