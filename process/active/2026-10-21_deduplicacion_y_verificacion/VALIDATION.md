@@ -95,13 +95,18 @@ video de su audio.
 
 Capturas de la aplicación real en `temp/verificacion/`:
 
-- `luna-layout-final.png` (1850 px): el estado final de la interfaz.
+- `luna-dos-columnas.png` (1047 px, ventana normal): **dos columnas**. Izquierda,
+  enlace de descarga y cola de descargas; derecha, la tarjeta de descarga con
+  el selector de calidad y, justo debajo, el historial. Con tres columnas en
+  una ventana mediana todo quedaba muy aplastado.
+- `luna-tres-columnas-ancha.png` (1850 px, pantalla grande): **tres columnas**.
+  Izquierda, enlace y cola; centro, descarga, detalles del error y registro;
+  derecha, el historial.
+- `luna-layout-final.png` (1850 px): el detalle de los distintivos y de los
+  dispositivos de descarga.
   - Distintivo **DEV** junto al título "Luna Fetch" y en el título de la
     ventana ("Luna Fetch [DEV]"). La instancia instalada se titula "Luna Fetch"
     sin distintivo.
-  - Tres columnas: enlace de descarga, descarga + diagnósticos, e historial a
-    la derecha.
-  - Historial en una sola columna, con los títulos completos.
   - Los dispositivos de descarga ocupan dos columnas y usan todo el ancho:
     "Este equipo" y "Motorola motorola edge 60 fusion" se leen enteros.
 - `luna-cola-izquierda.png`: la cola de descargas vive en la columna izquierda,
@@ -109,7 +114,7 @@ Capturas de la aplicación real en `temp/verificacion/`:
   conserva su sitio en la tarjeta de descarga: antes, la cola iba en la columna
   central y lo desplazaba hacia abajo.
   - La versión compacta mantiene el mismo orden: enlace, cola, vista previa,
-    opciones, estado, historial y registro.
+    opciones, historial, estado y registro.
 - `luna-tres-columnas-dev.png`: la primera versión con el historial repartido
   en varias columnas internas, que se descartó porque los títulos quedaban
   ilegibles y los avisos se apilaban letra por letra.

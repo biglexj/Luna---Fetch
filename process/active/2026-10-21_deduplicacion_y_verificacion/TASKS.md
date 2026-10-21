@@ -43,10 +43,12 @@
 - [x] `LunaSocketServerQueueTest`: el servidor informa el duplicado.
 
 ## 7. Interfaz
-- [x] Layout de escritorio en tres columnas con el historial en la más derecha.
+- [x] Dos columnas en ventanas normales y tres solo en pantalla grande o
+      expandida (a partir de 1500 dp de ancho).
 - [x] Cola de descargas en la columna izquierda, junto al enlace, para que no
       desplace hacia abajo el botón de descarga.
-- [x] Historial en una sola columna (en varias los títulos quedaban ilegibles).
+- [x] Historial debajo del selector de calidad en las dos versiones anchas, y
+      en una sola columna de elementos.
 - [x] Distintivo "DEV" en el encabezado y en el título de la ventana.
 - [x] Dispositivos de descarga en dos columnas que usan todo el ancho, sin
       cortar el nombre del dispositivo.

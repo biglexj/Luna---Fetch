@@ -81,10 +81,13 @@ fun LunaFetchApp(
                                 MainCards(state, presenter, platform)
                             }
                         } else {
-                            // Pantallas anchas: tres columnas. El historial ocupa la
-                            // columna de la derecha y la cola de descargas va en la
-                            // columna izquierda, junto al enlace: así no empuja
-                            // hacia abajo el botón de descarga.
+                            // Dos columnas en ventanas normales y tres solo en
+                            // pantalla grande o expandida: con tres columnas en
+                            // una ventana mediana todo queda muy aplastado.
+                            // La cola va en la columna izquierda, bajo el
+                            // enlace, y el historial debajo del selector de
+                            // calidad.
+                            val wideLayout = maxWidth >= 1500.dp
                             Column(
                                 modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(24.dp),
                                 verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -102,18 +105,23 @@ fun LunaFetchApp(
                                         VideoCard(state, presenter)
                                     }
                                     Column(
-                                        modifier = Modifier.weight(1.05f),
+                                        modifier = Modifier.weight(if (wideLayout) 1.05f else 1.15f),
                                         verticalArrangement = Arrangement.spacedBy(16.dp),
                                     ) {
                                         DownloadOptionsCard(state, presenter, platform)
+                                        if (!wideLayout) {
+                                            HistoryCard(state, presenter, platform)
+                                        }
                                         DownloadStatusCard(state, presenter, platform)
                                         LogsCard(state, presenter)
                                     }
-                                    Column(
-                                        modifier = Modifier.weight(1.2f),
-                                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                                    ) {
-                                        HistoryCard(state, presenter, platform)
+                                    if (wideLayout) {
+                                        Column(
+                                            modifier = Modifier.weight(1.2f),
+                                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                                        ) {
+                                            HistoryCard(state, presenter, platform)
+                                        }
                                     }
                                 }
                             }
@@ -164,8 +172,10 @@ private fun MainCards(state: LunaFetchState, presenter: LunaFetchPresenter, plat
     QueueCard(state, presenter)
     VideoCard(state, presenter)
     DownloadOptionsCard(state, presenter, platform)
-    DownloadStatusCard(state, presenter, platform)
+    // El historial va debajo del selector de calidad, igual que en la versión
+    // de dos columnas.
     HistoryCard(state, presenter, platform)
+    DownloadStatusCard(state, presenter, platform)
     LogsCard(state, presenter)
     Spacer(Modifier.height(8.dp))
 }
