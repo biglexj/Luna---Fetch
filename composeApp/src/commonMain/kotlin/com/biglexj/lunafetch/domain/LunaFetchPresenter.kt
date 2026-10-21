@@ -179,7 +179,9 @@ class LunaFetchPresenter(
             url = url,
             operation = operation,
             errorMessage = errorMessage,
-            technicalDetails = technicalDetails,
+            // El detalle técnico se acota para que el informe completo siga
+            // cabiendo en el almacenamiento de preferencias.
+            technicalDetails = technicalDetails.take(MAX_TECHNICAL_DETAILS),
             originDevice = platform.deviceName,
         )
         val current = platform.loadDiagnostics()
@@ -435,9 +437,10 @@ class LunaFetchPresenter(
                 .onFailure { error ->
                     if (error !is CancellationException) {
                         val msg = error.userMessage("No se pudo analizar el enlace.")
-                        appendLog("ERROR: $msg")
+                        // El error se muestra en su propia tarjeta, no en el registro
+                        // de la sesión: el log guarda la traza técnica de la operación.
                         _state.update { it.copy(isAnalyzing = false, error = msg) }
-                        val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
+                        val techDetails = technicalDetails(error, msg)
                         recordDiagnostic(url = url, operation = "ANALYZE", errorMessage = msg, technicalDetails = techDetails)
                     }
                 }
@@ -612,11 +615,10 @@ class LunaFetchPresenter(
             throw cancelled
         } catch (error: Throwable) {
             val msg = error.userMessage("No se pudo analizar el enlace.")
-            appendLog("ERROR: $msg")
             _state.update { it.copy(isAnalyzing = false, error = msg) }
             showToast("❌ $msg")
             platform.notifyDownloadFailed("Error al analizar enlace", msg)
-            val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
+            val techDetails = technicalDetails(error, msg)
             recordDiagnostic(url = url, operation = "ANALYZE_DIRECT", errorMessage = msg, technicalDetails = techDetails)
             updateQueueItem(item.id) { it.copy(status = QueueItemStatus.Failed, errorMessage = msg) }
             return
@@ -880,7 +882,6 @@ class LunaFetchPresenter(
                 return DownloadOutcome.Cancelled
             }
             val msg = error.userMessage("La descarga no pudo completarse.")
-            appendLog("ERROR: $msg")
             _state.update {
                 it.copy(
                     isDownloading = false,
@@ -890,7 +891,7 @@ class LunaFetchPresenter(
             val downloadTitle = video.collectionTitle ?: video.title.ifBlank { "Descarga" }
             showToast("❌ $msg")
             platform.notifyDownloadFailed(downloadTitle, msg)
-            val techDetails = if (state.value.logs.isNotEmpty()) state.value.logs.joinToString("\n") else error.stackTraceToString()
+            val techDetails = technicalDetails(error, msg)
             recordDiagnostic(url = video.url, operation = "DOWNLOAD", errorMessage = msg, technicalDetails = techDetails)
             DownloadOutcome.Failed
         }
@@ -1091,6 +1092,20 @@ class LunaFetchPresenter(
         _state.update { current -> current.copy(logs = (current.logs + line).takeLast(400)) }
     }
 
+    /**
+     * Detalle técnico que se guarda en el informe de fallos de 48 h. El mensaje
+     * de error ya no se escribe en el registro de la sesión (se muestra en la
+     * tarjeta de error), pero aquí sí se conserva completo.
+     */
+    private fun technicalDetails(error: Throwable, message: String): String {
+        val logs = state.value.logs
+        return if (logs.isNotEmpty()) {
+            "$message\n" + logs.joinToString("\n")
+        } else {
+            error.stackTraceToString()
+        }
+    }
+
     companion object {
         /**
          * Descargas que conserva el historial.
@@ -1099,6 +1114,13 @@ class LunaFetchPresenter(
          * se guardan más para que el historial sea navegable.
          */
         const val HISTORY_LIMIT = 50
+
+        /**
+         * Límite del detalle técnico que se guarda por incidente. Java
+         * Preferences no admite valores de más de 8192 caracteres y el informe
+         * de fallos de 48 h se guarda allí, así que cada incidente se acota.
+         */
+        const val MAX_TECHNICAL_DETAILS = 1000
 
         fun isSupportedUrl(value: String): Boolean {
             val normalized = value.trim().lowercase()

@@ -49,6 +49,28 @@ object DiagnosticStore {
     }
 
     /**
+     * Java Preferences no admite valores de más de 8192 caracteres: si el JSON
+     * del informe lo supera, la escritura falla en silencio y el informe de 48 h
+     * deja de guardarse. Se recorta la lista, quitando primero los incidentes
+     * más antiguos, hasta que quepa con holgura.
+     */
+    fun fitToBudget(entries: List<DiagnosticEntry>, maxChars: Int = 7000): List<DiagnosticEntry> {
+        var result = entries
+        while (result.size > 1 && estimatedSize(result) > maxChars) {
+            result = result.dropLast(1)
+        }
+        return result
+    }
+
+    /** Tamaño estimado del JSON serializado de una lista de incidentes. */
+    private fun estimatedSize(entries: List<DiagnosticEntry>): Int =
+        entries.sumOf {
+            it.id.length + it.url.length + it.operation.length +
+                it.errorMessage.length + it.technicalDetails.length +
+                it.originDevice.length + 100
+        }
+
+    /**
      * Formatea una entrada para exportación directa de soporte técnico.
      */
     fun formatEntryForReport(entry: DiagnosticEntry): String = buildString {

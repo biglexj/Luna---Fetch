@@ -95,4 +95,29 @@
       (72.360.448 bytes) y `SHA256SUMS.txt`.
 - [x] El EXE es un bootstrapper **WiX Burn** con payload MSI: acepta `/quiet`,
       `/passive`, `/norestart` y `/log`.
-- [ ] Instalación con el EXE y arranque de la aplicación instalada.
+- [x] Instalación con el EXE (`/quiet /norestart`): exit 0 en 8 s, sin diálogo.
+- [x] Aplicación instalada: título "Luna Fetch" sin distintivo DEV, tres columnas,
+      paginación del historial y regla de duplicados por HTTP.
+
+## 12. El error vive en su tarjeta, no en el registro
+- [x] Se eliminó la línea `ERROR: ...` del "Registro de la sesión actual": el
+      error ya se mostraba en la tarjeta "Detalles del error" y se duplicaba.
+- [x] El registro de la sesión conserva la traza técnica de la operación.
+- [x] El informe de fallos de 48 h sigue guardando el mensaje completo del
+      error (`technicalDetails()`), aunque el registro no lo muestre.
+- [x] Se corrigió el prefijo duplicado (`ERROR: ERROR: ...`) en el detalle
+      técnico guardado.
+
+## 13. El informe de 48 h dejó de guardarse (Java Preferences)
+- [x] Causa raíz: `java.util.prefs.Preferences` rechaza valores de más de
+      **8192 caracteres** con `IllegalArgumentException`, y el guardado en
+      `DesktopPlatformBindings.saveDiagnostics` usa `runCatching`, así que el
+      fallo quedaba en silencio. Con el JSON del informe en 8047 caracteres, el
+      siguiente incidente (≈380 caracteres) ya no entraba y **el informe
+      dejaba de persistirse** (la tarjeta seguía contando incidentes en
+      memoria, pero al reiniciar se perdían).
+- [x] `DiagnosticStore.fitToBudget()`: recorta la lista, quitando primero los
+      incidentes más antiguos, hasta que el JSON quepa con holgura.
+- [x] Se aplica en escritorio (Java Preferences) y en Android (SharedPreferences).
+- [x] `technicalDetails` se acota a 1000 caracteres por incidente.
+- [x] `DiagnosticStoreTest`: dos casos nuevos para el recorte por presupuesto.

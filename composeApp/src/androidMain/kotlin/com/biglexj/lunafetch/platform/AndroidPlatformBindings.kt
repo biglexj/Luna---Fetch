@@ -430,7 +430,9 @@ class AndroidPlatformBindings(
     override fun saveDiagnostics(diagnostics: List<com.biglexj.lunafetch.domain.DiagnosticEntry>) {
         runCatching {
             val purged = com.biglexj.lunafetch.domain.DiagnosticStore.purgeExpired(diagnostics)
-            val json = jsonSerializer.encodeToString(purged)
+            // Mismo recorte que en escritorio: el informe no crece sin límite.
+            val trimmed = com.biglexj.lunafetch.domain.DiagnosticStore.fitToBudget(purged)
+            val json = jsonSerializer.encodeToString(trimmed)
             preferences.edit().putString("diagnosticHistory", json).apply()
         }
     }

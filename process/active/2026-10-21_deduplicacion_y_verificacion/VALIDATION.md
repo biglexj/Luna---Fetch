@@ -179,22 +179,92 @@ es el registro MSI completo.
 
 ### Bloqueo encontrado al instalar
 
-La primera ejecución del EXE devolvió **1638** ("otra instalación en curso"). El
-log de MSI muestra que el payload intentó *reconfigurar* el producto ya
-instalado:
+La primera ejecución del EXE devolvió **1638**. El log de MSI muestra que el
+payload intentó *reconfigurar* el producto ya instalado:
 
 ```
 Windows Installer volvió a configurar el producto. Nombre del producto: LunaFetch.
 Versión del producto: 1.3.0. ... Resultado de la nueva configuración: 1638.
 ```
 
-La causa real es que **dos diálogos "LyraFlow Setup"** (otra sesión de trabajo en
-la misma máquina) tenían el mutex de Windows Installer tomado desde las 15:01.
-Mientras ese mutex esté ocupado, cualquier instalación MSI en la máquina —
-incluida la de Luna Fetch — falla con 1638. Se avisó a la sesión de LyraFlow y
-se dejó un reintento automático que espera a que el mutex quede libre.
+Había dos causas encadenadas:
 
-## 6. Pendiente
+1. **El mutex de Windows Installer estaba tomado** por dos diálogos "LyraFlow
+   Setup" (otra sesión de trabajo en la misma máquina) que llevaban desde las
+   15:01 esperando interacción. Se avisó a la sesión de LyraFlow y se cerraron
+   esos diálogos; los procesos `msiexec` colgados se detuvieron.
+2. **El producto estaba instalado desde el MSI** de la tanda anterior. Con el
+   MSI de por medio, el EXE no lograba reconfigurar la instalación y devolvía
+   1638 ("otra versión de este producto ya está instalada"). Tras desinstalar
+   el producto y pasar solo por EXE, la instalación quedó en **exit 0 en 7-8 s**,
+   sin diálogos, y **volver a instalar el mismo EXE también da exit 0**.
+
+### Resultado final de la instalación con EXE
+
+```
+LunaFetch-Windows-1.3.0.exe /quiet /norestart   -> exit 0 (7 s)
+```
+
+- Producto registrado: `LunaFetch 1.3.0`, en `C:\Users\biglexj\AppData\Local\LunaFetch`.
+- Título de la ventana: **"Luna Fetch"**, sin el distintivo DEV.
+- Layout de tres columnas en pantalla ancha, dos en ventana normal.
+- Historial con las 10 entradas reales del usuario.
+- Paginación: "Página 1 de 2 · 16 descargas" con "‹ Anterior" y "Siguiente ›".
+- Duplicados por HTTP en el puerto 51234:
+  `{"ok":true,"queued":true,"pending":1}` y después
+  `{"ok":true,"queued":false,"reason":"duplicate_queue","pending":1}`.
+
+Capturas: `instalada-exe-layout.png`, `instalada-exe-paginacion.png`,
+`instalada-final.png`.
+
+## 6. El error se muestra en su tarjeta, no en el registro
+
+Biglex señaló, sobre una captura, que la línea `ERROR: ...` aparecía en el
+"Registro de la sesión actual" además de en la tarjeta "Detalles del error".
+
+- Se eliminó el `appendLog("ERROR: ...")` de los tres caminos de fallo
+  (análisis desde el formulario, análisis directo y descarga).
+- El registro de la sesión conserva la traza técnica de la operación.
+- El informe de fallos de 48 h sigue guardando el mensaje completo del error
+  mediante `technicalDetails(error, mensaje)`, sin duplicar el prefijo
+  (`ERROR: ERROR: ...`).
+
+Captura: `instalada-final.png` (el error aparece en "Detalles del error", en el
+elemento fallido de la cola y, de forma contextual, bajo los botones del
+enlace; el "Registro de la sesión actual" ya no lo repite).
+
+## 7. El informe de 48 h había dejado de guardarse
+
+Al verificar el punto anterior, el incidente nuevo **no aparecía** en las
+preferencias. La causa: `java.util.prefs.Preferences` rechaza valores de más de
+**8192 caracteres**, y el guardado en `DesktopPlatformBindings.saveDiagnostics`
+usa `runCatching`, así que el error quedaba en silencio.
+
+Prueba directa del límite:
+
+```
+longitud 8000 -> guardado OK
+longitud 8192 -> guardado OK
+longitud 8300 -> ERROR: IllegalArgumentException: Value too long
+longitud 9000 -> ERROR: IllegalArgumentException: Value too long
+```
+
+El JSON del informe pesaba 8047 caracteres: el siguiente incidente (≈380) ya no
+entraba y **el informe dejaba de persistirse**, aunque la tarjeta siguiera
+contando incidentes en memoria.
+
+Correcciones:
+
+- `DiagnosticStore.fitToBudget()`: descarta los incidentes más antiguos hasta
+  que el JSON quepa con holgura (presupuesto de 7000 caracteres).
+- Se aplica en escritorio y en Android.
+- `technicalDetails` se acota a 1000 caracteres por incidente.
+- `DiagnosticStoreTest` con dos casos nuevos para el recorte.
+
+Verificación: con el recorte, el incidente de prueba **sí** quedó guardado
+(8047 → 7296 caracteres de informe) con el mensaje sin prefijo duplicado.
+
+## 8. Pendiente
 
 - **Re-empaquetar `browser-extension.crx`**: el código fuente de la extensión
   está actualizado (versión 1.4.3) y el popup distingue los duplicados, pero el
@@ -204,7 +274,7 @@ se dejó un reintento automático que espera a que el mutex quede libre.
   está cubierta por pruebas de plataforma, pero falta la verificación en
   dispositivo real (regla del proyecto).
 
-## 7. Restauración del entorno
+## 9. Restauración del entorno
 
 Durante la verificación se escribieron datos de prueba en las preferencias de la
 aplicación. Se restauraron al terminar:
@@ -212,4 +282,5 @@ aplicación. Se restauraron al terminar:
 - Historial: las 10 entradas reales del usuario intactas, sin las de prueba.
 - Registro de descargas: vacío (la capacidad es nueva).
 - Tamaño de ventana: 1047x793, maximizado (como estaba).
-- Diagnósticos de 48 h: sin tocar.
+- Diagnósticos de 48 h: el listado real del usuario se conservó; solo se
+  añadieron los incidentes de las pruebas de esta tanda.

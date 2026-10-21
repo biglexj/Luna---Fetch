@@ -81,4 +81,41 @@ class DiagnosticStoreTest {
         assertTrue(report.contains("biglexj-pc"))
         assertTrue(report.contains("WARNING: [TikTok]"))
     }
+
+    @Test
+    fun fitToBudgetDropsOldestEntriesWhenTooLarge() {
+        // La tienda guarda los incidentes del más nuevo al más antiguo.
+        val entries = (1..30).map { index ->
+            DiagnosticEntry(
+                id = "entry-$index",
+                timestampMs = 10_000L - index,
+                url = "https://youtu.be/lunafetchDemoFalso",
+                operation = "DOWNLOAD",
+                errorMessage = "ERROR: [youtube] lunafetchDe: This video is unavailable",
+                technicalDetails = "x".repeat(600),
+                originDevice = "biglexj",
+            )
+        }
+
+        val trimmed = DiagnosticStore.fitToBudget(entries, maxChars = 7000)
+
+        assertTrue(trimmed.size < entries.size, "debía recortar entradas para caber en el presupuesto")
+        assertTrue(trimmed.isNotEmpty(), "nunca debe quedar la lista vacía")
+        // Se conservan los más recientes y se descartan los más antiguos.
+        assertEquals("entry-1", trimmed.first().id)
+        assertFalse(trimmed.any { it.id == "entry-30" })
+    }
+
+    @Test
+    fun fitToBudgetKeepsListWhenItAlreadyFits() {
+        val entries = listOf(
+            DiagnosticEntry(id = "a", timestampMs = 1L, errorMessage = "corta"),
+            DiagnosticEntry(id = "b", timestampMs = 2L, errorMessage = "corta"),
+        )
+
+        val trimmed = DiagnosticStore.fitToBudget(entries, maxChars = 7000)
+
+        assertEquals(2, trimmed.size)
+        assertEquals("a", trimmed.first().id)
+    }
 }
