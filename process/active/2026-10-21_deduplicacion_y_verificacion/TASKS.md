@@ -121,3 +121,34 @@
 - [x] Se aplica en escritorio (Java Preferences) y en Android (SharedPreferences).
 - [x] `technicalDetails` se acota a 1000 caracteres por incidente.
 - [x] `DiagnosticStoreTest`: dos casos nuevos para el recorte por presupuesto.
+
+## 14. Prueba en teléfono físico (Android 16, motorola edge 60 fusion)
+- [x] Instalación: el teléfono se conecta por **ADB inalámbrico**; el registro
+      fantasma `emulador-5562` (offline) impedía que Gradle instalara
+      ("No online devices found"). Con `adb -s <serie>` el APK instala bien.
+- [x] La app arranca en el dispositivo y el historial conserva las 10 entradas
+      reales, en una sola columna.
+- [x] Los estados por archivo se detectan en el dispositivo: "⚠️ Archivo movido
+      o eliminado" con la acción de re-descargar, y el distintivo del equipo
+      (`💻 BIGLEXJ`) para los archivos de otro equipo.
+- [x] La tarjeta "Detalles del error" funciona en Android: el error del análisis
+      aparece ahí y no en el registro de la sesión.
+- [x] El informe de fallos de 48 h se guarda en Android (SharedPreferences):
+      1 incidente con el mensaje y el detalle técnico.
+- [x] Re-descarga real en el teléfono: el MP3 de YouTube se descargó en
+      `Movies/YouTube` **sin crear un "(1)" duplicado** (el arreglo de
+      `copyToTree`).
+- [x] **Bug encontrado y corregido en esta prueba**: al re-descargar un ítem
+      del historial cuyo enlace trae `list=`/`start_radio=` (enlace de radio),
+      la app analizaba la colección completa y ofrecía 399 elementos en vez de
+      ese archivo. Ahora `LinkCanonicalizer.singleItemUrl()` deja el enlace
+      apuntando al contenido exacto, y la re-descarga vuelve a reparar en el
+      sitio, sin renombrar el archivo.
+- [x] `LinkCanonicalizerTest`: dos casos nuevos para `singleItemUrl`.
+- [x] Versión **1.3.1** (`versionName` 1.3.1, `versionCode` 24, `APP_VERSION`
+      1.3.1): el 1.3.0 ya estaba instalado, y reinstalar la *misma* versión
+      con otro build devuelve 1638 ("otra versión ya instalada"). Subir la
+      versión permite además probar la ruta de actualización real.
+- [x] Actualización verificada: `LunaFetch-Windows-1.3.1.exe /quiet` sobre la
+      1.3.0 instalada → **exit 0 en 7 s**, con `RemoveExistingProducts` en el log
+      y el producto registrado como 1.3.1.

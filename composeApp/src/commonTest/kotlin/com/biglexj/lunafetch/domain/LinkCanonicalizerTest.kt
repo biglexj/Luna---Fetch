@@ -64,4 +64,34 @@ class LinkCanonicalizerTest {
         val url = "https://www.youtube.com/watch?v=abc123&feature=share"
         assertTrue(LinkCanonicalizer.canonicalKey(url) == LinkCanonicalizer.canonicalKey(url))
     }
+
+    @Test
+    fun singleItemUrlDropsThePlaylistAndRadioParameters() {
+        assertEquals(
+            "https://www.youtube.com/watch?v=uHFqL-7pe_0",
+            LinkCanonicalizer.singleItemUrl(
+                "https://www.youtube.com/watch?v=uHFqL-7pe_0&list=RDuHFqL-7pe_0&start_radio=1"
+            ),
+        )
+        assertEquals(
+            "https://youtu.be/abc123",
+            LinkCanonicalizer.singleItemUrl("https://youtu.be/abc123?list=PL123&index=4"),
+        )
+        assertEquals(
+            "https://www.youtube.com/shorts/abc123",
+            LinkCanonicalizer.singleItemUrl("https://www.youtube.com/shorts/abc123?feature=share&list=PL123"),
+        )
+    }
+
+    @Test
+    fun singleItemUrlKeepsTheVideoParameterAndOtherSites() {
+        assertEquals(
+            "https://www.youtube.com/watch?v=abc123&t=30",
+            LinkCanonicalizer.singleItemUrl("https://www.youtube.com/watch?v=abc123&t=30&list=PL123"),
+        )
+        assertEquals(
+            "https://example.com/video?id=7&list=1",
+            LinkCanonicalizer.singleItemUrl("https://example.com/video?id=7&list=1"),
+        )
+    }
 }

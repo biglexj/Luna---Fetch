@@ -264,17 +264,111 @@ Correcciones:
 Verificación: con el recorte, el incidente de prueba **sí** quedó guardado
 (8047 → 7296 caracteres de informe) con el mensaje sin prefijo duplicado.
 
-## 8. Pendiente
+## 8. Prueba en teléfono físico (motorola edge 60 fusion, Android 16)
+
+El teléfono no se conecta por USB: entra por **ADB inalámbrico**. La serie es
+`adb-ZY22MNRV4G-nV7DK3._adb-tls-connect._tcp`.
+
+El error que veía Biglex:
+
+```
+Skipping device 'emulador-5562' (emulador-5562): Device is OFFLINE.
+com.android.builder.testing.api.DeviceException: No online devices found.
+```
+
+Causa: un registro **fantasma** del AVD `emulador-5562` que quedó *offline*
+(ningún proceso del emulador estaba corriendo). Gradle lo veía y abortaba. Con
+`adb kill-server` / `adb start-server` el fantasma desaparece y el teléfono
+aparece; si aun así se cuela, se instala apuntando a la serie:
+
+```
+adb -s adb-ZY22MNRV4G-nV7DK3._adb-tls-connect._tcp install -r -t composeApp-debug.apk
+```
+
+### Qué se verificó en el dispositivo
+
+| Comprobación | Resultado |
+|---|---|
+| Instalación del APK (1.3.0) | `Success` |
+| Arranque de la app | Correcto, "1 en red" con el PC detectado |
+| Historial | 10 entradas reales, una sola columna |
+| Archivo en el otro equipo | Distintivo `💻 BIGLEXJ` y acción de descarga local |
+| Archivo movido o eliminado | "⚠️ Archivo movido o eliminado" con la acción de re-descargar |
+| Tarjeta de error | El error del análisis aparece en "Detalles del error" |
+| Informe de 48 h | 1 incidente guardado en `shared_prefs/lunafetch.xml` |
+| Descarga real en el teléfono | `Amor Paisano VOLVERE  VIDEO CLIP OFICIAL.mp3` (7.773.575 bytes) en `Movies/YouTube`, **sin crear un "(1)" duplicado** |
+
+Capturas: `android-lunafetch.png`, `android-historial.png`,
+`android-analisis-error.png`, `android-redescarga-corregida2.png`.
+
+### Bug encontrado en esta prueba: la re-descarga abría la colección completa
+
+El ítem de YouTube tiene un enlace de radio
+(`watch?v=uHFqL-7pe_0&list=RDuHFqL-7pe_0&start_radio=1`). Al tocar la acción de
+re-descargar, la app analizaba el enlace y **ofrecía la colección de 399
+canciones** en vez de ese archivo:
+
+```
+399 canciones detectadas
+01  Amor Paisano VOLVERE  VIDEO CLIP OFICIAL   3:53
+...
+```
+
+Corrección: `LinkCanonicalizer.singleItemUrl()` deja el enlace apuntando al
+contenido exacto (quita `list`, `start_radio`, `index`, `radio`, `playlist` y
+los parámetros de seguimiento, solo en enlaces de YouTube). Se usa en
+`redownloadHistoryItem` y en `repairHistoryItem`.
+
+Verificado en el dispositivo después de la corrección: el campo de URL queda en
+`https://www.youtube.com/watch?v=uHFqL-7pe_0`, la cola muestra un único ítem
+("Amor Paisano VOLVERE VIDEO CLIP OFICIAL · MP3 · Historial") y la descarga
+llega al 100 %.
+
+## 9. Versión 1.3.1 y ruta de actualización
+
+El código cambió (regla de duplicados, paginación, tarjeta de error, informe de
+48 h), así que la versión sube a **1.3.1** (`versionCode` 24). De paso se
+verificó el flujo que usarán los usuarios al actualizarse:
+
+```
+LunaFetch-Windows-1.3.1.exe /quiet /norestart   -> exit 0 (7 s)
+```
+
+El log de MSI muestra la actualización estándar:
+
+```
+Action start 17:38:52: RemoveExistingProducts.
+Action ended 17:38:55: RemoveExistingProducts. Return value 1.
+Property(N): INSTALLDIR = C:\Users\biglexj\AppData\Local\LunaFetch\
+```
+
+El producto registrado pasa de `LunaFetch | 1.3.0` a `LunaFetch | 1.3.1` con
+un ProductCode nuevo y el mismo UpgradeCode
+(`{EA999172-1299-4930-93C9-90EA30707C17}`), que es lo que permite el
+`RemoveExistingProducts`.
+
+Comprobación del binario instalado (`app/composeApp-desktop-<hash>.jar`):
+`AppConfig` contiene `1.3.1` (y ningún `1.3.0`), `LinkCanonicalizer` trae
+`singleItemUrl` y `DiagnosticStore` trae `fitToBudget`.
+
+Trampa documentada: reinstalar **la misma versión** con un build distinto
+devuelve 1638 ("otra versión de este producto ya está instalada"), porque el
+ProductCode es el mismo y el ProductVersion interno cambia. Por eso hay que
+subir de versión para publicar una corrección.
+
+## 10. Pendiente
 
 - **Re-empaquetar `browser-extension.crx`**: el código fuente de la extensión
   está actualizado (versión 1.4.3) y el popup distingue los duplicados, pero el
   `.crx` versionado no se pudo regenerar en esta máquina porque no hay Chrome
   instalado y Edge no admite `--pack-extension`. Se empaqueta desde Chrome.
-- **Prueba en teléfono físico**: la regla de reparación en Android se compila y
-  está cubierta por pruebas de plataforma, pero falta la verificación en
-  dispositivo real (regla del proyecto).
+- **Reparación de un archivo dañado en Android**: la detección del archivo vacío
+  se verificó en el dispositivo (el estado y la acción aparecen bien), pero no
+  se llegó a ejecutar una reparación con sobrescritura en el teléfono porque
+  ningún archivo del historial estaba vacío. La ruta de escritorio sí está
+  verificada.
 
-## 9. Restauración del entorno
+## 11. Restauración del entorno
 
 Durante la verificación se escribieron datos de prueba en las preferencias de la
 aplicación. Se restauraron al terminar:

@@ -944,7 +944,14 @@ class LunaFetchPresenter(
         showToast("🔄 Iniciando descarga de nuevo: ${item.title}")
         val formatName = historyFormatName(item)
         val qualityName = historyQualityName(item)
-        startDirectDownload(item.url, formatName = formatName, requestedQuality = qualityName, source = "Historial", force = true)
+        // Sin la lista: se re-descarga ese archivo, no la colección del enlace.
+        startDirectDownload(
+            LinkCanonicalizer.singleItemUrl(item.url),
+            formatName = formatName,
+            requestedQuality = qualityName,
+            source = "Historial",
+            force = true,
+        )
     }
 
     /**
@@ -959,7 +966,8 @@ class LunaFetchPresenter(
         val formatName = historyFormatName(item)
         val qualityName = historyQualityName(item)
         startDirectDownload(
-            item.url,
+            // Sin la lista: se rehace ese archivo, no la colección del enlace.
+            LinkCanonicalizer.singleItemUrl(item.url),
             formatName = formatName,
             requestedQuality = qualityName,
             source = "Historial",

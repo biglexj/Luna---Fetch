@@ -68,4 +68,42 @@ object LinkCanonicalizer {
         path.startsWith("live/") -> path.removePrefix("live/").substringBefore('/')
         else -> ""
     }
+
+    /**
+     * Deja el enlace apuntando al contenido exacto, sin la lista o la radio.
+     *
+     * Un enlace de YouTube puede traer `list=` o `start_radio=`, y entonces el
+     * analizador lo expande a la colección completa (cientos de elementos). Al
+     * re-descargar o reparar un archivo del historial interesa ese archivo
+     * concreto, no la colección en la que vivía.
+     */
+    fun singleItemUrl(rawUrl: String): String {
+        val url = rawUrl.trim()
+        if (url.isBlank()) return url
+        val scheme = if (url.contains("://")) url.substringBefore("://") + "://" else ""
+        val rest = url.substringAfter("://", url)
+        val host = rest.substringBefore('/')
+        val normalizedHost = host.lowercase().removePrefix("www.")
+        val isYouTube = normalizedHost.endsWith("youtube.com") ||
+            normalizedHost.endsWith("youtube-nocookie.com") ||
+            normalizedHost == "youtu.be"
+        if (!isYouTube) return url
+
+        val rawPath = if (rest.contains('/')) rest.substringAfter('/') else ""
+        val basePath = rawPath.substringBefore('?')
+        val query = rawPath.substringAfter('?', "")
+        val params = query.split('&')
+            .filter { it.isNotBlank() }
+            .filterNot {
+                val name = it.substringBefore('=').lowercase()
+                name in playlistParams || name in trackingParams
+            }
+        return buildString {
+            append(scheme).append(host)
+            if (basePath.isNotEmpty()) append('/').append(basePath)
+            if (params.isNotEmpty()) append('?').append(params.joinToString("&"))
+        }
+    }
+
+    private val playlistParams = setOf("list", "start_radio", "index", "radio", "playlist")
 }
