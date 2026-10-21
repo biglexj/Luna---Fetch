@@ -42,5 +42,9 @@ if ($SkipTests)    { $splat['SkipTests']    = $true }
 if ($SkipBuild)    { $splat['SkipBuild']    = $true }
 if ($SkipSigning)  { $splat['SkipSigning']  = $true }
 
-& $scriptPath @splat @RemainingArgs
+if ($RemainingArgs -and $RemainingArgs.Count -gt 0) {
+    & $scriptPath @splat @RemainingArgs
+} else {
+    & $scriptPath @splat
+}
 exit $LASTEXITCODE

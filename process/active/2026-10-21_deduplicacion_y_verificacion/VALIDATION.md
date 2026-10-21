@@ -125,7 +125,76 @@ Capturas de la aplicación real en `temp/verificacion/`:
 - `luna-historial.png`: los tres estados del archivo (en pie, dañado, movido).
 - `luna-window.png`: la cola marca las reparaciones con "♻️ reparación".
 
-## 4. Pendiente
+## 4. Paginación del historial
+
+El historial pasó a mostrar **diez descargas por pestaña**, con el selector de
+páginas al pie, y **sin scroll propio**: el desplazamiento es el de la ventana
+completa, tal como pidió Biglex.
+
+- `HistoryPaginator` (nuevo, en `domain/`) fija `PAGE_SIZE = 10` y resuelve
+  `pageCount()` e `itemsForPage()` sobre la lista completa.
+- `HistoryCard` renderiza la página activa y el selector
+  "‹ Anterior | Página X de Y · N descargas | Siguiente ›" debajo de la lista.
+- El presentador conserva hasta **50 descargas** (`HISTORY_LIMIT = 50`) en lugar
+  de las tres llamadas a `take(10)` que había antes.
+- El bloque de "Historial" ya no tiene `heightIn` con scroll propio ni
+  `columns`: los elementos se apilan en una sola columna.
+- `HistoryPaginatorTest` (4 casos) cubre: menos de diez elementos, página
+  completa, página intermedia y página fuera de rango.
+
+Captura: `luna-paginacion-final.png`.
+
+## 5. Empaquetado e instalador EXE
+
+| Artefacto | Tamaño |
+|---|---|
+| `release/LunaFetch-Windows-1.3.0.exe` | 72.360.448 bytes |
+| `release/SHA256SUMS.txt` | generado |
+
+Cambios en el pipeline:
+
+- `composeApp/build.gradle.kts`: `targetFormats(TargetFormat.Exe, TargetFormat.Deb,
+  TargetFormat.Rpm)`. Se eliminó `Msi`.
+- `gradle.properties` y `AppConfig.kt`: versión **1.3.0** (`versionCode` 23).
+- `build-release.ps1` (raíz): el splat de `$RemainingArgs` fallaba cuando no
+  había argumentos adicionales y abortaba el pipeline. Corregido.
+- `scripts/build/build-release.ps1`:
+  - se eliminó `Get-MsiProductCode` (ya no hay MSI);
+  - `Update-WingetManifest` ahora recibe el EXE, calcula su SHA-256 y genera un
+    manifest con `InstallerType: burn` y
+    `InstallerSwitches: { Silent: /quiet, SilentWithProgress: /passive }`
+    (los manifests históricos de versiones ya publicadas no se tocaron);
+  - el generador, que estaba definido pero nunca se invocaba, ahora se llama
+    en la publicación.
+- Actualización in-app sin MSI: `UpdateChecker` solo acepta assets `.exe` y
+  `DesktopPlatformBindings` descarga e instala el EXE con `/passive`.
+
+### Qué es realmente el instalador EXE
+
+El `.exe` es un **bootstrapper WiX Burn** con el MSI de jpackage como payload:
+extrae `main.msi` a `%TEMP%\<n>.tmp` y lanza `msiexec /i main.msi`. Por eso
+soporta los switches estándar de Burn: `/quiet`, `/passive`, `/norestart` y
+`/log`. En la prueba se usó `/quiet /norestart /log <archivo>` y el log generado
+es el registro MSI completo.
+
+### Bloqueo encontrado al instalar
+
+La primera ejecución del EXE devolvió **1638** ("otra instalación en curso"). El
+log de MSI muestra que el payload intentó *reconfigurar* el producto ya
+instalado:
+
+```
+Windows Installer volvió a configurar el producto. Nombre del producto: LunaFetch.
+Versión del producto: 1.3.0. ... Resultado de la nueva configuración: 1638.
+```
+
+La causa real es que **dos diálogos "LyraFlow Setup"** (otra sesión de trabajo en
+la misma máquina) tenían el mutex de Windows Installer tomado desde las 15:01.
+Mientras ese mutex esté ocupado, cualquier instalación MSI en la máquina —
+incluida la de Luna Fetch — falla con 1638. Se avisó a la sesión de LyraFlow y
+se dejó un reintento automático que espera a que el mutex quede libre.
+
+## 6. Pendiente
 
 - **Re-empaquetar `browser-extension.crx`**: el código fuente de la extensión
   está actualizado (versión 1.4.3) y el popup distingue los duplicados, pero el
@@ -135,7 +204,7 @@ Capturas de la aplicación real en `temp/verificacion/`:
   está cubierta por pruebas de plataforma, pero falta la verificación en
   dispositivo real (regla del proyecto).
 
-## 5. Restauración del entorno
+## 7. Restauración del entorno
 
 Durante la verificación se escribieron datos de prueba en las preferencias de la
 aplicación. Se restauraron al terminar:

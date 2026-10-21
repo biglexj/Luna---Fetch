@@ -35,29 +35,16 @@ Assert-SemanticVersion $Version
 if (-not (Test-Path -LiteralPath $releaseNotesPath)) { throw "No se encontró $releaseNotesPath" }
 if (-not $LocalOnly -and $SkipSigning) { throw "Una publicación oficial no puede usar -SkipSigning." }
 
-function Get-MsiProductCode {
-    param([Parameter(Mandatory)] [string]$Path)
-
-    $installer = New-Object -ComObject WindowsInstaller.Installer
-    $database = $installer.OpenDatabase($Path, 0)
-    $view = $database.OpenView("SELECT `Value` FROM `Property` WHERE `Property`='ProductCode'")
-    $view.Execute()
-    $record = $view.Fetch()
-    if (-not $record) { throw "No se encontró ProductCode en $Path." }
-    return $record.StringData(1).Trim()
-}
-
 function Update-WingetManifest {
     param(
         [Parameter(Mandatory)] [string]$Root,
         [Parameter(Mandatory)] [string]$Version,
-        [Parameter(Mandatory)] [string]$MsiPath
+        [Parameter(Mandatory)] [string]$ExePath
     )
 
     $manifestDirectory = Join-Path $Root "packaging\winget\manifests\b\biglexj\LunaFetch\$Version"
     New-Item -ItemType Directory -Path $manifestDirectory -Force | Out-Null
-    $productCode = Get-MsiProductCode $MsiPath
-    $sha256 = (Get-FileHash -LiteralPath $MsiPath -Algorithm SHA256).Hash.ToUpperInvariant()
+    $sha256 = (Get-FileHash -LiteralPath $ExePath -Algorithm SHA256).Hash.ToUpperInvariant()
     $releaseDate = (Get-Date).ToString("yyyy-MM-dd")
 
     @"
@@ -75,18 +62,20 @@ ManifestVersion: 1.10.0
 
 PackageIdentifier: biglexj.LunaFetch
 PackageVersion: $Version
-InstallerType: wix
+InstallerType: burn
 Scope: user
 InstallModes:
   - interactive
   - silent
   - silentWithProgress
 UpgradeBehavior: install
-ProductCode: '$productCode'
 ReleaseDate: $releaseDate
+InstallerSwitches:
+  Silent: /quiet
+  SilentWithProgress: /passive
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/biglexj/Luna---Fetch/releases/download/v$Version/LunaFetch-Windows-$Version.msi
+    InstallerUrl: https://github.com/biglexj/Luna---Fetch/releases/download/v$Version/LunaFetch-Windows-$Version.exe
     InstallerSha256: $sha256
 ManifestType: installer
 ManifestVersion: 1.10.0
@@ -119,8 +108,8 @@ Tags:
   - video
   - youtube
 ReleaseNotes: |-
-  Luna Fetch $Version publica APK Android separados para ARM64, ARM32 y x86_64,
-  y simplifica el selector de tema a un único control visual.
+  Luna Fetch $Version se publica con instalador EXE para Windows (bootstrapper WiX, con switches /quiet y /passive)
+  y APK Android separados para ARM64, ARM32 y x86_64.
 ReleaseNotesUrl: https://github.com/biglexj/Luna---Fetch/releases/tag/v$Version
 ManifestType: defaultLocale
 ManifestVersion: 1.10.0
@@ -276,6 +265,12 @@ $publishedArtifacts |
     Set-Content -LiteralPath $hashPath -Encoding UTF8
 
 if ($LocalOnly) { Write-Host "Build local terminado en $output" -ForegroundColor Green; exit 0 }
+
+$windowsExe = $publishedArtifacts | Where-Object { $_ -like "*.exe" } | Select-Object -First 1
+if ($windowsExe) {
+    $manifestDirectory = Update-WingetManifest -Root $root -Version $Version -ExePath $windowsExe
+    Write-Host "Manifest de winget actualizado en $manifestDirectory" -ForegroundColor Green
+}
 
 Push-Location $root
 try {

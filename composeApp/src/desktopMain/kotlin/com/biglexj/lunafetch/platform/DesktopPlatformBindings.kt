@@ -204,7 +204,7 @@ class DesktopPlatformBindings : PlatformBindings {
         onProgress: (Float) -> Unit,
     ): String? = withContext(Dispatchers.IO) {
         val exeUrl = release.exeDownloadUrl.ifBlank {
-            release.downloadUrl.takeIf { it.endsWith(".exe", true) || it.endsWith(".msi", true) }
+            release.downloadUrl.takeIf { it.endsWith(".exe", true) }
         } ?: return@withContext null
 
         runCatching {
@@ -234,8 +234,7 @@ class DesktopPlatformBindings : PlatformBindings {
                 return@withContext null
             }
 
-            val ext = if (exeUrl.endsWith(".msi", true)) ".msi" else ".exe"
-            val targetFile = File(systemDownloadsDirectory(), "LunaFetch-Windows-${release.version}$ext")
+            val targetFile = File(systemDownloadsDirectory(), "LunaFetch-Windows-${release.version}.exe")
 
             val totalBytes = connection.contentLengthLong
             var downloadedBytes = 0L
@@ -276,13 +275,10 @@ class DesktopPlatformBindings : PlatformBindings {
             ?.takeIf { File(it).exists() }
             ?: File(System.getenv("LOCALAPPDATA") ?: ".", "Luna Fetch/Luna Fetch.exe").absolutePath
 
-        // Comando cmd desasociado: espera 2s a que la app antigua se cierre, ejecuta el instalador /passive y relanza Luna Fetch
-        val isMsi = absPath.endsWith(".msi", ignoreCase = true)
-        val installCmd = if (isMsi) {
-            "timeout /t 2 /nobreak > nul & msiexec /i \"$absPath\" /passive & start \"\" \"$currentExePath\""
-        } else {
+        // Comando cmd desasociado: espera 2s a que la app antigua se cierre, ejecuta el instalador EXE en
+        // modo /passive (bootstrapper WiX: progreso visible, sin interacción) y relanza Luna Fetch
+        val installCmd =
             "timeout /t 2 /nobreak > nul & start /wait \"\" \"$absPath\" /passive & start \"\" \"$currentExePath\""
-        }
 
         runCatching {
             ProcessBuilder("cmd.exe", "/c", installCmd).start()

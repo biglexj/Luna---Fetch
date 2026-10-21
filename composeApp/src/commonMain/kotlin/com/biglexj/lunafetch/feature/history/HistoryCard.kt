@@ -21,6 +21,10 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +43,13 @@ fun HistoryCard(
 ) {
     if (state.history.isEmpty()) return
 
+    // Diez descargas por página: el historial no crece sin límite y el
+    // selector de abajo permite llegar a las anteriores.
+    val pageCount = com.biglexj.lunafetch.domain.HistoryPaginator.pageCount(state.history.size)
+    var page by remember(state.history.firstOrNull()?.id) { mutableStateOf(0) }
+    val currentPage = page.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
+    val pageItems = com.biglexj.lunafetch.domain.HistoryPaginator.itemsForPage(state.history, currentPage)
+
     LunaCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -52,10 +63,39 @@ fun HistoryCard(
         }
         Spacer(Modifier.height(8.dp))
         // El historial va en una sola columna: en varias los títulos quedaban
-        // ilegibles y los avisos se apilaban letra por letra.
-        state.history.forEach { item ->
-            HistoryRow(item = item, state = state, presenter = presenter, platform = platform)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        // ilegibles y los avisos se apilaban letra por letra. El scroll es el
+        // de toda la ventana, no uno propio.
+        Column(modifier = Modifier.fillMaxWidth()) {
+            pageItems.forEach { item ->
+                HistoryRow(item = item, state = state, presenter = presenter, platform = platform)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+            }
+        }
+        if (pageCount > 1) {
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = { page = (currentPage - 1).coerceAtLeast(0) },
+                    enabled = currentPage > 0,
+                ) {
+                    Text("‹ Anterior")
+                }
+                Text(
+                    "Página ${currentPage + 1} de $pageCount · ${state.history.size} descargas",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(
+                    onClick = { page = (currentPage + 1).coerceAtMost(pageCount - 1) },
+                    enabled = currentPage < pageCount - 1,
+                ) {
+                    Text("Siguiente ›")
+                }
+            }
         }
     }
 }

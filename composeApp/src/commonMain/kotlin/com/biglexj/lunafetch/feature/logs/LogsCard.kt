@@ -27,6 +27,8 @@ import com.biglexj.lunafetch.domain.DiagnosticStore
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -83,8 +85,13 @@ fun LogsCard(state: LunaFetchState, presenter: LunaFetchPresenter? = null) {
                         "Registro de la sesión actual",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    FlowRow(
+                        modifier = Modifier.weight(1.6f),
+                        horizontalArrangement = Arrangement.End,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
                         TextButton(onClick = { copyLive() }) {
                             Text(if (copiedLive) "✓ Copiado" else "📋 Copiar", style = MaterialTheme.typography.labelMedium)
                         }
@@ -123,7 +130,7 @@ fun LogsCard(state: LunaFetchState, presenter: LunaFetchPresenter? = null) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Diagnósticos de fallos (48h)",
                             style = MaterialTheme.typography.titleMedium,
@@ -136,7 +143,13 @@ fun LogsCard(state: LunaFetchState, presenter: LunaFetchPresenter? = null) {
                         )
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // FlowRow: en columnas estrechas los botones bajan de línea
+                    // en lugar de aplastarse letra por letra.
+                    FlowRow(
+                        modifier = Modifier.weight(1.6f),
+                        horizontalArrangement = Arrangement.End,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
                         TextButton(onClick = { copyFullDiagnosticReport() }) {
                             Text(
                                 if (copiedReport) "✓ Reporte copiado" else "📋 Copiar reporte 48h",

@@ -160,7 +160,9 @@ compose.desktop {
             javaHome = it
         }
         nativeDistributions {
-            targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb, TargetFormat.Rpm)
+            // Solo se genera el instalador EXE de Windows. El MSI no se
+            // publica: el EXE es el artefacto de distribución.
+            targetFormats(TargetFormat.Exe, TargetFormat.Deb, TargetFormat.Rpm)
             packageName = "LunaFetch"
             packageVersion = appVersion
             vendor = "biglexj"

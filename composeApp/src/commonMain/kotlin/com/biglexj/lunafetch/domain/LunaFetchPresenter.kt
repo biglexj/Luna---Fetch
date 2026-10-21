@@ -100,7 +100,7 @@ class LunaFetchPresenter(
             val merged = (remoteItems + local)
                 .distinctBy { if (it.url.isNotBlank()) "${it.url}_${it.formatLabel}" else it.id }
                 .sortedByDescending { it.timestampMs }
-                .take(10)
+                .take(HISTORY_LIMIT)
             platform.saveHistory(merged)
             _state.update { it.copy(history = merged) }
             merged
@@ -846,7 +846,7 @@ class LunaFetchPresenter(
             _state.update {
                 val updatedHistory = (listOf(newItem) + it.history)
                     .distinctBy { h -> if (h.url.isNotBlank()) "${h.url}_${h.formatLabel}" else h.id }
-                    .take(10)
+                .take(HISTORY_LIMIT)
                 platform.saveHistory(updatedHistory)
                 it.copy(
                     isDownloading = false,
@@ -1069,7 +1069,7 @@ class LunaFetchPresenter(
                 val combined = (remoteMerged + state.value.history)
                     .distinctBy { if (it.url.isNotBlank()) "${it.url}_${it.formatLabel}" else it.id }
                     .sortedByDescending { it.timestampMs }
-                    .take(10)
+                .take(HISTORY_LIMIT)
                 platform.saveHistory(combined)
                 _state.update { it.copy(history = combined) }
                 if (!silent) showToast("✅ Historial sincronizado con ${peer.name} (${combined.size} elementos).")
@@ -1092,6 +1092,14 @@ class LunaFetchPresenter(
     }
 
     companion object {
+        /**
+         * Descargas que conserva el historial.
+         *
+         * La tarjeta muestra diez por página con su propio selector, así que
+         * se guardan más para que el historial sea navegable.
+         */
+        const val HISTORY_LIMIT = 50
+
         fun isSupportedUrl(value: String): Boolean {
             val normalized = value.trim().lowercase()
             return (normalized.startsWith("https://") || normalized.startsWith("http://")) &&

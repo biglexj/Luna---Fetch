@@ -45,7 +45,7 @@ object UpdateChecker {
         val exeAsset = assets.firstOrNull { asset ->
             val url = asset.jsonObject["browser_download_url"]?.jsonPrimitive?.content.orEmpty()
             val name = asset.jsonObject["name"]?.jsonPrimitive?.content.orEmpty()
-            url.endsWith(".exe", ignoreCase = true) || name.endsWith(".exe", ignoreCase = true) || name.endsWith(".msi", ignoreCase = true)
+            url.endsWith(".exe", ignoreCase = true) || name.endsWith(".exe", ignoreCase = true)
         }
 
         val apkUrl = apkAsset?.jsonObject?.get("browser_download_url")?.jsonPrimitive?.content.orEmpty()
