@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
 import com.biglexj.lunafetch.domain.MediaFormat
+import com.biglexj.lunafetch.domain.MediaFolders
 import com.biglexj.lunafetch.domain.PlatformBindings
 import com.biglexj.lunafetch.domain.isCollection
 import java.net.URI
@@ -261,6 +262,12 @@ fun QuickDownloadSheet(
                         fontWeight = if (state.destination.isBlank()) FontWeight.Bold else FontWeight.Normal,
                     )
                 }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Se guardará en la subcarpeta «${MediaFolders.folderFor(selectedFormat)}».",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
                 // ── Botón Principal de Descarga Inmediata (Flujo Inverso) ─────────
                 Button(

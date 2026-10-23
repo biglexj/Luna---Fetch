@@ -13,6 +13,10 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 - [ ] **Cola de Descargas Simultáneas**: Gestión de descargas en paralelo con límite configurable en la interfaz. *(La cola secuencial de enlaces ya está implementada: los envíos de la extensión, Synapse y el historial se procesan de uno en uno, con estado visible en la interfaz.)*
 - [ ] **Verificación de Integridad Profunda**: Comprobar la cabecera del contenedor y el tamaño esperado por duración para distinguir corrupción real de una descarga simplemente vacía. *(La regla básica ya está implementada: el archivo se considera dañado si existe pero tiene cero bytes, y se rehace y reemplaza en el mismo sitio.)*
 - [x] **Extractor Nativo Suno AI**: Descarga directa de audio/video de canciones de Suno AI con metadatos ID3 y letras sincronizadas (.lyrics.txt).
+- [x] **Carpetas por Tipo de Medio**: Cada descarga se ordena en la subcarpeta `audio` o `video` de la carpeta elegida, en escritorio y Android, con aviso en la interfaz del destino que se usará.
+- [x] **Soporte Suno Actualizado**: La ficha de Suno se lee del payload real de la página, de modo que el título, el autor, el alias, el estilo, la letra y la portada son los auténticos, y la carátula queda incrustada en el archivo de audio.
+- [x] **Hover con Radio en las Tarjetas**: La indicación de hover y de presión de las tarjetas pulsables respeta el radio de sus esquinas.
+- [ ] **Transcodificación de Audio de Suno en Android**: El motor de Android no expone un ejecutable de FFmpeg, por lo que el audio de Suno se conserva en MP4 original en lugar de convertirse a MP3/M4A/FLAC/WAV.
 - [x] **Diagnósticos y Logs Persistentes (48 Horas)**: Almacenamiento local de errores e incidentes técnicos con TTL de 48h y botón de exportación en un clic en la interfaz.
 - [x] **Resiliencia en Extracción de TikTok**: Mitigación de bloqueos de impersonación y status code 0 mediante fallback de endpoints API y cookies de navegador.
 - [x] **Pruebas Físicas Android**: Validación de descargas reales en dispositivos Android físicos por ABI (ARM64, ARM32, x86_64).

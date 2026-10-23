@@ -1,5 +1,6 @@
 package com.biglexj.lunafetch.feature.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,22 +13,47 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+/**
+ * Tarjeta base de la interfaz.
+ *
+ * Cuando la tarjeta es pulsable se usa la variante `Card(onClick = …)`, que
+ * dibuja la indicación de hover y de presión sobre la propia superficie: así el
+ * resplandor respeta las esquinas redondeadas en lugar de mostrar un marco
+ * rectangular alrededor de la tarjeta.
+ */
 @Composable
 fun LunaCard(
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(20.dp), content = content)
+    val shape = RoundedCornerShape(24.dp)
+    val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    val border = BorderStroke(
+        1.dp,
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+    )
+    val elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+
+    if (onClick != null) {
+        Card(
+            onClick = onClick,
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            colors = colors,
+            elevation = elevation,
+            border = border,
+            content = content,
+        )
+    } else {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            shape = shape,
+            colors = colors,
+            border = border,
+            elevation = elevation,
+            content = content,
+        )
     }
 }
 

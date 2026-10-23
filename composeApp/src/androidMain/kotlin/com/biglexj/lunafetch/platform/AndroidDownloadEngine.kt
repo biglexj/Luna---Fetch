@@ -209,12 +209,15 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             ?: throw DownloadException("Selecciona una carpeta de destino válida con permisos de almacenamiento.")
         val workRoot = File(context.cacheDir, "downloads")
         val workDirectory = File(workRoot, System.currentTimeMillis().toString()).apply { mkdirs() }
+        // El material se ordena en subcarpetas: `audio` para el sonido y
+        // `video` para el audiovisual.
+        val folderName = com.biglexj.lunafetch.domain.MediaFolders.folderFor(request.format)
 
         if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(request.url)) {
             val sunoRequest = request.copy(destination = workDirectory.absolutePath)
             com.biglexj.lunafetch.domain.SunoExtractor.download(sunoRequest, onProgress, onLog)
             val downloadedFiles = workDirectory.walkTopDown().filter { it.isFile && it.length() > 0 }.toList()
-            val resultUris = copyToTree(downloadedFiles, treeUri)
+            val resultUris = copyToTree(downloadedFiles, treeUri, folderName)
             workDirectory.deleteRecursively()
             return@withContext DownloadResult(
                 outputPaths = resultUris.map(Uri::toString),
@@ -364,7 +367,7 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             if (downloaded.isEmpty()) {
                 throw DownloadException("La descarga no produjo un archivo de video válido. Por favor verifica el enlace e intenta nuevamente.")
             }
-            val resultUris = copyToTree(downloaded, treeUri)
+            val resultUris = copyToTree(downloaded, treeUri, folderName)
             DownloadResult(
                 outputPaths = resultUris.map(Uri::toString),
                 openPath = if (resultUris.size == 1) resultUris.first().toString() else treeUri.toString(),
@@ -504,18 +507,19 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
         }
     }
 
-    private fun copyToTree(sources: List<File>, treeUri: Uri): List<Uri> {
+    /**
+     * Copia los archivos descargados dentro del árbol de destino, ordenados en
+     * la subcarpeta que corresponde al formato (`audio` o `video`).
+     */
+    private fun copyToTree(sources: List<File>, treeUri: Uri, folderName: String): List<Uri> {
         val resolver = context.contentResolver
         return try {
-            val parent = DocumentsContract.buildDocumentUriUsingTree(
-                treeUri,
-                DocumentsContract.getTreeDocumentId(treeUri),
-            )
+            val parent = findOrCreateFolder(treeUri, folderName)
             sources.map { source ->
                 // Si ya existe un documento con el mismo nombre se sobrescribe
                 // en lugar de crear una copia "(1)": así una reparación
                 // reemplaza el archivo dañado en su sitio.
-                val existing = findDocumentByName(treeUri, source.name)
+                val existing = findDocumentByName(treeUri, parent, source.name)
                 val target = existing ?: DocumentsContract.createDocument(
                     resolver,
                     parent,
@@ -535,22 +539,46 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
     }
 
     /**
-     * Busca un documento con el mismo nombre dentro del árbol de destino.
-     *
-     * @return El URI del documento existente o null si no hay ninguno.
+     * Devuelve la subcarpeta de destino (`audio` o `video`) creándola en el
+     * árbol elegido cuando todavía no existe.
      */
-    private fun findDocumentByName(treeUri: Uri, name: String): Uri? {
+    private fun findOrCreateFolder(treeUri: Uri, folderName: String): Uri {
+        val resolver = context.contentResolver
+        val root = DocumentsContract.buildDocumentUriUsingTree(
+            treeUri,
+            DocumentsContract.getTreeDocumentId(treeUri),
+        )
+        val existing = listChildren(treeUri, root).firstOrNull { entry ->
+            entry.name.equals(folderName, ignoreCase = true) && entry.isDirectory
+        }
+        if (existing != null) return existing.uri
+
+        return DocumentsContract.createDocument(
+            resolver,
+            root,
+            DocumentsContract.Document.MIME_TYPE_DIR,
+            folderName,
+        ) ?: throw DownloadException("Android no permitió crear la subcarpeta «$folderName».")
+    }
+
+    private data class TreeEntry(val uri: Uri, val name: String, val isDirectory: Boolean)
+
+    /**
+     * Lista los documentos hijos de una carpeta del árbol.
+     */
+    private fun listChildren(treeUri: Uri, parentUri: Uri): List<TreeEntry> {
         val resolver = context.contentResolver
         return runCatching {
             val children = DocumentsContract.buildChildDocumentsUriUsingTree(
                 treeUri,
-                DocumentsContract.getTreeDocumentId(treeUri),
+                DocumentsContract.getDocumentId(parentUri),
             )
             resolver.query(
                 children,
                 arrayOf(
                     DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                     DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE,
                 ),
                 null,
                 null,
@@ -558,15 +586,31 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             )?.use { cursor ->
                 val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
                 val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-                if (idIndex < 0 || nameIndex < 0) return@use null
+                val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                if (idIndex < 0 || nameIndex < 0) return@use emptyList<TreeEntry>()
+                val entries = mutableListOf<TreeEntry>()
                 while (cursor.moveToNext()) {
-                    if (cursor.getString(nameIndex) == name) {
-                        return@use DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(idIndex))
-                    }
+                    val mime = if (mimeIndex >= 0) cursor.getString(mimeIndex).orEmpty() else ""
+                    entries += TreeEntry(
+                        uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(idIndex)),
+                        name = cursor.getString(nameIndex).orEmpty(),
+                        isDirectory = mime == DocumentsContract.Document.MIME_TYPE_DIR,
+                    )
                 }
-                null
-            }
-        }.getOrNull()
+                entries
+            } ?: emptyList()
+        }.getOrDefault(emptyList())
+    }
+
+    /**
+     * Busca un documento con el mismo nombre dentro de una carpeta del árbol.
+     *
+     * @return El URI del documento existente o null si no hay ninguno.
+     */
+    private fun findDocumentByName(treeUri: Uri, parentUri: Uri, name: String): Uri? {
+        return listChildren(treeUri, parentUri)
+            .firstOrNull { it.name == name }
+            ?.uri
     }
 
     private fun String.toVideoInfo(url: String): VideoInfo {

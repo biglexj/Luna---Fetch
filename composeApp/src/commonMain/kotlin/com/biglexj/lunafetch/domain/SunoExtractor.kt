@@ -13,6 +13,14 @@ object SunoExtractor {
     private val SUNO_HOSTS = listOf("suno.com", "www.suno.com", "suno.ai", "www.suno.ai", "usesuno.com")
 
     /**
+     * Ventana de análisis alrededor del objeto de la canción dentro del
+     * payload de la página. Antes del ancla se lee el título (Suno lo coloca
+     * justo delante del identificador) y después el resto de campos.
+     */
+    private const val CLIP_WINDOW_BEFORE = 4000
+    private const val CLIP_WINDOW_AFTER = 20000
+
+    /**
      * Determina si la URL proporcionada pertenece al ecosistema Suno AI.
      */
     fun isSunoUrl(url: String): Boolean {
@@ -150,15 +158,24 @@ object SunoExtractor {
         if (isAudio) {
             onProgress(DownloadProgress(100.0, phase = DownloadPhase.Processing))
             onLog("Procesando audio en formato ${request.format.displayName}…")
-            val ffmpegSuccess = convertAudioWithFfmpeg(tempSourceFile, finalFile, request.format, meta, onLog)
+            // La portada se incrusta en el archivo de audio para que el
+            // reproductor muestre la carátula real de la canción.
+            val coverFile = downloadCover(meta.coverUrl, destinationDir, onLog)
+            val ffmpegSuccess = convertAudioWithFfmpeg(tempSourceFile, finalFile, request.format, meta, coverFile, onLog)
+            deleteQuietly(coverFile)
             if (ffmpegSuccess && finalFile.exists() && finalFile.length() > 0) {
                 actualOutputFile = finalFile
-                runCatching { tempSourceFile.delete() }
+                deleteQuietly(tempSourceFile)
             } else {
                 // Si FFmpeg no está disponible o la conversión falló, preservar el MP4 original descargado
                 val preservedFile = File(destinationDir, "$sanitizedTitle.mp4")
                 if (tempSourceFile.exists()) {
-                    tempSourceFile.renameTo(preservedFile)
+                    if (!tempSourceFile.renameTo(preservedFile)) {
+                        runCatching {
+                            tempSourceFile.copyTo(preservedFile, overwrite = true)
+                            deleteQuietly(tempSourceFile)
+                        }
+                    }
                 }
                 actualOutputFile = preservedFile
                 onLog("⚠️ Transcodificación no completada. Stream original preservado en: ${preservedFile.name}")
@@ -223,82 +240,369 @@ object SunoExtractor {
                 durationSeconds = 120.0,
                 lyricsPrompt = "",
                 tags = "",
-                coverUrl = "https://cdn2.suno.ai/image_large_$id.jpeg",
+                coverUrl = defaultCoverUrl(id),
                 videoUrl = "https://cdn1.suno.ai/$id.mp4",
                 audioUrl = "",
             )
         }
 
-        // Localizar el bloque central del "clip" para aislar los metadatos específicos de la canción
-        val clipIdx = html.indexOf("\"clip\"").takeIf { it >= 0 }
-            ?: html.indexOf("""\"clip\"""").takeIf { it >= 0 }
-            ?: 0
+        return parseMetadata(html, id)
+    }
 
-        val titleMatch = Regex("""\\?"title\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
-        val title = titleMatch?.groupValues?.get(1)?.unescapeJson()?.ifBlank { null } ?: "Canción Suno ${id.take(8)}"
+    /**
+     * Extrae los metadatos de la canción a partir del HTML servido por Suno.
+     *
+     * Suno entrega la ficha dentro del payload de React Server Components: las
+     * cadenas viajan escapadas (`\"title\":\"…\"`) y el objeto de la canción
+     * viene precedido por su identificador. El análisis se ancla en ese id
+     * porque la interfaz comparte las mismas claves JSON (`title`, `tags`,
+     * `prompt`…) en sus menús y textos: sin el ancla, el título recuperado era
+     * el de un botón de la app y no el de la canción.
+     */
+    internal fun parseMetadata(html: String, id: String): SunoSongMetadata {
+        val clipIndex = findClipIndex(html, id)
+        val windowStart = if (clipIndex > 0) maxOf(0, clipIndex - CLIP_WINDOW_BEFORE) else 0
+        val windowEnd = if (clipIndex >= 0) minOf(html.length, clipIndex + CLIP_WINDOW_AFTER) else html.length
 
-        val authorMatch = Regex("""\\?"user_display_name\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
-            ?: Regex("""\\?"display_name\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
-        val displayName = authorMatch?.groupValues?.get(1)?.unescapeJson() ?: "Suno AI"
+        val payloadTitle = extractTitle(html, windowStart, windowEnd, clipIndex)
+        val author = extractAuthor(html, windowStart, windowEnd, clipIndex)
+        val displayName = author?.first
+        val handle = author?.second
+        val duration = extractNumber(html, "duration", windowStart, windowEnd)
+        val styleTags = extractField(html, "tags", windowStart, windowEnd, clipIndex, maxLength = 6000)
+        val lyrics = extractLyrics(html, windowStart, windowEnd, clipIndex)
+        val cover = extractUrlField(html, "image_large_url", windowStart, windowEnd)
+            ?: extractUrlField(html, "image_url", windowStart, windowEnd)
+            ?: defaultCoverUrl(id)
 
-        val handleMatch = Regex("""\\?"user_handle\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
-            ?: Regex("""\\?"handle\\?"\s*:\s*\\?"([^"\\\r\n]{1,200})\\?"""").find(html, startIndex = clipIdx)
-        val handle = handleMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
-
-        val durationMatch = Regex("""\\?"duration\\?"\s*:\s*([0-9.]+)""").find(html, startIndex = clipIdx)
-        val duration = durationMatch?.groupValues?.get(1)?.toDoubleOrNull() ?: 120.0
-
-        val tagsMatch = Regex("""\\?"tags\\?"\s*:\s*\\?"([^"\\\r\n]{1,300})\\?"""").find(html, startIndex = clipIdx)
-        val tags = tagsMatch?.groupValues?.get(1)?.unescapeJson() ?: ""
-
-        val videoUrl = "https://cdn1.suno.ai/$id.mp4"
-        val coverUrl = Regex("""https://[a-zA-Z0-9.\-_/]+/[a-zA-Z0-9.\-_/]+image[a-zA-Z0-9._\-]*\.jpeg""").find(html)?.value
-            ?: "https://cdn2.suno.ai/image_large_$id.jpeg"
-
-        // Letra lírica (prompt de texto o chunk de hidratación Next.js)
-        var lyricsPrompt = ""
-        val promptMatch = Regex("""\\?"prompt\\?"\s*:\s*\\?"([^"\\\r\n]+)\\?"""").find(html, startIndex = clipIdx)
-        val promptRaw = promptMatch?.groupValues?.get(1)?.trim().orEmpty()
-
-        if (promptRaw.startsWith("$")) {
-            val chunkId = promptRaw.removePrefix("$")
-            val chunkPrefix = "$chunkId:T"
-            val chunkIndex = html.indexOf(chunkPrefix)
-            if (chunkIndex >= 0) {
-                val commaIndex = html.indexOf(',', startIndex = chunkIndex)
-                if (commaIndex > chunkIndex && commaIndex - chunkIndex < 25) {
-                    val contentStart = commaIndex + 1
-                    val nextChunkRegex = Regex("""\n\d+:|\d+:\[|\d+:\{|\d+:T[0-9a-fA-F]+,""")
-                    val endMatch = nextChunkRegex.find(html, startIndex = contentStart)
-                    val contentEnd = endMatch?.range?.first ?: html.length
-                    lyricsPrompt = html.substring(contentStart, contentEnd).unescapeJson().trim()
-                }
-            }
-        } else if (promptRaw.isNotBlank() && !promptRaw.equals("Prompt", ignoreCase = true)) {
-            lyricsPrompt = promptRaw.unescapeJson().trim()
-        }
-
-        // Fallback: si aún está vacía o es literal "Prompt", buscar chunks con estructura lírica
-        if (lyricsPrompt.isBlank() || lyricsPrompt.equals("Prompt", ignoreCase = true)) {
-            val lyricChunkRegex = Regex("""\d+:T[0-9a-fA-F]+,(\[(?:Intro|Verse|Chorus|Pre-Chorus|Bridge|Outro|Hook|Refrain|Female|Male)[^\r\n]*\][\s\S]+?)(?=\n\d+:|\d+:\[|\d+:\{|$)""")
-            val fallbackMatch = lyricChunkRegex.find(html)
-            if (fallbackMatch != null) {
-                lyricsPrompt = fallbackMatch.groupValues[1].unescapeJson().trim()
-            }
-        }
+        // La cabecera HTML (<title> y la meta descripción) sirve de red de
+        // seguridad cuando el payload interno cambia de forma.
+        val head = parseHeadMetadata(html)
 
         return SunoSongMetadata(
             id = id,
-            title = title,
-            creatorHandle = handle,
-            displayName = displayName,
-            durationSeconds = duration,
-            lyricsPrompt = lyricsPrompt,
-            tags = tags,
-            coverUrl = coverUrl,
-            videoUrl = videoUrl,
+            title = payloadTitle?.takeIf { it.isNotBlank() }
+                ?: head.title
+                ?: "Canción Suno ${id.take(8)}",
+            creatorHandle = handle?.takeIf { it.isNotBlank() } ?: head.handle.orEmpty(),
+            displayName = displayName?.takeIf { it.isNotBlank() } ?: head.author ?: "Suno AI",
+            durationSeconds = duration ?: 120.0,
+            lyricsPrompt = lyrics.takeIf { it.isNotBlank() && !it.equals("Prompt", ignoreCase = true) }.orEmpty(),
+            tags = styleTags.orEmpty(),
+            coverUrl = cover,
+            videoUrl = "https://cdn1.suno.ai/$id.mp4",
             audioUrl = "",
         )
+    }
+
+    /**
+     * Localiza el objeto de la canción dentro del payload.
+     *
+     * @return el índice del identificador de la canción o -1 si no aparece.
+     */
+    private fun findClipIndex(html: String, id: String): Int {
+        val escaped = Regex.escape(id)
+        val byId = Regex("""\\?"id\\?"\s*:\s*\\?"$escaped\\?""").find(html)
+        if (byId != null) return byId.range.first
+        val byVideo = Regex("""cdn1\.suno\.ai/$escaped\.mp4""").find(html)
+        if (byVideo != null) return byVideo.range.first
+        return -1
+    }
+
+    /**
+     * Recupera el valor de una clave JSON del payload.
+     *
+     * Cuando hay varias coincidencias dentro de la ventana se elige la más
+     * cercana al ancla de la canción, que es la que corresponde a la ficha.
+     */
+    private fun extractField(
+        html: String,
+        key: String,
+        fromIndex: Int,
+        toIndex: Int,
+        anchor: Int,
+        maxLength: Int = 600,
+    ): String? {
+        if (toIndex <= fromIndex) return null
+        val segment = html.substring(fromIndex, toIndex)
+        val regex = Regex("""\\?"$key\\?"\s*:\s*\\?"(${valuePattern(maxLength)})\\?"(?=\s*[,}\]])""")
+        var bestIndex = Int.MAX_VALUE
+        var bestValue: String? = null
+        for (match in regex.findAll(segment)) {
+            val absolute = fromIndex + match.range.first
+            val value = decodeFlightValue(match.groupValues[1])
+            if (value.isBlank()) continue
+            val distance = if (anchor >= 0) kotlin.math.abs(absolute - anchor) else absolute
+            if (distance < bestIndex) {
+                bestIndex = distance
+                bestValue = value
+            }
+        }
+        return bestValue
+    }
+
+    /**
+     * Cuerpo de un valor de cadena dentro del payload.
+     *
+     * El delimitador de las cadenas es la secuencia `\"`. Una comilla escapada
+     * dentro del valor llega como `\\\"` (cuatro caracteres), así que el
+     * cuerpo acepta ese bloque completo pero nunca una comilla simple: de
+     * otro modo el valor se tragaría el cierre del campo y la clave siguiente.
+     */
+    private fun valuePattern(maxLength: Int): String =
+        """(?:\\\\\\"|\\[^"]|[^"\\]){0,$maxLength}?"""
+
+    /** Recupera un valor numérico (la duración, por ejemplo). */
+    private fun extractNumber(html: String, key: String, fromIndex: Int, toIndex: Int): Double? {
+        if (toIndex <= fromIndex) return null
+        // Suno publica la duración como número, pero se tolera también entrecomillada.
+        val regex = Regex("""\\?"$key\\?"\s*:\s*\\?"?([0-9]+(?:\.[0-9]+)?)""")
+        val match = regex.find(html.substring(fromIndex, toIndex)) ?: return null
+        return match.groupValues[1].toDoubleOrNull()
+    }
+
+    /**
+     * Recupera la letra de la canción.
+     *
+     * Suno guarda el texto en un fragmento del payload y lo referencia desde
+     * la ficha (`"prompt":"$c9"`); en ese caso se resuelve el fragmento. Como
+     * red de seguridad se lee también el área de texto donde la propia página
+     * muestra la letra.
+     */
+    private fun extractLyrics(html: String, fromIndex: Int, toIndex: Int, anchor: Int): String {
+        val promptValue = extractField(html, "prompt", fromIndex, toIndex, anchor, maxLength = 12000)
+        if (!promptValue.isNullOrBlank()) {
+            if (promptValue.startsWith("$")) {
+                resolveChunkText(html, promptValue, fromIndex)?.let { chunk ->
+                    if (chunk.isNotBlank()) return chunk
+                }
+            } else if (!promptValue.equals("Prompt", ignoreCase = true)) {
+                return promptValue
+            }
+        }
+        return extractLyricsFromTextarea(html).orEmpty()
+    }
+
+    /**
+     * Resuelve un fragmento de texto del payload (`$c9` → `c9:Tc08,<letra>`).
+     */
+    private fun resolveChunkText(html: String, reference: String, fromIndex: Int): String? {
+        val chunkId = reference.removePrefix("$").trim()
+        if (chunkId.isBlank()) return null
+        val marker = "$chunkId:T"
+        val markerIndex = html.indexOf(marker, fromIndex).takeIf { it >= 0 }
+            ?: html.indexOf(marker).takeIf { it >= 0 }
+            ?: return null
+
+        var contentStart = markerIndex + marker.length
+        val comma = html.indexOf(',', contentStart)
+        if (comma in 0..(contentStart + 32)) {
+            val between = html.substring(contentStart, comma)
+            // El fragmento puede llevar un identificador propio (`Tc08,`).
+            contentStart = comma + 1
+            if (between.isBlank()) contentStart = markerIndex + marker.length
+        }
+
+        val terminator = Regex("""[0-9a-z]{1,4}:(?:\[|T|null|"|\{)""").find(html, contentStart)
+        val contentEnd = terminator?.range?.first ?: html.length
+        if (contentEnd <= contentStart) return null
+
+        return decodeFlightValue(html.substring(contentStart, contentEnd)).trim().takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Lee la letra del área de texto donde la página muestra la ficha.
+     */
+    private fun extractLyricsFromTextarea(html: String): String? {
+        val match = Regex("""<textarea[^>]*>(\[[^<]{2,})</textarea>""").find(html) ?: return null
+        val raw = match.groupValues[1]
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+        return decodeFlightValue(raw).trim().takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Recupera el título de la canción.
+     *
+     * Se prefiere el título que precede a los contadores de la ficha
+     * (`play_count`), porque la página también usa la clave `title` en los
+     * textos de la interfaz.
+     */
+    private fun extractTitle(html: String, fromIndex: Int, toIndex: Int, anchor: Int): String? {
+        if (toIndex <= fromIndex) return null
+        val segment = html.substring(fromIndex, toIndex)
+        val withCounters = Regex(
+            """\\?"title\\?"\s*:\s*\\?"(${valuePattern(300)})\\?"\s*,\s*\\?"play_count\\?""",
+        ).find(segment)
+        if (withCounters != null) {
+            val value = decodeFlightValue(withCounters.groupValues[1])
+            if (value.isNotBlank()) return value
+        }
+        return extractField(html, "title", fromIndex, toIndex, anchor)
+    }
+
+    /**
+     * Recupera el autor de la canción: nombre visible y alias.
+     *
+     * La página incluye los nombres de las personas de Suno (`V6`, `COVER`…)
+     * con la misma clave `display_name`, así que se exige la pareja
+     * `display_name` + `handle`, que solo la ficha del autor tiene.
+     */
+    private fun extractAuthor(html: String, fromIndex: Int, toIndex: Int, anchor: Int): Pair<String, String>? {
+        if (toIndex <= fromIndex) return null
+        val segment = html.substring(fromIndex, toIndex)
+        val regex = Regex(
+            """\\?"display_name\\?"\s*:\s*\\?"(${valuePattern(200)})\\?"\s*,\s*\\?"handle\\?"\s*:\s*\\?"(${valuePattern(200)})\\?"(?=\s*[,}\]])""",
+        )
+        var bestDistance = Int.MAX_VALUE
+        var best: Pair<String, String>? = null
+        for (match in regex.findAll(segment)) {
+            val displayName = decodeFlightValue(match.groupValues[1])
+            val handle = decodeFlightValue(match.groupValues[2])
+            if (displayName.isBlank() || handle.isBlank()) continue
+            val distance = if (anchor >= 0) kotlin.math.abs(fromIndex + match.range.first - anchor) else 0
+            if (distance < bestDistance) {
+                bestDistance = distance
+                best = displayName to handle
+            }
+        }
+        return best
+    }
+
+    /** Recupera una URL (la portada, por ejemplo) del payload. */
+    private fun extractUrlField(html: String, key: String, fromIndex: Int, toIndex: Int): String? {
+        if (toIndex <= fromIndex) return null
+        val regex = Regex("""\\?"$key\\?"\s*:\s*\\?"(https?://[^"\\]+)\\?"""")
+        return regex.find(html.substring(fromIndex, toIndex))
+            ?.groupValues?.get(1)
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Lee la cabecera HTML de la ficha: título, autor y alias del autor.
+     */
+    private fun parseHeadMetadata(html: String): HeadMetadata {
+        val titleTag = Regex("""<title>([^<]{1,200})</title>""").find(html)?.groupValues?.get(1)?.trim()
+        val rawTitle = titleTag
+            ?.removeSuffix("| Suno")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+
+        val description = Regex("""<meta\s+name="description"\s+content="([^"]{1,400})"""")
+            .find(html)?.groupValues?.get(1)
+            ?.replace("&amp;", "&")
+            ?.replace("&quot;", "\"")
+            ?.trim()
+
+        val authorFromDescription = description
+            ?.substringBefore(". Listen and make your own on Suno.")
+            ?.let { segment ->
+                val byIndex = segment.indexOf(" by ")
+                if (byIndex <= 0) null else {
+                    val author = segment.substring(byIndex + 4).trim()
+                    val handle = Regex("""@([A-Za-z0-9._-]+)""").find(author)?.groupValues?.get(1)
+                    val display = author.substringBefore(" (@").trim()
+                    display to handle
+                }
+            }
+
+        val title = rawTitle?.let { full ->
+            val byIndex = full.indexOf(" by ")
+            val withoutAuthor = if (byIndex > 0) full.substring(0, byIndex).trim() else full
+            withoutAuthor.ifBlank { null }
+        }
+
+        return HeadMetadata(
+            title = title,
+            author = authorFromDescription?.first?.takeIf { it.isNotBlank() },
+            handle = authorFromDescription?.second,
+        )
+    }
+
+    private data class HeadMetadata(
+        val title: String? = null,
+        val author: String? = null,
+        val handle: String? = null,
+    )
+
+    /**
+     * Decodifica un valor del payload de Suno.
+     *
+     * El texto viaja en dos niveles de escapado: primero dentro de un literal
+     * de JavaScript y después dentro del JSON de la ficha. Se deshacen ambos.
+     */
+    private fun decodeFlightValue(raw: String): String {
+        return decodeEscapes(decodeEscapes(raw)).trim()
+    }
+
+    private fun decodeEscapes(raw: String): String {
+        val sb = StringBuilder(raw.length)
+        var i = 0
+        while (i < raw.length) {
+            val c = raw[i]
+            if (c == '\\' && i + 1 < raw.length) {
+                when (raw[i + 1]) {
+                    'n' -> { sb.append('\n'); i += 2 }
+                    'r' -> { sb.append('\r'); i += 2 }
+                    't' -> { sb.append('\t'); i += 2 }
+                    'b' -> { sb.append('\b'); i += 2 }
+                    'f' -> { sb.append('\u000C'); i += 2 }
+                    '"' -> { sb.append('"'); i += 2 }
+                    '\\' -> { sb.append('\\'); i += 2 }
+                    '/' -> { sb.append('/'); i += 2 }
+                    'u' -> {
+                        val hex = if (i + 6 <= raw.length) raw.substring(i + 2, i + 6) else ""
+                        val code = hex.takeIf { it.length == 4 }?.toIntOrNull(16)
+                        if (code != null) { sb.append(code.toChar()); i += 6 } else { sb.append(c); i++ }
+                    }
+                    else -> { sb.append(c); i++ }
+                }
+            } else {
+                sb.append(c)
+                i++
+            }
+        }
+        return sb.toString()
+    }
+
+    private fun defaultCoverUrl(id: String): String = "https://cdn2.suno.ai/image_large_$id.jpeg"
+
+    /**
+     * Borra un archivo temporal tolerando el bloqueo de Windows: el proceso
+     * de FFmpeg puede tardar un instante en liberar el archivo.
+     */
+    private fun deleteQuietly(file: File?) {
+        if (file == null) return
+        repeat(4) {
+            if (!file.exists()) return
+            val deleted = runCatching { file.delete() }.getOrDefault(false)
+            if (deleted) return
+            runCatching { Thread.sleep(150) }
+        }
+    }
+
+    /**
+     * Descarga la portada de la canción para incrustarla en el archivo de audio.
+     */
+    private fun downloadCover(coverUrl: String, destinationDir: File, onLog: (String) -> Unit): File? {
+        if (coverUrl.isBlank()) return null
+        return runCatching {
+            val target = File(destinationDir, ".suno_cover.jpg")
+            val connection = (URL(coverUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10_000
+                readTimeout = 20_000
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+                setRequestProperty("Referer", "https://suno.com/")
+            }
+            if (connection.responseCode !in 200..299) return null
+            connection.inputStream.use { input ->
+                FileOutputStream(target).use { output -> input.copyTo(output) }
+            }
+            if (target.length() <= 0L) return null
+            target
+        }.getOrNull()
     }
 
     private fun downloadHttpStream(
@@ -367,38 +671,74 @@ object SunoExtractor {
         outputFile: File,
         format: MediaFormat,
         metadata: SunoSongMetadata,
+        coverFile: File?,
         onLog: (String) -> Unit,
     ): Boolean {
-        return runCatching {
-            val audioCodec = when (format) {
-                MediaFormat.Mp3 -> listOf("-c:a", "libmp3lame", "-q:a", "0")
-                MediaFormat.M4a -> listOf("-c:a", "copy")
-                MediaFormat.Flac -> listOf("-c:a", "flac")
-                MediaFormat.Wav -> listOf("-c:a", "pcm_s16le")
-                else -> listOf("-c:a", "copy")
-            }
+        val audioCodec = when (format) {
+            MediaFormat.Mp3 -> listOf("-c:a", "libmp3lame", "-q:a", "0")
+            MediaFormat.M4a -> listOf("-c:a", "copy")
+            MediaFormat.Flac -> listOf("-c:a", "flac")
+            MediaFormat.Wav -> listOf("-c:a", "pcm_s16le")
+            else -> listOf("-c:a", "copy")
+        }
 
-            val command = mutableListOf("ffmpeg", "-y", "-i", inputFile.absolutePath, "-vn")
+        val metadataArgs = listOf(
+            "-metadata", "title=${metadata.title}",
+            "-metadata", "artist=${metadata.displayName.ifBlank { metadata.creatorHandle }}",
+            "-metadata", "album=Suno AI",
+            "-metadata", "genre=${metadata.tags.take(64)}",
+            "-metadata", "comment=Generado en Suno AI · Descargado con Luna Fetch",
+        )
+
+        // WAV no admite carátula incrustada; el resto de formatos sí.
+        val usableCover = coverFile?.takeIf { it.exists() && format != MediaFormat.Wav }
+
+        if (usableCover != null) {
+            // Sin `-vn`: la imagen debe entrar en el archivo como carátula
+            // incrustada, y esa opción descartaría la pista de la portada.
+            val command = mutableListOf("ffmpeg", "-y", "-i", inputFile.absolutePath, "-i", usableCover.absolutePath)
+            command.addAll(listOf("-map", "0:a", "-map", "1:v"))
             command.addAll(audioCodec)
-            command.addAll(
-                listOf(
-                    "-metadata", "title=${metadata.title}",
-                    "-metadata", "artist=${metadata.displayName.ifBlank { metadata.creatorHandle }}",
-                    "-metadata", "album=Suno AI",
-                    "-metadata", "genre=${metadata.tags.take(64)}",
-                    "-metadata", "comment=Generado en Suno AI · Descargado con Luna Fetch",
-                    outputFile.absolutePath,
-                ),
-            )
-
-            val process = ProcessBuilder(command).start()
-            val exitCode = process.waitFor()
-            if (exitCode == 0 && outputFile.exists() && outputFile.length() > 0) {
-                onLog("Audio transcodificado con metadatos ID3 exitosamente.")
-                true
-            } else {
-                false
+            command.addAll(listOf("-c:v", "mjpeg", "-disposition:v:0", "attached_pic"))
+            command.addAll(metadataArgs)
+            command.add(outputFile.absolutePath)
+            if (runFfmpeg(command)) {
+                onLog("Audio transcodificado con metadatos ID3 y portada incrustada.")
+                return true
             }
+            // Si la portada impide la conversión se reintenta sin ella.
+            onLog("Portada no incrustable en ${format.displayName}; se reintenta sin carátula.")
+        }
+
+        val command = mutableListOf("ffmpeg", "-y", "-i", inputFile.absolutePath, "-vn")
+        command.addAll(audioCodec)
+        command.addAll(metadataArgs)
+        command.add(outputFile.absolutePath)
+
+        return if (runFfmpeg(command)) {
+            onLog("Audio transcodificado con metadatos ID3 exitosamente.")
+            true
+        } else {
+            false
+        }
+    }
+
+    private fun runFfmpeg(command: List<String>): Boolean {
+        return runCatching {
+            // FFmpeg escribe mucho en la salida estándar: si nadie la lee, el
+            // proceso se bloquea al llenarse el canal y la descarga se queda
+            // colgada. La salida se drena en un hilo aparte.
+            val process = ProcessBuilder(command).redirectErrorStream(true).start()
+            val drain = Thread {
+                runCatching { process.inputStream.bufferedReader().use { it.readText() } }
+            }.apply {
+                isDaemon = true
+                start()
+            }
+            val exitCode = process.waitFor()
+            drain.join(2000)
+            process.destroy()
+            exitCode == 0
         }.getOrDefault(false)
     }
 
@@ -415,14 +755,5 @@ object SunoExtractor {
         return runCatching {
             String.format(java.util.Locale.US, "%.${digits}f", this)
         }.getOrDefault(this.toString())
-    }
-
-    private fun String.unescapeJson(): String {
-        return this
-            .replace("\\n", "\n")
-            .replace("\\r", "\r")
-            .replace("\\t", "\t")
-            .replace("\\\"", "\"")
-            .replace("\\\\", "\\")
     }
 }

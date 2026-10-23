@@ -57,11 +57,17 @@ class DesktopDownloadEngine(
         onProgress: (DownloadProgress) -> Unit,
         onLog: (String) -> Unit,
     ): DownloadResult = withContext(Dispatchers.IO) {
+        // El contenido se ordena en subcarpetas: `audio` para el material
+        // sonoro y `video` para el visual.
+        val scopedRequest = request.copy(
+            destination = com.biglexj.lunafetch.domain.MediaFolders.resolve(request.destination, request.format),
+        )
+
         if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(request.url)) {
-            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.download(request, onProgress, onLog)
+            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.download(scopedRequest, onProgress, onLog)
         }
 
-        val destination = File(request.destination)
+        val destination = File(scopedRequest.destination)
         if (!destination.exists() && !destination.mkdirs()) {
             throw DownloadException("No se pudo crear la carpeta de destino.")
         }

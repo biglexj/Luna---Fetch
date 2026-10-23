@@ -5,7 +5,6 @@ import com.biglexj.lunafetch.feature.components.formatDuration
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,14 +52,14 @@ fun VideoCard(state: LunaFetchState, presenter: LunaFetchPresenter) {
         CollectionEntriesCard(video, state.selectedFormat.isAudio)
         return
     }
-    val openModifier = if (state.completedOutput != null) {
-        Modifier.clickable {
-            runCatching { presenter.openCompletedOutput() }
-        }
+    // La tarjeta pulsable se dibuja con la variante de `Card(onClick = …)`:
+    // la indicación de hover respeta las esquinas redondeadas.
+    val openAction: (() -> Unit)? = if (state.completedOutput != null) {
+        { runCatching { presenter.openCompletedOutput() } }
     } else {
-        Modifier
+        null
     }
-    LunaCard(modifier = openModifier) {
+    LunaCard(onClick = openAction) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             val thumbnailModifier = if (state.selectedFormat.isAudio) {
                 Modifier.size(88.dp)

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
 import com.biglexj.lunafetch.domain.MediaFormat
+import com.biglexj.lunafetch.domain.MediaFolders
 import com.biglexj.lunafetch.domain.PlatformBindings
 import com.biglexj.lunafetch.domain.QualityOption
 import com.biglexj.lunafetch.domain.isCollection
@@ -109,6 +110,12 @@ fun DownloadOptionsCard(
             overflow = TextOverflow.Ellipsis,
         )
     }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "Se guardará en la subcarpeta «${MediaFolders.folderFor(state.selectedFormat)}» de la carpeta elegida.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 
     if (state.discoveredPeers.isNotEmpty()) {
         Spacer(Modifier.height(14.dp))
