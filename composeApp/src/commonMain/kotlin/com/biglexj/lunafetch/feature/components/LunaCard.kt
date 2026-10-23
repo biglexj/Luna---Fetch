@@ -43,8 +43,9 @@ fun LunaCard(
             colors = colors,
             elevation = elevation,
             border = border,
-            content = content,
-        )
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(20.dp), content = content)
+        }
     } else {
         Card(
             modifier = modifier.fillMaxWidth(),
@@ -52,8 +53,9 @@ fun LunaCard(
             colors = colors,
             border = border,
             elevation = elevation,
-            content = content,
-        )
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(20.dp), content = content)
+        }
     }
 }
 
