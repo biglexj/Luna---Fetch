@@ -56,6 +56,16 @@ Generar APK de depuración:
 .\gradlew.bat :composeApp:assembleDebug
 ```
 
+Banco de pruebas del importador de listas de Suno (extensión de navegador): el
+script levanta una réplica local de la interfaz de Suno, abre un Chromium sin
+cabeza e inyecta los ficheros reales de la extensión para comprobar la
+publicación en lote, la captura de enlaces, el envío por lotes, el
+autoenvío, el modo API y su degradación.
+
+```powershell
+node test\suno-import\run-test.mjs
+```
+
 ## Distribución
 
 ### Windows y Android
