@@ -209,8 +209,8 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
             ?: throw DownloadException("Selecciona una carpeta de destino válida con permisos de almacenamiento.")
         val workRoot = File(context.cacheDir, "downloads")
         val workDirectory = File(workRoot, System.currentTimeMillis().toString()).apply { mkdirs() }
-        // El material se ordena en subcarpetas: `audio` para el sonido y
-        // `video` para el audiovisual.
+        // El material se ordena en subcarpetas: `Música` para el sonido y
+        // `Videos` para el audiovisual.
         val folderName = com.biglexj.lunafetch.domain.MediaFolders.folderFor(request.format)
 
         if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(request.url)) {
@@ -509,7 +509,7 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
 
     /**
      * Copia los archivos descargados dentro del árbol de destino, ordenados en
-     * la subcarpeta que corresponde al formato (`audio` o `video`).
+     * la subcarpeta que corresponde al formato (`Música` o `Videos`).
      */
     private fun copyToTree(sources: List<File>, treeUri: Uri, folderName: String): List<Uri> {
         val resolver = context.contentResolver
@@ -539,7 +539,7 @@ class AndroidDownloadEngine(private val context: Context) : DownloadEngine {
     }
 
     /**
-     * Devuelve la subcarpeta de destino (`audio` o `video`) creándola en el
+     * Devuelve la subcarpeta de destino (`Música` o `Videos`) creándola en el
      * árbol elegido cuando todavía no existe.
      */
     private fun findOrCreateFolder(treeUri: Uri, folderName: String): Uri {

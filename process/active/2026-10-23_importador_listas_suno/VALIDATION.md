@@ -74,7 +74,65 @@ rechazo del lote vacío.
 | El acelerador no encontraba la canción | El identificador se buscaba en el contenedor equivocado | `rowSongId()` busca `data-id` y enlaces a `/song/<uuid>`, subiendo por los ancestros |
 | Los enlaces salían como `/s/undefined` | Al unificar el normalizador se perdió el grupo de captura de la expresión regular | Se restituyó el grupo en `suno-links.js` |
 
-## 5. Comprobaciones pendientes de la sesión real
+## 5. Diagnóstico: «de Suno las letras no descarga»
+
+**Síntoma**: la descarga `D:\Vídeos\Descargas\audio\Weightless Sleep - Biglex J.flac`
+(23-10-2026 13:03, la primera hecha con el nuevo flujo de publicación) no tiene
+su fichero `.lyrics.txt` acompañante.
+
+**Investigación** (con capturas reales del sitio, no con suposiciones):
+
+| Comprobación | Resultado |
+|---|---|
+| Fichero de audio | Presente: 37.385.956 bytes, título y autor correctos |
+| Fichero de letra | Ausente |
+| Página real completa de la canción (`suno_song_page_live.html`) | La letra **sí** se lee: el fragmento `c7:T1033,[Intro - Female Vocal…]` se resuelve y el texto sale completo |
+| Descarga real de extremo a extremo de una canción **con** letra | Se generan el MP3 (8.162.842 bytes) **y** el `.lyrics.txt` (4.648 bytes) con el texto esperado |
+| Ficha de la canción descargada | `\"prompt\":\"\"` y `\"make_instrumental\":true` |
+
+**Diagnóstico**: no es un fallo del motor. La canción descargada es un
+**instrumental** — Suno no compone letra para ella y la ficha la entrega
+vacía por diseño. Lo único que faltaba era la claridad: el motor callaba
+y el usuario no tenía forma de distinguir «no hay letra» de «no supe leerla».
+
+**Corrección**: `SunoSongMetadata.isInstrumental` distingue ambos casos y el
+registro de la descarga lo dice explícitamente:
+
+- `🎼 La canción es instrumental: Suno no tiene letra que guardar.`
+- `⚠️ La ficha de Suno no incluye la letra de esta canción.` (caso anómalo)
+
+**Inventario de las canciones públicas de la cuenta** (a fecha de hoy):
+
+| Canción | Letra |
+|---|---|
+| Weightless Sleep (×2) | Instrumental — sin letra por diseño |
+| ¿Dónde quedó nuestro amor? | Sí (`$c7`) |
+| Y Que Pasó | Sí (`$c7`) |
+| Hola, Cómo Estás (×2) | Sí (`$cf`) |
+| Más Fuerte Que Ayer | Sí (`$cf`) |
+
+**Pruebas añadidas**: `SunoLivePageParsingTest` con dos capturas reales
+completas — una canción con letra (comprueba título, autor, estilo y letra) y
+una instrumental (comprueba que se reconoce como tal y que no trae letra).
+
+## 6. Carpetas por tipo de medio: `Música` y `Videos`
+
+Biglex pidió que las subcarpetas por tipo se llamen como su biblioteca:
+`Música` para el sonido y `Videos` para lo audiovisual (la carpeta `Videos` ya
+existía con su material de YouTube, de modo que el material de la aplicación
+queda junto a él).
+
+| Comprobación | Resultado |
+|---|---|
+| `MediaFolders.folderFor` | `Música` para MP3/M4A/FLAC/WAV, `Videos` para MP4/WebM |
+| `MediaFolders.resolve` | Añade la subcarpeta correcta y no la anida dos veces |
+| Reparación de material antiguo | `audio` y `video` se reconocen como carpeta de medio: no aparece `audio/Música` |
+| Material ya descargado | `Weightless Sleep - Biglex J.flac` trasladado de `audio/` a `Música/` |
+| Registro de descargas | Ruta actualizada con la misma API de preferencias que usa la aplicación (`java.util.prefs`), de modo que el archivo no se vuelve a descargar |
+| Interfaz | El aviso del destino muestra «Se guardará en la subcarpeta «Música»…» |
+| Pruebas | `MediaFoldersTest` actualizado (7 casos) y suite completa en verde |
+
+## 7. Comprobaciones pendientes de la sesión real
 
 Estas requieren la sesión autenticada de Suno en el navegador de Biglex y no
 pueden ejecutarse desde el entorno de pruebas:

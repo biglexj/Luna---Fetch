@@ -81,6 +81,11 @@ object SunoExtractor {
         val coverUrl: String,
         val videoUrl: String,
         val audioUrl: String = "",
+        /**
+         * Indica que Suno generó la canción como instrumental: en ese caso la
+         * letra viene vacía por diseño y no hay nada que guardar.
+         */
+        val isInstrumental: Boolean = false,
     )
 
     /**
@@ -203,6 +208,16 @@ object SunoExtractor {
                 })
                 onLog("Letra lírica guardada en: ${lyricsFile.name}")
             }
+        } else {
+            // Se distingue el caso esperado (canción instrumental) del
+            // anómalo (la ficha no trae la letra): el primero no es un fallo.
+            onLog(
+                if (meta.isInstrumental) {
+                    "🎼 La canción es instrumental: Suno no tiene letra que guardar."
+                } else {
+                    "⚠️ La ficha de Suno no incluye la letra de esta canción."
+                }
+            )
         }
 
         onProgress(DownloadProgress(100.0, phase = DownloadPhase.Completed))
@@ -282,6 +297,11 @@ object SunoExtractor {
             ?: extractUrlField(html, "image_url", windowStart, windowEnd)
             ?: defaultCoverUrl(id)
 
+        // Suno marca las canciones sin voz con `make_instrumental: true`: su
+        // letra viene vacía por diseño, no por un fallo de lectura.
+        val isInstrumental = Regex("""\\?"make_instrumental\\?"\s*:\s*true""")
+            .containsMatchIn(html.substring(windowStart, windowEnd))
+
         // La cabecera HTML (<title> y la meta descripción) sirve de red de
         // seguridad cuando el payload interno cambia de forma.
         val head = parseHeadMetadata(html)
@@ -299,6 +319,7 @@ object SunoExtractor {
             coverUrl = cover,
             videoUrl = "https://cdn1.suno.ai/$id.mp4",
             audioUrl = "",
+            isInstrumental = isInstrumental,
         )
     }
 

@@ -9,31 +9,39 @@ class MediaFoldersTest {
 
     @Test
     fun separatesAudioAndVideo() {
-        assertEquals("audio", MediaFolders.folderFor(MediaFormat.Mp3))
-        assertEquals("audio", MediaFolders.folderFor(MediaFormat.M4a))
-        assertEquals("audio", MediaFolders.folderFor(MediaFormat.Flac))
-        assertEquals("audio", MediaFolders.folderFor(MediaFormat.Wav))
-        assertEquals("video", MediaFolders.folderFor(MediaFormat.Mp4))
-        assertEquals("video", MediaFolders.folderFor(MediaFormat.WebM))
+        assertEquals("Música", MediaFolders.folderFor(MediaFormat.Mp3))
+        assertEquals("Música", MediaFolders.folderFor(MediaFormat.M4a))
+        assertEquals("Música", MediaFolders.folderFor(MediaFormat.Flac))
+        assertEquals("Música", MediaFolders.folderFor(MediaFormat.Wav))
+        assertEquals("Videos", MediaFolders.folderFor(MediaFormat.Mp4))
+        assertEquals("Videos", MediaFolders.folderFor(MediaFormat.WebM))
     }
 
     @Test
     fun addsSubfolderToDestination() {
-        assertEquals("C:/Descargas/audio", MediaFolders.resolve("C:/Descargas", MediaFormat.Mp3))
-        assertEquals("C:/Descargas/video", MediaFolders.resolve("C:/Descargas", MediaFormat.Mp4))
-        assertEquals("/home/user/Descargas/audio", MediaFolders.resolve("/home/user/Descargas", MediaFormat.Flac))
+        assertEquals("C:/Descargas/Música", MediaFolders.resolve("C:/Descargas", MediaFormat.Mp3))
+        assertEquals("C:/Descargas/Videos", MediaFolders.resolve("C:/Descargas", MediaFormat.Mp4))
+        assertEquals("/home/user/Descargas/Música", MediaFolders.resolve("/home/user/Descargas", MediaFormat.Flac))
     }
 
     @Test
     fun toleratesTrailingSeparators() {
-        assertEquals("C:/Descargas/audio", MediaFolders.resolve("C:/Descargas/", MediaFormat.Mp3))
-        assertEquals("C:/Descargas/audio", MediaFolders.resolve("C:/Descargas\\", MediaFormat.Mp3))
+        assertEquals("C:/Descargas/Música", MediaFolders.resolve("C:/Descargas/", MediaFormat.Mp3))
+        assertEquals("C:/Descargas/Música", MediaFolders.resolve("C:/Descargas\\", MediaFormat.Mp3))
     }
 
     @Test
     fun doesNotNestTwice() {
         // Una reparación escribe en la carpeta del archivo dañado, que ya vive
-        // dentro de la subcarpeta: no debe aparecer `audio/audio`.
+        // dentro de la subcarpeta: no debe aparecer `Música/Música`.
+        assertEquals("C:/Descargas/Música", MediaFolders.resolve("C:/Descargas/Música", MediaFormat.Mp3))
+        assertEquals("C:/Descargas/Videos", MediaFolders.resolve("C:/Descargas/Videos", MediaFormat.Mp4))
+    }
+
+    @Test
+    fun doesNotNestLegacyFolders() {
+        // Los archivos descargados antes del cambio viven en `audio`/`video`:
+        // repararlos no debe crear `audio/Música`.
         assertEquals("C:/Descargas/audio", MediaFolders.resolve("C:/Descargas/audio", MediaFormat.Mp3))
         assertEquals("C:/Descargas/video", MediaFolders.resolve("C:/Descargas/video", MediaFormat.Mp4))
     }
@@ -45,9 +53,10 @@ class MediaFoldersTest {
 
     @Test
     fun detectsFolderPointer() {
-        assertTrue(MediaFolders.pointsToFolder("C:/Descargas/audio", "audio"))
-        assertTrue(MediaFolders.pointsToFolder("C:/Descargas\\VIDEO", "video"))
-        assertFalse(MediaFolders.pointsToFolder("C:/Descargas", "audio"))
-        assertFalse(MediaFolders.pointsToFolder("", "audio"))
+        assertTrue(MediaFolders.pointsToFolder("C:/Descargas/Música", "Música"))
+        assertTrue(MediaFolders.pointsToFolder("C:/Descargas\\VIDEOS", "Videos"))
+        assertTrue(MediaFolders.pointsToFolder("C:/Descargas/audio", "Música"))
+        assertFalse(MediaFolders.pointsToFolder("C:/Descargas", "Música"))
+        assertFalse(MediaFolders.pointsToFolder("", "Música"))
     }
 }

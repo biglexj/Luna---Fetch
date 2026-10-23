@@ -33,3 +33,18 @@
 - [ ] **Tarea 16b**: Prueba manual con la lista real «Espacio Vtuber»: publicación, captura de enlaces, recuento de cola y verificación de los MP3 en `<destino>/audio/` con portada y letra. *Requiere la sesión autenticada de Suno.*
 - [x] **Tarea 17**: Regresión de la extensión con YouTube y TikTok; suite completa de pruebas (`gradlew :composeApp:desktopTest`, 0 fallos).
 - [x] **Tarea 18**: Actualizar `browser-extension/README.md`, `ROADMAP.md` y `RELEASE_NOTES.md`; commit de resguardo (`checkpoint: session 2026-10-23 - importador de listas de Suno`).
+
+## Fase 5 — Diagnóstico de la letra
+
+- [x] **Tarea 19**: Reproducir la queja «de Suno las letras no descarga» con el disco del usuario: `D:\Vídeos\Descargas\audio\Weightless Sleep - Biglex J.flac` sin su `.lyrics.txt`.
+- [x] **Tarea 20**: Capturar la página real y completa de Suno (`suno_song_page_live.html`) y comprobar que el fragmento de la letra (`c7:T1033,…`) sí se resuelve: la letra **se lee bien**.
+- [x] **Tarea 21**: Comprobar el final de la cadena con una descarga real de una canción *con* letra: se generan el MP3 y el `.lyrics.txt` (4.648 bytes) — el motor funciona.
+- [x] **Tarea 22**: Verificar el origen real: la canción descargada es **instrumental** (`make_instrumental: true`, `prompt: ""`); Suno no tiene letra que entregar.
+- [x] **Tarea 23**: Distinguir en el registro del caso esperado del anómalo: «🎼 La canción es instrumental» frente a «⚠️ La ficha no incluye la letra» (`SunoSongMetadata.isInstrumental`).
+- [x] **Tarea 24**: Pruebas con capturas reales (`SunoLivePageParsingTest`): canción con letra y canción instrumental.
+
+## Fase 6 — Carpetas por tipo de medio
+
+- [x] **Tarea 25**: Renombrar las subcarpetas de medio a `Música` y `Videos` (los nombres de la biblioteca del usuario) en escritorio y Android; el texto de la interfaz y las pruebas siguen la misma regla.
+- [x] **Tarea 26**: Reconocer los nombres antiguos (`audio`, `video`) como carpeta de medio, para que la reparación de un archivo descargado antes del cambio no anide `audio/Música`.
+- [x] **Tarea 27**: Migrar el material ya descargado: archivo trasladado a `Música` y rutas del registro de descargas actualizadas con la misma API de preferencias que usa la aplicación.
