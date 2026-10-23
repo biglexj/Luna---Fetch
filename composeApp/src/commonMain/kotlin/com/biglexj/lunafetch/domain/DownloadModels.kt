@@ -109,6 +109,14 @@ data class DownloadRequest(
      * carpeta de destino. Se usa para reparar un archivo dañado.
      */
     val replaceExisting: Boolean = false,
+    /**
+     * Fichero de cookies de sesión (formato Netscape) que acompaña al enlace.
+     *
+     * Lo envía la extensión de navegador: permite leer la ficha real de
+     * plataformas que solo la muestran a la sesión iniciada (Suno, entre
+     * otras) sin necesidad de que el contenido sea público.
+     */
+    val cookieFile: String? = null,
 )
 
 enum class DownloadPhase {

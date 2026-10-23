@@ -34,8 +34,28 @@
       💡 Se descarga en la mejor calidad disponible.
       <br>📥 Puedes enviar varios enlaces: se descargan uno tras otro.
     </div>
+
+    <div class="divider"></div>
+
+    <div class="lbl">☀️ Suno</div>
+    <div class="format-row">
+      <button class="fmt-btn selected" data-sfmt="mp3">🎵 Audio MP3</button>
+      <button class="fmt-btn"          data-sfmt="mp4">🎬 Video MP4</button>
+    </div>
+    <div class="suno-row">
+      <button id="suno-import" class="ghost-btn">Importar lista abierta</button>
+      <button id="suno-copy"   class="ghost-btn">Enviar enlace copiado</button>
+    </div>
+    <label class="switch-row">
+      <input type="checkbox" id="suno-auto">
+      <span>Autoenviar enlaces públicos de Suno</span>
+    </label>
+    <div class="suno-hint">
+      Publica las canciones de la lista abierta y las envía solas a Luna Fetch.
+    </div>
   </div>
 
+  <script src="suno-links.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -62,7 +62,7 @@ ManifestVersion: 1.10.0
 
 PackageIdentifier: biglexj.LunaFetch
 PackageVersion: $Version
-InstallerType: burn
+InstallerType: inno
 Scope: user
 InstallModes:
   - interactive
@@ -71,8 +71,8 @@ InstallModes:
 UpgradeBehavior: install
 ReleaseDate: $releaseDate
 InstallerSwitches:
-  Silent: /quiet
-  SilentWithProgress: /passive
+  Silent: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+  SilentWithProgress: /SILENT /SUPPRESSMSGBOXES /NORESTART
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/biglexj/Luna---Fetch/releases/download/v$Version/LunaFetch-Windows-$Version.exe
@@ -108,7 +108,7 @@ Tags:
   - video
   - youtube
 ReleaseNotes: |-
-  Luna Fetch $Version se publica con instalador EXE para Windows (bootstrapper WiX, con switches /quiet y /passive)
+  Luna Fetch $Version se publica con instalador EXE para Windows (Inno Setup, plantilla Biglex Modern 2.0, con switches /VERYSILENT y /SILENT)
   y APK Android separados para ARM64, ARM32 y x86_64.
 ReleaseNotesUrl: https://github.com/biglexj/Luna---Fetch/releases/tag/v$Version
 ManifestType: defaultLocale
@@ -159,6 +159,9 @@ if (-not $SkipBuild) {
     $tasks = @()
     if (-not $SkipWindows) {
         $tasks += @(
+            # createDistributable: app-image que empaqueta el instalador Inno Setup.
+            # packageExe: bootstrapper WiX Burn + MSI, linea historica que se conserva
+            # durante la transicion (ver packaging\windows\MIGRATION.md).
             ":composeApp:createDistributable",
             ":composeApp:packageExe"
         )
@@ -172,7 +175,15 @@ if (-not $SkipBuild) {
     }
     if (-not $SkipTests) { $tasks = @(":composeApp:desktopTest") + $tasks }
     if ($tasks.Count -gt 0) {
-        Invoke-Checked (Join-Path $root "gradlew.bat") (@("-Dorg.gradle.java.home=$jdk") + $tasks)
+        # Los limites de memoria van en la linea de comandos: el gradle.properties
+        # global de la maquina (GRADLE_USER_HOME) pisa al del proyecto y reserva
+        # -Xmx8g, lo que deja al daemon sin memoria para continuar.
+        $gradleArguments = @(
+            "-Dorg.gradle.java.home=$jdk",
+            "-Dorg.gradle.jvmargs=-Xmx2048m",
+            "-Dfile.encoding=UTF-8"
+        )
+        Invoke-Checked (Join-Path $root "gradlew.bat") ($gradleArguments + $tasks)
     }
 }
 
@@ -197,7 +208,17 @@ $publishedArtifacts = @()
 
 if (-not $SkipWindows) {
     $exe = Join-Path $output "LunaFetch-Windows-$Version.exe"
-    Copy-Item -LiteralPath (Join-Path $root "composeApp\build\compose\binaries\main\exe\LunaFetch-$Version.exe") -Destination $exe
+    # Instalador modernizado con Inno Setup (plantilla Biglex Modern 2.0).
+    # La distribucion de la app ya la genero :composeApp:createDistributable.
+    $installerArguments = @{
+        Version = $Version
+        SkipAppBuild = $true
+        OutputDir = $output
+    }
+    if ($SkipSigning) { $installerArguments['SkipSigning'] = $true }
+    & (Join-Path $root "scripts\packaging\Build-Installer.ps1") @installerArguments
+    if ($LASTEXITCODE -ne 0) { throw "Falló la compilación del instalador de Inno Setup." }
+    if (-not (Test-Path -LiteralPath $exe)) { throw "No se generó el instalador de Windows: $exe" }
     (Get-Item -LiteralPath $exe).IsReadOnly = $false
 
     if (-not $SkipSigning) {

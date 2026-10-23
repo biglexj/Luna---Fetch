@@ -131,7 +131,7 @@ fun main(args: Array<String>) {
         remember {
             LunaSocketServer(
                 onDownloadRequest = { url, format, quality, cookieFile ->
-                    presenter.startDirectDownload(url, format, quality)
+                    presenter.startDirectDownload(url, format, quality, cookieFile = cookieFile)
                 },
                 onAnalyzeRequest = { url, cookieFile ->
                     val info = (bindings.engine as? DesktopDownloadEngine)?.analyzeWithCookieFile(url, cookieFile)

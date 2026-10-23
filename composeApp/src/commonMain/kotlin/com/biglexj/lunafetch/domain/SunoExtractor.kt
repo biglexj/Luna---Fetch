@@ -85,12 +85,16 @@ object SunoExtractor {
 
     /**
      * Analiza una pista de Suno y obtiene todos sus metadatos (título, autor, portada, letra, audio y video).
+     *
+     * @param cookieFile Fichero de cookies de sesión (formato Netscape). Con él,
+     * la ficha llega también en canciones privadas: sin sesión, Suno solo
+     * entrega el esqueleto de la página y el título sería genérico.
      */
-    suspend fun analyze(rawUrl: String): VideoInfo = withContext(Dispatchers.IO) {
+    suspend fun analyze(rawUrl: String, cookieFile: String? = null): VideoInfo = withContext(Dispatchers.IO) {
         val canonicalUrl = resolveCanonicalUrl(rawUrl)
         val id = extractId(canonicalUrl) ?: throw DownloadException("No se pudo identificar el ID único de la canción de Suno.")
 
-        val metadata = fetchMetadata(id)
+        val metadata = fetchMetadata(id, cookieFile)
 
         val uploaderText = when {
             metadata.displayName.isNotBlank() && metadata.creatorHandle.isNotBlank() ->
@@ -121,7 +125,7 @@ object SunoExtractor {
     ): DownloadResult = withContext(Dispatchers.IO) {
         val canonicalUrl = resolveCanonicalUrl(request.url)
         val id = extractId(canonicalUrl) ?: throw DownloadException("No se encontró el ID de la canción de Suno.")
-        val meta = fetchMetadata(id)
+        val meta = fetchMetadata(id, request.cookieFile)
 
         val destinationDir = File(request.destination)
         if (!destinationDir.exists() && !destinationDir.mkdirs()) {
@@ -216,7 +220,7 @@ object SunoExtractor {
         )
     }
 
-    private fun fetchMetadata(id: String): SunoSongMetadata {
+    private fun fetchMetadata(id: String, cookieFile: String? = null): SunoSongMetadata {
         val targetUrl = "https://suno.com/song/$id"
         val connection = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -226,6 +230,9 @@ object SunoExtractor {
             setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
             setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
             setRequestProperty("Referer", "https://suno.com/")
+            // Con la sesión del navegador, Suno entrega la ficha completa
+            // aunque la canción sea privada.
+            sessionCookieHeader(cookieFile)?.let { setRequestProperty("Cookie", it) }
         }
 
         val html = try {
@@ -603,6 +610,20 @@ object SunoExtractor {
             if (target.length() <= 0L) return null
             target
         }.getOrNull()
+    }
+
+    /**
+     * Cabecera `Cookie` de la sesión de Suno a partir del fichero Netscape.
+     *
+     * El fichero lo escribe la extensión de navegador con las cookies de la
+     * cuenta iniciada. Sin él, Suno solo entrega la ficha pública de la
+     * canción; con él, la ficha real llega también a las canciones privadas.
+     */
+    private fun sessionCookieHeader(cookieFile: String?): String? {
+        if (cookieFile.isNullOrBlank()) return null
+        val content = runCatching { File(cookieFile).readText() }.getOrNull() ?: return null
+        val header = NetscapeCookieJar.cookieHeaderForHost(content, "suno.com")
+        return header.takeIf { it.isNotBlank() }
     }
 
     private fun downloadHttpStream(

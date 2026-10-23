@@ -13,6 +13,7 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 - [ ] **Cola de Descargas Simultáneas**: Gestión de descargas en paralelo con límite configurable en la interfaz. *(La cola secuencial de enlaces ya está implementada: los envíos de la extensión, Synapse y el historial se procesan de uno en uno, con estado visible en la interfaz.)*
 - [ ] **Verificación de Integridad Profunda**: Comprobar la cabecera del contenedor y el tamaño esperado por duración para distinguir corrupción real de una descarga simplemente vacía. *(La regla básica ya está implementada: el archivo se considera dañado si existe pero tiene cero bytes, y se rehace y reemplaza en el mismo sitio.)*
 - [x] **Extractor Nativo Suno AI**: Descarga directa de audio/video de canciones de Suno AI con metadatos ID3 y letras sincronizadas (.lyrics.txt).
+- [x] **Importador de Listas de Suno**: La extensión publica en lote la lista abierta de Suno, captura el enlace público de cada canción sin copiarlo a mano y la envía a Luna Fetch en un solo envío, con cookies de sesión para leer también la ficha de las canciones privadas.
 - [x] **Carpetas por Tipo de Medio**: Cada descarga se ordena en la subcarpeta `audio` o `video` de la carpeta elegida, en escritorio y Android, con aviso en la interfaz del destino que se usará.
 - [x] **Soporte Suno Actualizado**: La ficha de Suno se lee del payload real de la página, de modo que el título, el autor, el alias, el estilo, la letra y la portada son los auténticos, y la carátula queda incrustada en el archivo de audio.
 - [x] **Hover con Radio en las Tarjetas**: La indicación de hover y de presión de las tarjetas pulsables respeta el radio de sus esquinas.
@@ -21,6 +22,8 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 - [x] **Resiliencia en Extracción de TikTok**: Mitigación de bloqueos de impersonación y status code 0 mediante fallback de endpoints API y cookies de navegador.
 - [x] **Pruebas Físicas Android**: Validación de descargas reales en dispositivos Android físicos por ABI (ARM64, ARM32, x86_64).
 - [ ] **Empaquetado Linux**: Pruebas de instalación y ejecución en paquetes DEB/RPM.
+- [ ] **Comprobación del Importador de Suno en la Sesión Real**: Ejecutar el importador sobre la lista «Espacio Vtuber» con la extensión cargada en el navegador y confirmar la llegada de los MP3 a `<destino>/audio/` con portada y letra.
+- [ ] **Liberación de Ranuras en Suno**: Endpoint opcional que borra la canción en Suno una vez verificado que el archivo local existe y pesa lo esperado. *Destructivo e irreversible en el servicio: solo se implementa si Biglex lo pide de forma explícita.*
 
 ---
 

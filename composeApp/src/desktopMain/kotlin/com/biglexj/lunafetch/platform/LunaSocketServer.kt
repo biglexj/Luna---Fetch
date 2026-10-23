@@ -17,6 +17,7 @@ import java.net.URLDecoder
  * Endpoints:
  *   POST /analyze
  *   POST /download
+ *   POST /download/batch
  *   GET /download?url=...&format=mp4|mp3
  *   OPTIONS /...  (CORS preflight)
  */
@@ -31,6 +32,55 @@ class LunaSocketServer(
         private fun jsonString(json: String, key: String): String? {
             val pattern = Regex(""""$key"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""")
             return pattern.find(json)?.groupValues?.get(1)
+        }
+
+        /** Convierte las secuencias escapadas de una cadena JSON a su valor real. */
+        private fun unescapeJson(value: String): String {
+            if (!value.contains('\\')) return value
+            val out = StringBuilder(value.length)
+            var index = 0
+            while (index < value.length) {
+                val char = value[index]
+                if (char != '\\' || index == value.length - 1) {
+                    out.append(char)
+                    index += 1
+                    continue
+                }
+                when (val escaped = value[index + 1]) {
+                    'n' -> out.append('\n')
+                    'r' -> out.append('\r')
+                    't' -> out.append('\t')
+                    'b' -> out.append('\b')
+                    'f' -> out.append('')
+                    'u' -> {
+                        val hex = value.substring(index + 2, minOf(index + 6, value.length))
+                        val code = hex.toIntOrNull(16)
+                        if (code != null) {
+                            out.append(code.toChar())
+                            index += 6
+                            continue
+                        }
+                        out.append(escaped)
+                    }
+                    else -> out.append(escaped)
+                }
+                index += 2
+            }
+            return out.toString()
+        }
+
+        /**
+         * Lee un arreglo de cadenas del cuerpo JSON: `{"urls":["…","…"]}`.
+         * Se usa para el envío por lotes del importador de Suno.
+         */
+        private fun jsonStringArray(json: String, key: String): List<String> {
+            val block = Regex(""""$key"\s*:\s*\[(.*?)]""", RegexOption.DOT_MATCHES_ALL)
+                .find(json)?.groupValues?.get(1) ?: return emptyList()
+            return Regex(""""([^"\\]*(?:\\.[^"\\]*)*)"""")
+                .findAll(block)
+                .map { unescapeJson(it.groupValues[1]) }
+                .filter { it.isNotBlank() }
+                .toList()
         }
 
         private fun parseQueryParam(queryString: String, paramName: String): String? {
@@ -148,6 +198,50 @@ class LunaSocketServer(
             }
 
             val method = firstLine.substringBefore(" ")
+
+            // Envío por lotes: una sola petición con N enlaces, en lugar de N
+            // idas y venidas al servidor. Lo usa el importador de listas de Suno.
+            if (path.startsWith("/download/batch") && method == "POST") {
+                val urls = jsonStringArray(bodyString, "urls")
+                if (urls.isEmpty()) {
+                    sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"No se recibió ningún enlace"}""")
+                    return
+                }
+                val results = mutableListOf<String>()
+                var queued = 0
+                var skipped = 0
+                var invalid = 0
+                var pending = 0
+                for (candidate in urls) {
+                    val result = onDownloadRequest(candidate, format, quality, cookieFile)
+                    pending = result.pending
+                    val safeUrl = candidate.replace("\\", "\\\\").replace("\"", "\\\"")
+                    when (result.outcome) {
+                        com.biglexj.lunafetch.domain.EnqueueOutcome.Queued -> {
+                            queued += 1
+                            results += """{"url":"$safeUrl","queued":true,"pending":${result.pending}}"""
+                        }
+                        com.biglexj.lunafetch.domain.EnqueueOutcome.DuplicateInQueue -> {
+                            skipped += 1
+                            results += """{"url":"$safeUrl","queued":false,"reason":"duplicate_queue","pending":${result.pending}}"""
+                        }
+                        com.biglexj.lunafetch.domain.EnqueueOutcome.AlreadyDownloaded -> {
+                            skipped += 1
+                            results += """{"url":"$safeUrl","queued":false,"reason":"already_downloaded","pending":${result.pending}}"""
+                        }
+                        com.biglexj.lunafetch.domain.EnqueueOutcome.InvalidUrl -> {
+                            skipped += 1
+                            invalid += 1
+                            results += """{"url":"$safeUrl","queued":false,"reason":"invalid_url"}"""
+                        }
+                    }
+                }
+                val body = """{"ok":${invalid == 0},"queued":$queued,"skipped":$skipped,"invalid":$invalid,""" +
+                    """"pending":$pending,"results":[${results.joinToString(",")}]}"""
+                sendJsonResponse("HTTP/1.1 200 OK", body)
+                return
+            }
+
             val analyzeHandler = onAnalyzeRequest
             if (path.startsWith("/analyze") && (method == "GET" || method == "POST") && !url.isNullOrBlank() && analyzeHandler != null) {
                 runCatching { analyzeHandler.invoke(url, cookieFile) }

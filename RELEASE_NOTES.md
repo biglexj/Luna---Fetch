@@ -16,6 +16,14 @@
 
 Registro histórico de cambios y versiones del proyecto.
 
+## [1.2.1] — 2026-10-22
+
+Luna Fetch 1.2.1 es el parche sobre la 1.2.0 publicada en GitHub. En este apartado queda recogido el cambio del instalador de Windows y la importación de listas de Suno.
+
+- **Instalador de Windows modernizado (Inno Setup)**: El instalador EXE de Windows se genera ahora con la plantilla propia de Biglex en Inno Setup, con una pantalla única de entrada (presentación, ruta editable y botón principal), progreso y éxito nativos, tema claro/oscuro automático según Windows, esquinas nativas de Windows 11 e ícono centrado. La instalación es por usuario y sin elevación, la actualización se aplica en el mismo directorio (`%LOCALAPPDATA%\Programs\LunaFetch`) sin instalar en paralelo, y la coexistencia con el instalador anterior (bootstrapper Burn con MSI de WiX) queda documentada en `packaging\windows\MIGRATION.md`.
+
+- **Importador de listas de Suno desde el navegador**: La extensión publica en lote las canciones de la lista abierta de Suno, captura el enlace público de cada una sin copiarlo a mano y las envía a Luna Fetch en un único envío por lotes. Todo ocurre dentro de la pestaña de Suno ya autenticada, sin gestionar contraseñas ni iniciar sesión de nuevo. Hay cuatro modos (publicar y enviar, publicar por API acelerada, simulación y solo enlaces), autoenvío de cualquier enlace público de Suno que se copie dentro de la web, envío directo desde el portapapeles del sistema y un modo diagnóstico que vuelca el menú y el diálogo para recalibrar los selectores si Suno cambia su interfaz. Las cookies de la sesión llegan ahora al extractor de Suno, de modo que el título, el autor, el estilo, la letra y la portada son los auténticos también en las canciones privadas.
+
 ## [1.2.0] — Compatibilidad Universal, Formatos Lossless, Flujo Invertido y Notificaciones del Sistema — 2026-09-28
 
 Luna Fetch 1.2.0 introduce compatibilidad universal para descargar contenido desde más de 1,000 plataformas, portales de video, sitios de streaming y redes sociales, eliminando listas blancas restrictivas de dominios. Se expande el catálogo de formatos de audio integrando códecs de ultra alta fidelidad sin compresión (FLAC y WAV) junto a MP3, M4A y OPUS, además de optimizar la selección automática de pistas pre-ensambladas de video en máxima resolución.
@@ -25,6 +33,7 @@ La experiencia móvil se renueva con el nuevo flujo de Descarga Rápida Invertid
 Se implementa un robusto blindaje de red que resuelve errores de acceso y miniaturas protegidas contra hotlinking (HTTP 403/410), gestionando cabeceras seguras de navegación y priorizando transmisiones directas de video de alta estabilidad. Asimismo, se incorpora la arquitectura de empaquetado optimizada para librerías nativas en Android, garantizando paridad de rendimiento con los estándares de extracción más avanzados.
 
 El sistema de notificaciones del sistema operativo notifica en segundo plano tanto en Windows como en Android el estado de cada descarga con alertas interactivas. Por su parte, la extensión de navegador de Chromium adopta una mecánica ágil de un solo uso, cerrando su ventana de forma automática tan pronto como la tarea es transferida a Luna Fetch.
+
 
 ## [1.1.9] — Extensión con Popup Nativo, Sincronización de Cookies Anti-Bot, Single-Instance Refactor y APK Universal — 2026-08-30
 

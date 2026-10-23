@@ -474,6 +474,7 @@ class LunaFetchPresenter(
         source: String = "Extensión",
         force: Boolean = false,
         repairPath: String? = null,
+        cookieFile: String? = null,
     ): EnqueueResult {
         val url = TikTokUtils.sanitizeUrl(rawUrl)
         if (!isSupportedUrl(url)) return EnqueueResult(EnqueueOutcome.InvalidUrl)
@@ -516,6 +517,7 @@ class LunaFetchPresenter(
             source = source,
             canonicalKey = canonicalKey,
             repairPath = repairTarget,
+            cookieFile = cookieFile.orEmpty(),
         )
 
         // La comprobación de duplicados y el encolado ocurren en el mismo
@@ -665,6 +667,7 @@ class LunaFetchPresenter(
             quality = matchedQuality,
             downloadCollection = shouldDownloadCollection,
             replaceExisting = item.isRepair,
+            cookieFile = item.cookieFile.takeIf { it.isNotBlank() },
         )
 
         when (runDownload(request = request, video = video, format = format, quality = matchedQuality, canonicalKey = item.canonicalKey)) {

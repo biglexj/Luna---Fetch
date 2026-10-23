@@ -12,18 +12,72 @@ function Invoke-Checked {
     }
 }
 
-function Get-FullJdk {
-    $candidates = @(
-        "C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot",
-        $env:JAVA_HOME,
-        "C:\Program Files\Android\Android Studio\jbr"
-    ) | Where-Object {
-        $_ -and (Test-Path -LiteralPath (Join-Path $_ "bin\jpackage.exe"))
+function Get-JdkMajorVersion {
+    param([Parameter(Mandatory)] [string]$JdkPath)
+
+    $releaseFile = Join-Path $JdkPath "release"
+    if (Test-Path -LiteralPath $releaseFile) {
+        $releaseContent = Get-Content -LiteralPath $releaseFile -Raw -ErrorAction SilentlyContinue
+        if ($releaseContent) {
+            $match = [regex]::Match($releaseContent, '(?m)^JAVA_VERSION="?(\d+)')
+            if ($match.Success) { return [int]$match.Groups[1].Value }
+        }
     }
 
-    $jdk = $candidates | Select-Object -First 1
-    if (-not $jdk) { throw "Configura JAVA_HOME con un JDK completo que incluya jpackage.exe." }
-    return $jdk
+    $java = Join-Path $JdkPath "bin\java.exe"
+    if (-not (Test-Path -LiteralPath $java)) { return $null }
+    try {
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = $java
+        $startInfo.Arguments = "-version"
+        $startInfo.RedirectStandardError = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.UseShellExecute = $false
+        $process = [System.Diagnostics.Process]::Start($startInfo)
+        $output = $process.StandardError.ReadToEnd() + $process.StandardOutput.ReadToEnd()
+        $process.WaitForExit()
+        $match = [regex]::Match($output, 'version "(\d+)')
+        if ($match.Success) { return [int]$match.Groups[1].Value }
+    } catch {
+        return $null
+    }
+    return $null
+}
+
+function Get-FullJdk {
+    # Se busca cualquier JDK 17 completo instalado (Microsoft, Adoptium, Corretto,
+    # Zulu o el JBR de Android Studio) y se valida la version mayor antes de usarlo:
+    # un JDK 25 rompe el compilador de Kotlin en este proyecto.
+    $requiredMajor = 17
+    $searchRoots = @(
+        "C:\Program Files\Microsoft",
+        "C:\Program Files\Eclipse Adoptium",
+        "C:\Program Files\Java",
+        "C:\Program Files\Zulu",
+        "C:\Program Files\Amazon Corretto",
+        "C:\Program Files\Android\Android Studio\jbr"
+    )
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+    foreach ($searchRoot in $searchRoots) {
+        if (-not (Test-Path -LiteralPath $searchRoot)) { continue }
+        $directories = Get-ChildItem -LiteralPath $searchRoot -Directory -ErrorAction SilentlyContinue
+        foreach ($directory in $directories) {
+            if ($directory.Name -match '^(?:jdk|jre|jbr|temurin|corretto)-?(\d+)' -or $directory.Name -eq "jbr") {
+                $candidates.Add($directory.FullName)
+            }
+        }
+    }
+    if ($env:JAVA_HOME) { $candidates.Add($env:JAVA_HOME) }
+
+    foreach ($candidate in $candidates) {
+        if (-not (Test-Path -LiteralPath (Join-Path $candidate "bin\jpackage.exe"))) { continue }
+        if (-not (Test-Path -LiteralPath (Join-Path $candidate "bin\javac.exe"))) { continue }
+        $major = Get-JdkMajorVersion -JdkPath $candidate
+        if ($major -eq $requiredMajor) { return $candidate }
+    }
+
+    throw "No se encontro un JDK $requiredMajor completo (con javac.exe y jpackage.exe). Instala un JDK $requiredMajor o configura JAVA_HOME con uno."
 }
 
 function Get-WindowsSdkTool {

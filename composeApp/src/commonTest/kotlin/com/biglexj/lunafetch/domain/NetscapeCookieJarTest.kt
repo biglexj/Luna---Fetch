@@ -2,6 +2,7 @@ package com.biglexj.lunafetch.domain
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NetscapeCookieJarTest {
@@ -59,5 +60,27 @@ class NetscapeCookieJarTest {
         assertEquals("age_verified", cookies[0].name)
         assertEquals("1", cookies[0].value)
         assertEquals(".pornhub.com", cookies[0].domain)
+    }
+
+    @Test
+    fun cookieHeaderForHostKeepsOnlyTheDomainOfTheHost() {
+        val content = """
+            # Netscape HTTP Cookie File
+            .suno.com	TRUE	/	TRUE	0	session	suno-session-value
+            .www.suno.com	TRUE	/	TRUE	0	other	sub-value
+            .youtube.com	TRUE	/	TRUE	0	yt	yt-value
+        """.trimIndent()
+
+        val header = NetscapeCookieJar.cookieHeaderForHost(content, "suno.com")
+        assertTrue(header.contains("session=suno-session-value"))
+        assertTrue(header.contains("other=sub-value"))
+        assertFalse(header.contains("yt-value"))
+    }
+
+    @Test
+    fun cookieHeaderForHostIgnoresUnrelatedDomains() {
+        val content = ".youtube.com\tTRUE\t/\tTRUE\t0\tSID\tyoutube-value"
+        val header = NetscapeCookieJar.cookieHeaderForHost(content, "suno.com")
+        assertEquals("", header)
     }
 }

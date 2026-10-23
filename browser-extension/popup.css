@@ -86,3 +86,43 @@ input[type="text"]:focus { border-color: #2ec4a3; }
   color: #888;
   line-height: 1.5;
 }
+
+/* ── Sección Suno ───────────────────────────────────────────────────────── */
+.divider {
+  margin: 12px 0 4px;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
+.suno-row { display: flex; gap: 8px; margin: 4px 0 6px; }
+.ghost-btn {
+  flex: 1;
+  padding: 7px 6px;
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .05);
+  color: #cdd6f4;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all .15s ease;
+}
+.ghost-btn:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.ghost-btn:active { transform: scale(.98); }
+.ghost-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #cdd6f4;
+  cursor: pointer;
+}
+.switch-row input { accent-color: #2ec4a3; margin: 0; }
+
+.suno-hint {
+  margin-top: 5px;
+  font-size: 11px;
+  color: #888;
+  line-height: 1.45;
+}

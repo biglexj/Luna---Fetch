@@ -43,6 +43,12 @@ data class QueuedDownload(
      * descarga se escribe en la misma carpeta y reemplaza el archivo original.
      */
     val repairPath: String = "",
+    /**
+     * Fichero de cookies de sesión (formato Netscape) que acompaña al enlace.
+     * Lo aporta la extensión de navegador para que las plataformas con sesión
+     * (Suno) entreguen la ficha real del contenido.
+     */
+    val cookieFile: String = "",
 ) {
     val isPending: Boolean get() = status == QueueItemStatus.Pending
     val isRunning: Boolean get() = status == QueueItemStatus.Running

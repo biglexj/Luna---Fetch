@@ -133,6 +133,30 @@ object NetscapeCookieJar {
         cookies.forEach { appendLine(it.toNetscapeLine()) }
     }
 
+    /**
+     * Construye la cabecera `Cookie` de una petición a [host] a partir de un
+     * fichero en formato Netscape.
+     *
+     * Se usa para los sitios que solo entregan su ficha a la sesión iniciada
+     * (Suno, por ejemplo): sin estas cookies, una canción privada llega al
+     * extractor con el título genérico y la portada por defecto.
+     */
+    fun cookieHeaderForHost(content: String, host: String): String {
+        val root = rootDomainOf(host).lowercase()
+        if (root.isBlank()) return ""
+        return parse(content)
+            .filter { matchesHost(it.domain, root) }
+            .joinToString("; ") { "${it.name}=${it.value}" }
+            .trim()
+    }
+
+    /** ¿El dominio de la cookie corresponde al host solicitado? */
+    private fun matchesHost(cookieDomain: String, root: String): Boolean {
+        val domain = cookieDomain.trim().removePrefix(".").lowercase()
+        if (domain.isBlank()) return false
+        return domain == root || root.endsWith(".$domain") || domain.endsWith(".$root")
+    }
+
     fun defaultClearanceForUrl(url: String): List<NetscapeCookie> {
         val lower = url.lowercase()
         val list = mutableListOf<NetscapeCookie>()

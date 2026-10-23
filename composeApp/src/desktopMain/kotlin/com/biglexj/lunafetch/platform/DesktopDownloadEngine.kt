@@ -32,7 +32,7 @@ class DesktopDownloadEngine(
 
     suspend fun analyzeWithCookieFile(url: String, customCookieFile: String? = null): VideoInfo = withContext(Dispatchers.IO) {
         if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(url)) {
-            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.analyze(url)
+            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.analyze(url, customCookieFile)
         }
 
         val analyzeOptions = YtdlpProtocol.buildAnalyzeArguments(url)
@@ -49,7 +49,7 @@ class DesktopDownloadEngine(
         request: DownloadRequest,
         onProgress: (DownloadProgress) -> Unit,
         onLog: (String) -> Unit,
-    ): DownloadResult = downloadWithCookieFile(request, null, onProgress, onLog)
+    ): DownloadResult = downloadWithCookieFile(request, request.cookieFile, onProgress, onLog)
 
     suspend fun downloadWithCookieFile(
         request: DownloadRequest,

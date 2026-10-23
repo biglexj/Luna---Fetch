@@ -276,9 +276,9 @@ class DesktopPlatformBindings : PlatformBindings {
             ?: File(System.getenv("LOCALAPPDATA") ?: ".", "Luna Fetch/Luna Fetch.exe").absolutePath
 
         // Comando cmd desasociado: espera 2s a que la app antigua se cierre, ejecuta el instalador EXE en
-        // modo /passive (bootstrapper WiX: progreso visible, sin interacción) y relanza Luna Fetch
+        // modo silencioso con progreso (Inno Setup) y relanza Luna Fetch
         val installCmd =
-            "timeout /t 2 /nobreak > nul & start /wait \"\" \"$absPath\" /passive & start \"\" \"$currentExePath\""
+            "timeout /t 2 /nobreak > nul & start /wait \"\" \"$absPath\" /SILENT /SUPPRESSMSGBOXES /NORESTART & start \"\" \"$currentExePath\""
 
         runCatching {
             ProcessBuilder("cmd.exe", "/c", installCmd).start()
