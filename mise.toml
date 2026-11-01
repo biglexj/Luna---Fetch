@@ -3,12 +3,12 @@
 
 [tasks.dev]
 raw_args = true
-description = "Ejecutar Luna Fetch en desarrollo (Compose Multiplatform / Desktop)"
+description = "Ejecutar Luna Fetch en desarrollo (Desktop por defecto, o 'android' para instalar en móvil)"
 file = "scripts/mise-task.ts"
 
 [tasks.build]
 raw_args = true
-description = "Compilar ejecutable de escritorio sin generar instalador"
+description = "Compilar ejecutable Desktop o APK de Android ('mise build' o 'mise build android')"
 file = "scripts/mise-task.ts"
 
 [tasks.release]

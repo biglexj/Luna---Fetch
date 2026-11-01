@@ -147,19 +147,25 @@ export async function main(args = Bun.argv.slice(2)): Promise<number> {
     const isPlan = rest.includes("--plan");
 
     if (action === "dev") {
-        const cmd = ["cmd", "/c", "gradlew.bat", ":composeApp:run"];
-        console.log(`dev ${appName}\nDirectorio: ${root}\nComando: ${cmd.join(" ")}`);
+        const isAndroid = rest.some((arg) => arg.toLowerCase() === "android");
+        const cmd = isAndroid
+            ? ["cmd", "/c", "gradlew.bat", ":composeApp:installDebug"]
+            : ["cmd", "/c", "gradlew.bat", ":composeApp:run"];
+        console.log(`dev ${appName} (${isAndroid ? "Android" : "Desktop"})\nDirectorio: ${root}\nComando: ${cmd.join(" ")}`);
         if (isPlan) return 0;
         const child = Bun.spawn(cmd, { cwd: root, stdin: "inherit", stdout: "inherit", stderr: "inherit" });
         return (await child.exited) ?? 0;
     }
 
     if (action === "build") {
-        const cmd = ["cmd", "/c", "gradlew.bat", ":composeApp:packageExe"];
-        console.log(`build ${appName}\nDirectorio: ${root}\nComando: ${cmd.join(" ")}`);
+        const isAndroid = rest.some((arg) => arg.toLowerCase() === "android");
+        const cmd = isAndroid
+            ? ["cmd", "/c", "gradlew.bat", ":composeApp:assembleRelease"]
+            : ["cmd", "/c", "gradlew.bat", ":composeApp:packageExe"];
+        console.log(`build ${appName} (${isAndroid ? "Android" : "Desktop"})\nDirectorio: ${root}\nComando: ${cmd.join(" ")}`);
         if (isPlan) return 0;
 
-        console.log("\n==> Compilando ejecutable de escritorio Compose Multiplatform...");
+        console.log(`\n==> Compilando ${isAndroid ? "APK de Android" : "ejecutable de escritorio"} Compose Multiplatform...`);
         const child = Bun.spawn(cmd, { cwd: root, stdin: "inherit", stdout: "inherit", stderr: "inherit" });
         return (await child.exited) ?? 0;
     }
