@@ -1,6 +1,6 @@
 {
   "name": "luna-fetch",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Luna Fetch — Descargador multiplataforma de video y audio de alta calidad para Windows y Android",
   "private": true,
   "scripts": {
@@ -16,7 +16,7 @@
     "release:local": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/build-release.ps1 -LocalOnly",
     "release:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/build-release.ps1 -SkipAndroid -LocalOnly",
     "release:android": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/build-release.ps1 -SkipWindows -LocalOnly",
-    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/build-release.ps1",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/build-release.ps1 -LocalOnly",
     "release:publish": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/build-release.ps1"
   },
   "keywords": [
