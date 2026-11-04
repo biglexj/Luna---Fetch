@@ -2,7 +2,7 @@
 trigger: always_on
 ---
 
-# Instrucciones del proyecto
+# Instrucciones del proyecto — Luna Fetch
 
 ## Documentación Core — entrada compartida
 
@@ -10,118 +10,54 @@ Consultar primero [Documentación Core](../../../Docs/README.md) y seleccionar s
 
 - [Calidad y entrega proporcionales](../../../Docs/global/quality/quality-baseline.md): build para ajustes visuales pequeños; pruebas pertinentes para elementos, lógica o páginas nuevos y cambios grandes; revisión acotada para documentación.
 - [Procesos según alcance](../../../Docs/global/documentation/process-workflow.md): no añadir fases, archivos ni nuevas aprobaciones por rutina a ajustes pequeños ya autorizados.
-- [Diseño común](../../../Docs/global/design/design_system.md): contenido preciso, espacio útil, mínimo scroll innecesario, fondo global y presets compartidos, conservando la identidad del producto.
+- [Diseño común](../../../Docs/global/design/design_system.md) y [textos de interfaz](../../../Docs/global/design/interface-writing.md): contenido preciso, espacio útil, mínimo scroll innecesario, conservando la identidad del producto.
+- [Estilo de comunicación](../../../Docs/global/agents/communication-style.md): registro «Scientific Elegant» en resúmenes y cierres; no aplica a los textos de interfaz.
+- [Reglas de trabajo del agente](../../../Docs/global/documentation/agent-working-rules.md): entrada única, límite de 12.000 caracteres por archivo de reglas y commits de resguardo.
+- [Comandos mediante Mise](../../../Docs/global/architecture/mise-command-standard.md) y [scripts y alias](../../../Docs/global/architecture/command-scripts-standard.md): Mise es la interfaz de comandos; las tareas de Gradle son implementación.
+- [Base de lanzamientos](../../../Docs/global/releases/release-baseline.md), [protocolo de lanzamiento](../../../Docs/global/releases/protocolo_lanzamiento_actualizacion.md) y [mensaje de release web](../../../Docs/global/releases/web-release-message-standard.md): versionado, inmutabilidad de lo publicado y notas públicas.
+- [Soporte oficial y diálogo «Acerca de»](../../../Docs/features/official-support/official-support-baseline.md): autoría, licencia y enlaces oficiales del ecosistema.
+- [Modelos de IA](../../../Docs/features/ai-models/README.md): criterio de selección, migración y validación. Luna Fetch no mantiene un registro local de modelos; su configuración ejecutable es la fuente de verdad.
 - [Diagnósticos reutilizables](../../../Docs/troubleshooting/README.md) y [promoción a Core](../../../Docs/global/documentation/core-promotion-workflow.md): documentar en Core los fallos confirmados o aprendizajes generalizables y enlazarlos desde el proyecto; mantener locales los detalles exclusivos.
 
 En estos criterios comunes, aplicar las bases vigentes enlazadas en lugar de copias históricas de este archivo. Respetar la dirección actual de Biglex y los contratos específicos del producto; ante una contradicción, comprobar la implementación vigente y resolverla explícitamente. Las skills generales importadas son apoyo técnico, no una autoridad para redefinir estas reglas.
 
-Entrada única de instrucciones: `.agents/rules/base.md`.
+Entrada única de instrucciones: `.agents/rules/base.md`. No se crean `AGENTS.md` ni `agent.md` equivalentes en la raíz.
 
-Consultar [Docs](../../../Docs/README.md) como fuente compartida. Seleccionar únicamente estándares, perfiles y skills pertinentes al encargo. Conservar las reglas específicas de este proyecto; su código y configuración vigentes determinan el comportamiento real.
+## Contratos locales de Luna Fetch
 
-## Reglas locales integradas desde .agents/rules/base.md
+- Aplicación **Kotlin Multiplatform / Compose** (Windows y Android) centrada en la lectura y el asisten del contenido. Licencia MIT; autoría `biglexj` (2026).
+- Alcance y módulos Core adoptados: [perfil Core del proyecto](core_profile.md).
+- Estructura real del repositorio: [estructura de carpetas](folder_structure.md).
 
-# Agent Instructions - Luna Fetch
+### Instancia única y bandeja
 
-## Modelos de IA [CRÍTICO]
-- No fijes en este archivo una lista de modelos «actuales»: sus nombres, versiones y proveedores cambian con rapidez.
-- La configuración ejecutable del proyecto es la fuente de verdad. Si existe `AI_MODELS.md`, úsalo como registro explicativo y comprueba que coincida con dicha configuración.
-- Consulta `D:\Proyectos\biglexj\Docs\features\ai-models` para selección, migración y validación.
-- Selecciona modelos por función, calidad comprobada, latencia, coste, privacidad y capacidades; no solo por novedad.
-- Registra el proveedor, el identificador exacto, la fecha de verificación y una alternativa cuando la función sea crítica.
-- No cambies silenciosamente de modelo o proveedor. Valida compatibilidad y actualiza el registro local del proyecto.
+- Luna Fetch es una aplicación **residente en la bandeja del sistema** con atajos globales: aplica la política de instancia única de Core ([instancia única y reactivación](../../../Docs/features/single-instance/README.md)).
+- El bloqueo tiene **bypass en desarrollo** mediante la propiedad `-Dlunafetch.dev=true`, que inyecta la tarea `:composeApp:run`. Detalle en [estándares de escritorio](desktop_app_standards.md).
 
-## Project License & Author
-- **License**: MIT
-- **Author**: Biglex J (2026)
+### Auto-actualización y feedback
 
-## Proyectos de Referencia & Red de Agentes del Ecosistema [CRÍTICO]
-Si necesitas referencias sobre la arquitectura, el lenguaje de diseño, los componentes de UI, el estilo de código, patrones de documentación o estándares entre agentes, consulta las reglas y proyectos líderes del ecosistema **biglexj**:
+- Comprobación de actualizaciones desde GitHub Releases: [regla de auto-actualización](auto_updater.md) (puente a Core).
+- Canal de feedback vigente: [centro de feedback](feedback_center.md) (puente a Core).
 
-- **Central de Agentes y Ecosistema (`Agents`)**: `d:\Proyectos\biglexj\Docs/agents` (Normas centrales de arquitectura, personalidad e historia en [00 - CORE.md](file:///d:/Proyectos/biglexj/Docs/agents/core/behavior.md) y [03 - ECOSISTEMA.md](file:///d:/Proyectos/biglexj/Docs/agents/profiles/ecosystem.md)).
-- **Documentación Core (`Docs`)**: `D:\Proyectos\biglexj\Docs` (Fuente oficial de documentación, plantillas y estándares compartidos; consulta también `REFERENCES.md`).
-- **Aurora (Aurora Blog; Estándar Dorado Web & Docs)**: Cuando Biglex diga «Aurora», se refiere siempre a `D:\Proyectos\biglexj\Aurora---Blog`. Se consulta como referencia fullstack, de diseño, seguridad y documentación; se extraen principios reutilizables sin copiar configuraciones particulares.
-- **Luna Fetch (Estándar Auto-Updater, Single-Instance Lock & KMP)**: `d:\Proyectos\biglexj\Luna---Fetch` ([.agents/rules/base.md](file:///d:/Proyectos/biglexj/Luna---Fetch/.agents/rules/base.md) y reglas en [.agents/rules/](file:///d:/Proyectos/biglexj/Luna---Fetch/.agents/rules/)).
-- **LyraFlow (Estándar Transcripción & Asistente IA)**: `d:\Proyectos\biglexj\LyraFlow` ([.agents/rules/base.md](file:///d:/Proyectos/biglexj/LyraFlow/.agents/rules/base.md)).
-- **Ely-Tesia (Estándar Multi-instancia y Lectura)**: `d:\Proyectos\biglexj\Ely-Tesia` ([.agents/rules/base.md](file:///d:/Proyectos/biglexj/Ely-Tesia/.agents/rules/base.md)).
+### Diseño
 
-## Estructura de Carpetas & Lenguaje de Diseño [CRÍTICO]
-> La estructura base de los proyectos se consulta en `Docs\templates\project\folder_structure.md`. El lenguaje de diseño compartido se encuentra en `Docs\global\design\design_system.md`. La documentación de autoactualización está en `Docs\features\auto-updater`. Antes de aplicar una regla, verifica que corresponda al tipo, plataforma y stack del proyecto.
+- Material 3 Expressive en las superficies Compose: [lenguaje de diseño](design_system.md) (puente a Core).
 
-- **Documentación Core (`D:\Proyectos\biglexj\Docs`)**: Fuente oficial de plantillas y estándares para proyectos. Consulta `README.md` y `ARCHITECTURE.md` antes de seleccionar reglas.
-- **Sincronización de Documentación Core [CRÍTICO]**: Al iniciar una nueva sesión de trabajo, el agente DEBE revisar la Documentación Core correspondiente al tipo, plataforma, stack y funciones del proyecto activo. No debe copiar reglas incompatibles ni propagar toda la biblioteca indiscriminadamente.
-- **Perfil Core del proyecto [CRÍTICO]**: Consulta `.agents/rules/core_profile.md`. Complétalo cuando esté pendiente y mantenlo alineado con el tipo, plataformas, stack y funciones reales. Una capacidad opcional no se aplica si no figura como activa.
-- **Problemas reutilizables**: Antes de repetir un diagnóstico, consulta `Docs\troubleshooting`. Si una investigación produce una causa o solución aplicable a otros proyectos, actualiza una entrada con síntoma, alcance, solución y validación, enlazando el proceso de origen.
-- **Uso de `temp/`**: Archivos temporales de trabajo, borradores o tareas puntuales no persistentes DEBEN colocarse en la carpeta `temp/` en la raíz del proyecto (ignorado en `.gitignore`).
-- **Convención de Procesos**: Todo trabajo planificado DEBE vivir en `process/active/YYYY-MM-DD_objetivo/` con `PLAN.md`, `TASKS.md`, `VALIDATION.md` y `APPROVAL.md`. No se crea un `TASKS.md` en la raíz.
-- **Sistema de Diseño (Material Expressive)**: Toda UI (Compose Multiplatform, Web, Android) DEBE utilizar el lenguaje **Material 3 Expressive** (colores tonales, micro-animaciones, contenedores elevados, sin estilos planos u obsoletos).
-- **Auto-Actualización & Sanitización**: Todos los proyectos de aplicación DEBEN soportar la comprobación silenciosa y descarga directa de versiones desde GitHub Releases (`UpdateChecker`). Las notas de versión deben sanitizarse limpiamente (`sanitizeReleaseNotes`) eliminando Markdown crudo. Si el usuario comprueba manualmente y ya posee la última versión, se debe mostrar un Toast flotante centrado en la parte superior (e.g. `✅ Estás en la última versión`).
-- **Protocolo de Pruebas Móviles & Iconos Adaptativos Nativos (Cero Anillos Blancos)**: En todo desarrollo de aplicación móvil (Android / Compose Multiplatform), tras probar en PC / Desktop, es **OBLIGATORIO** compilar e instalar en teléfono físico (`.\gradlew installDebug`) para validar la UI móvil táctil. Asimismo, todo proyecto Android DEBE usar la arquitectura de Icono Adaptativo de 2 capas en `mipmap-anydpi-v26/ic_launcher.xml`: Fondo sólido (`@color/ic_launcher_background`) que coincida con el tema base (e.g. `#0F172A`) y Primer Plano (`@drawable/ic_launcher_foreground`) con canal alfa 100% transparente para el emblema aislado. Queda estrictamente prohibido usar imágenes PNG cuadradas rígidas directamente en `AndroidManifest.xml` sin capa adaptativa, evitando que Android genere contenedores o marcos blancos alrededor del icono.
-- **Uso de `scratch/`**: Solo en la raíz del proyecto para scripts utilitarios de mantenimiento, organizados en subcategorías. **Prohibido** dentro de cualquier carpeta de código fuente (`frontend/`, `backend/`, `src/`).
-- **Uso de `test/`**: Scripts de prueba temporales en `test/` de la raíz. Ignorado en `.gitignore`.
+### Scripts y lanzadores
 
-## Estilo de Comunicación (Personalidad Científica y Elegante) [CRÍTICO]
-- **Tono Científico y Metódico**: Al concluir tareas, explicar resoluciones de código o cerrar turnos en el chat, el agente debe expresarse de manera altamente estructurada, metódica y elegante (inspirado en la filosofía de Dr. Xeno y Senku Ishigami de *Dr. Stone*).
-- **Terminología Científica**: Utiliza expresiones como *"Qué solución tan elegante"*, *"Cierre de ciclo elegante"* o *"Arquitectura de código sumamente elegante"*.
-- **Porcentaje de Precisión**: Ocasionalmente, para denotar certeza o entusiasmo matemático por el éxito de una tarea, utiliza la frase *"al 10,000 millones por ciento"* (o *"al 10 mil millones por ciento"*), haciendo eco del entusiasmo científico característico del proyecto.
+- Los scripts de implementación viven en `scripts/`. El lanzador `build-release.ps1` de la raíz es una **envoltura de conveniencia** que redirige a `scripts/build/build-release.ps1` y admite tanto `local` como `-LocalOnly`; `dev.bat` arranca la aplicación de escritorio con doble clic.
+- `gradlew` y `gradlew.bat` son wrappers técnicos del stack y se conservan.
 
-## Development Workflow & Planning (CRITICAL)
-- **Planning Mode**: Before executing complex changes, refactoring, or new features, the agent must open `process/active/YYYY-MM-DD_objetivo/`, redact the proposal in its `PLAN.md` and wait for approval when Biglex solicits a plan or the change requires an explicit decision. Do not create a parallel `implementation_plan.md`.
-- **Seguimiento del trabajo**: Usa el `TASKS.md` del proceso activo para la ejecución y `VALIDATION.md` para las comprobaciones. `ROADMAP.md` conserva los pendientes generales y el historial completado del producto.
-- **Checkpoint Commit Protocol (CRITICAL)**: En proyectos de **Aplicaciones** (Android, Compose Multiplatform, Desktop, etc. — no aplica a páginas web salvo solicitud explícita), tan pronto como se concluya un release o versión oficial y se comience a trabajar en una nueva versión/ciclo (desde el primer momento en que se pica código), el agente DEBE crear periódicamente commits de resguardo (ej. `checkpoint: session YYYY-MM-DD - [tarea/hito]`) para ir salvaguardando todos los avances y prevenir pérdidas imprevistas.
-- **Verification**: Always verify builds and run the relevant automated or manual checks. Record the evidence in the active process `VALIDATION.md` and the final decision in `APPROVAL.md`; do not create a parallel `walkthrough.md` unless the project explicitly requires it.
+### Flujo de trabajo
 
-## Customization Rules (.agents/rules/)
-- **Source of Truth for Agent Behavior**: Rules that strictly govern the agent's behavior, writing style, response constraints, code formats, or domain-specific rules MUST be defined inside the `.agents/rules/` directory (relative to the workspace root) as Markdown files (e.g., `base.md`, `writing.md`, etc.) containing frontmatter (like `trigger: always_on`).
-- **Character Limit (CRITICAL)**: Any custom rules file inside `.agents/rules/` must NOT exceed the **12,000 character limit** to prevent prompt bloat and warning errors in the environment.
-- **Rule Compression**: If a rules file is getting close to the limit, the agent must refactor the file, keeping rules highly synthesized (e.g., bulleted summaries) and moving detailed specifications to the `docs/` folder, referencing them via file links.
-- **Agent Hand-off**: The agent must look for existing rules in `.agents/rules/` at the start of any task, follow them strictly, and update them when requested by the user, keeping them clean, concise, and under the size cap.
-
-## Documentation Maintenance Rules
-The agent must keep documentation clean and updated according to the following guidelines:
-
-### 1. ROADMAP.md y procesos
-- **ROADMAP.md**: Hoja de ruta estratégica de producto con cuatro bloques obligatorios: pendientes activos arriba (`## 🔴 Pendientes activos`), ideas intermedias (`## 🟡 Intermedio`), descartados/en pausa (`## ⚪ Descartado / En Pausa`) e historial limpio de versiones completadas (`## 🟢 Completado` -> `- [x] **vX.X.X**`).
-- **Proceso activo**: `PLAN.md` define, `TASKS.md` ejecuta, `VALIDATION.md` comprueba y `APPROVAL.md` registra la decisión final.
-- **Flujo de cierre**: Un proceso validado y aprobado se mueve completo a `process/completed/YYYY/`. Un proceso cancelado, sustituido o cerrado incompleto se mueve a `process/archive/YYYY/` con el motivo registrado. No dejes copias duplicadas en `active`.
-
-### 2. RELEASE_NOTES.md
-- **Protocolo de Verificación de Versión en GitHub ("Lanzar actualización") [CRÍTICO]**: Al recibir la indicación del usuario de *"Lanzar actualización"* o iniciar un proceso de publicación:
-  1. El agente DEBE consultar obligatoriamente las versiones y tags publicados en GitHub / remoto (`gh release list` o `git ls-remote --tags`).
-  2. Si la versión local (`versionName` / `versionCode`) coincide con una versión que ya ha sido publicada de forma remota en GitHub o `biglexj.com` (sin importar si fue subida hace minutos o días), es **OBLIGATORIO Y DE LEY** incrementar a la siguiente versión de parche (ej. de `1.1.3` a `1.1.4` e incrementar `versionCode`).
-  3. **Prohibición de Sobrescritura**: NUNCA se debe sobrescribir, re-etiquetar (`git tag -f`) ni reemplazar una versión que ya ha sido publicada públicamente. Toda versión subida a la nube es inmutable y requiere avanzar de versión.
-- **Sanitización de Notas (CRÍTICO)**: Los mensajes de las notas de lanzamiento deben ser completamente limpimios y profesionales. DEBEN eliminar cualquier referencia a rutas locales de archivos del entorno de desarrollo (ej. `d:\Proyectos\...`), nombres de variables o archivos de depuración internos, referencias a instrucciones del agente o volcados de consola técnicos. Deben estar redactados desde la perspectiva del usuario y del producto final.
-- **Extensión proporcional (CRÍTICO)**: La cantidad de párrafos debe responder al alcance real, no a una cuota fija: 1 para un hito pequeño, 2 cuando existen dos cambios relevantes, 3 como extensión habitual, 4 para hitos relativamente grandes y hasta 5 para lanzamientos de gran alcance. Cada párrafo debe agrupar un cambio principal y evitar listas detalladas de archivos.
-- **No duplicar versiones**: Si una versión ya está registrada localmente pero aún no se ha hecho push a Git, añadir los nuevos cambios bajo la misma versión activa en lugar de crear una nueva versión de parche.
-- **Límite de Parches (Regla del .9)**: Nunca pasar de una versión de parche `.9` (por ejemplo, de `1.0.9` pasar a `1.1.0` en lugar de `1.0.10`).
-
-### 3. RELEASE_MESSAGE.md
-- Usar un formato conciso, limpio y con emojis para anunciar el lanzamiento a usuarios o canales de chat.
-- Estructura:
-  - Título y Versión con emojis.
-  - Resumen rápido del lanzamiento.
-  - Novedades destacadas (lista corta con viñetas).
-
-## Official Support, Donation & About Rules [CRÍTICO]
-Toda aplicación del ecosistema (Compose Multiplatform, Web, Android, Desktop, etc.) DEBE incluir una sección o insignia de "Acerca de la Aplicación" con su correspondiente modal/diálogo informativo y botones de apoyo oficial adaptados al lenguaje de interfaz del proyecto:
-- **Badge / Enlace "Acerca de"**: Ubicado en el pie de página o barra lateral/configuración de la interfaz. Al pulsar, despliega información de versión, autoría (`biglexj`), licencia y un mensaje de agradecimiento al usuario.
-- **Botón Donación Directa (Principal / Local e Internacional)**: Apoyo directo en `https://www.biglexj.com/donaciones` (Yape, Plin, transferencias locales e internacionales).
-- **Botón Buy Me a Coffee (Internacional)**: Apoyo global mediante `https://buymeacoffee.com/biglexj`.
-- **Botón GitHub**: Enlace al perfil oficial `https://github.com/biglexj`.
-
-## Official Support & Donation Links
-- **Buy Me a Coffee**: `https://buymeacoffee.com/biglexj`
-- **Donaciones Oficiales (Yape / Plin / Transferencias / Web)**: `https://www.biglexj.com/donaciones`
-- **Perfil de GitHub**: `https://github.com/biglexj`
-
+- Rama de trabajo `preview`; el merge a `main` ocurre solo con la instrucción explícita de lanzar versión, conforme al [protocolo de Core](../../../Docs/global/releases/protocolo_lanzamiento_actualizacion.md).
+- El trabajo planificado vive en `process/active/YYYY-MM-DD_objetivo/` con `PLAN.md`, `TASKS.md`, `VALIDATION.md` y `APPROVAL.md`; `ROADMAP.md` conserva los pendientes generales.
 
 ## Referencias locales especializadas
 
-Consultar las que correspondan al encargo. La entrada de instrucciones del proyecto sigue siendo este archivo.
-
-- [auto_updater](auto_updater.md)
-- [core_profile](core_profile.md)
-- [design_system](design_system.md)
-- [desktop_app_standards](desktop_app_standards.md)
-- [feedback_center](feedback_center.md)
-- [folder_structure](folder_structure.md)
+- [core_profile.md](core_profile.md) — alcance Core declarado del proyecto.
+- [folder_structure.md](folder_structure.md) — estructura real del repositorio.
+- [auto_updater.md](auto_updater.md) — puente a la base de auto-actualización de Core.
+- [desktop_app_standards.md](desktop_app_standards.md) — puente a los estándares de escritorio de Core.
+- [design_system.md](design_system.md) — puente al lenguaje de diseño de Core.
+- [feedback_center.md](feedback_center.md) — puente al estándar de feedback de Core.
