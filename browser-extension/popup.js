@@ -2,7 +2,7 @@
 const sendBtn   = document.getElementById('send');
 const urlInput  = document.getElementById('url');
 const statusEl  = document.getElementById('status');
-const fmtBtns   = document.querySelectorAll('.fmt-btn');
+const fmtBtns   = document.querySelectorAll('[data-fmt]');
 
 let selectedFmt = 'mp4';
 
@@ -12,6 +12,7 @@ function setStatus (text, color) {
 }
 
 async function send () {
+  if (sendBtn.disabled) return;
   const url = urlInput.value.trim();
   if (!url) {
     setStatus('Pega una URL primero.', '#ff6b6b');
@@ -47,8 +48,7 @@ async function send () {
           '#2ec4a3'
         );
       }
-      urlInput.value = '';
-      urlInput.focus();
+      window.close();
     } else {
       setStatus(resp && resp.error ? resp.error : 'No se pudo enviar.', '#ff6b6b');
     }
@@ -146,6 +146,7 @@ sunoCopyBtn.addEventListener('click', async () => {
     });
     if (resp && resp.ok !== false) {
       setStatus('✅ Enlace de Suno encolado.', '#2ec4a3');
+      window.close();
     } else {
       setStatus((resp && resp.error) || 'No se pudo encolar.', '#ff6b6b');
     }

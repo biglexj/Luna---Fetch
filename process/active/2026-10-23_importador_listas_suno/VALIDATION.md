@@ -3,6 +3,24 @@
 Fecha: 2026-10-23
 Alcance: fases 0 a 4 del plan (extensión, cadena de cookies en el escritorio, lote y acelerador).
 
+## Revisión del 2026-11-04 — extensión 1.4.5
+
+- El popup cierra tras recibir la aceptación del envío general o del enlace
+  copiado de Suno; los errores permanecen visibles. Enter repetido durante
+  un envío pendiente no genera otra solicitud.
+- Los formatos generales y de Suno tienen manejadores independientes: elegir
+  un formato de Suno ya no borra el formato general seleccionado.
+- El manifiesto carga el hook de Suno en el mundo MAIN al iniciar la página,
+  sin depender de abrir previamente el importador para interceptar copias.
+- `node --test test/extension/popup.test.mjs`: 5 pruebas correctas.
+- `node test/suno-import/run-test.mjs`: 19 comprobaciones correctas en Chromium
+  sobre la réplica local, incluyendo lote, autoenvío, API y degradación.
+- `node --check browser-extension/popup.js` y revisión del diff: correctos.
+- Pendiente: recargar la extensión y la pestaña de Suno y comprobar el flujo
+  con la sesión real. El banco local no valida los menús actuales del servicio
+  ni la carga declarativa del hook en una extensión instalada.
+- No se ha publicado ni regenerado el paquete CRX.
+
 ## 1. Banco de pruebas del importador (Chromium sin cabeza)
 
 Réplica local de la interfaz de Suno (`test/suno-import/mock-suno.html`) con

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Luna Fetch",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Descarga videos y audio desde YouTube directamente con Luna Fetch.",
   "permissions": ["activeTab", "cookies", "tabs", "scripting", "storage", "clipboardRead"],
   "host_permissions": [
@@ -26,6 +26,12 @@
       ],
       "js": ["suno-links.js", "suno.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.suno.com/*"],
+      "js": ["suno-links.js", "suno-hook.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
     }
   ],
   "action": {

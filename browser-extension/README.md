@@ -37,8 +37,8 @@ Una vez instalada la extensión:
 
 ### 📥 Envío de varios enlaces
 
-- El popup **no se cierra** al enviar: puedes pegar el siguiente enlace y enviarlo
-  sin volver a abrirlo.
+- El popup **se cierra cuando Luna Fetch acepta el envío**, también al enviar
+  un enlace copiado de Suno. Si ocurre un error, permanece abierto para mostrarlo.
 - Cada enlace se **encola** en Luna Fetch y se descarga **uno tras otro**, en el
   orden en que se envió. La tarjeta "Cola de descargas" muestra cuántos enlaces
   faltan y el estado de cada uno.
@@ -81,7 +81,7 @@ En el panel del importador puedes cambiar de modo:
 La extensión envía las cookies de la sesión a la aplicación de escritorio
 (siempre por `127.0.0.1`, a un fichero temporal local). Con ellas, Luna Fetch
 lee la **ficha real** —título, autor, estilo, letra y portada— también en
-canciones privadas, y las descargas de YouTube siguendiskupando las cookies
+canciones privadas, y las descargas de YouTube siguen usando las cookies
 anti-bot.
 
 ### Modo diagnóstico
