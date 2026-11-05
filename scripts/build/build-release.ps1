@@ -184,6 +184,15 @@ if (-not $SkipBuild) {
             "-Dfile.encoding=UTF-8"
         )
         Invoke-Checked (Join-Path $root "gradlew.bat") ($gradleArguments + $tasks)
+
+        # Refrescar el timestamp del exe tras el build: cuando AppConfig.kt se modifica
+        # con la misma version (mismo contenido), Gradle puede dejar las tareas
+        # UP-TO-DATE y el exe queda con timestamp anterior al del fuente editado.
+        # Tocar el exe aqui garantiza que Assert-BuildFresh pase en Build-Installer.ps1.
+        $exePath = Join-Path $root "composeApp\build\compose\binaries\main\app\LunaFetch\LunaFetch.exe"
+        if (Test-Path -LiteralPath $exePath) {
+            (Get-Item -LiteralPath $exePath).LastWriteTime = [datetime]::Now
+        }
     }
 }
 
