@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { executeRelease } from "../../Scripts/releases/aurora-publisher.ts";
+import { publishRelease } from "../../Scripts/releases/aurora-publisher.ts";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -188,8 +188,20 @@ export async function main(args = Bun.argv.slice(2)): Promise<number> {
         return (await child.exited) ?? 0;
     }
 
-    if (action === "release" || action === "publish") {
-        return executeRelease({
+    if (action === "release") {
+        const psArgs = [
+            "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+            "-File", "./scripts/build/build-release.ps1", "-LocalOnly",
+        ];
+        console.log(`release ${appName}\nDirectorio: ${root}\nComando: ${psArgs.join(" ")}`);
+        if (isPlan) return 0;
+
+        const child = Bun.spawn(psArgs, { cwd: root, stdin: "inherit", stdout: "inherit", stderr: "inherit" });
+        return (await child.exited) ?? 0;
+    }
+
+    if (action === "publish") {
+        return publishRelease({
             slug: "luna-fetch",
             appName: "Luna Fetch",
             repository: "biglexj/Luna---Fetch",
@@ -197,7 +209,7 @@ export async function main(args = Bun.argv.slice(2)): Promise<number> {
             projectRoot: root,
             primaryAssetPattern: new RegExp(`^LunaFetch.*\\.exe$`, "i"),
             build: async (isPlan) => {
-                const psArgs = ["powershell","-NoProfile","-ExecutionPolicy","Bypass","-File","./scripts/build/build-release.ps1","-LocalOnly"];
+                const psArgs = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "./scripts/build/build-release.ps1", "-LocalOnly"];
                 if (isPlan) return 0;
                 const child = Bun.spawn(psArgs, { cwd: root, stdin: "inherit", stdout: "inherit", stderr: "inherit" });
                 return (await child.exited) ?? 0;

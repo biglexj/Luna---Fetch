@@ -320,7 +320,19 @@ $publishedArtifacts |
     ForEach-Object { "{0}  {1}" -f $_.Hash.ToLowerInvariant(), (Split-Path $_.Path -Leaf) } |
     Set-Content -LiteralPath $hashPath -Encoding UTF8
 
-if ($LocalOnly) { Write-Host "Build local terminado en $output" -ForegroundColor Green; exit 0 }
+if ($LocalOnly) {
+    # Si existe la carpeta central '12. Releases\LunaFetch', sincronizar los artefactos locales
+    $workspaceReleases = Join-Path (Split-Path $root -Parent) "12. Releases\LunaFetch"
+    if (Test-Path (Split-Path $workspaceReleases -Parent)) {
+        if (-not (Test-Path $workspaceReleases)) { New-Item -ItemType Directory -Path $workspaceReleases -Force | Out-Null }
+        foreach ($art in $publishedArtifacts) {
+            Copy-Item -LiteralPath $art -Destination $workspaceReleases -Force
+        }
+        Write-Host "Artefactos sincronizados en $workspaceReleases" -ForegroundColor Green
+    }
+    Write-Host "Build local terminado en $output" -ForegroundColor Green
+    exit 0
+}
 
 $windowsExe = $publishedArtifacts | Where-Object { $_ -like "*.exe" } | Select-Object -First 1
 if ($windowsExe) {
