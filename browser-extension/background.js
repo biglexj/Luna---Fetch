@@ -1,6 +1,28 @@
 // Luna Fetch — background service worker
 const LUNA_BASE = 'http://127.0.0.1:51234';
 
+// Tiempo máximo de espera de la app de escritorio. Si no responde en este
+// plazo, el motivo se le dice al usuario en vez de un genérico "no está
+// abierto" que no distinguía entre app cerrada, error de red o error del
+// propio servicio en segundo plano.
+const LUNA_TIMEOUT_MS = 20000;
+const HEALTH_TIMEOUT_MS = 5000;
+
+/** Explica un fallo de red o de respuesta en lenguaje comprensible. */
+function describeError (error, fallback) {
+  const detail = error && error.message ? error.message : String(error || '');
+  if (!detail) return fallback;
+  return fallback + ' (' + detail + ')';
+}
+
+/** Traduce un fallo de conexión con la app de escritorio. */
+function connectionError (error) {
+  return describeError(
+    error,
+    'No se pudo conectar con Luna Fetch en ' + LUNA_BASE + '. ¿Está la aplicación abierta?'
+  );
+}
+
 // ── Cookie sync: read YouTube/Google session cookies and push them
 //    to the desktop app as a Netscape cookie file. The app persists them
 //    to %TEMP%/luna_session_cookies.txt so yt-dlp can pass YouTube's
@@ -56,25 +78,60 @@ async function cookiesForUrl (url) {
   return all.length ? toNetscapeCookies(all) : '';
 }
 
-async function postDownload (url, format, quality) {
+/**
+ * Habla con la app de escritorio y devuelve el JSON de la respuesta.
+ * Si la respuesta no es JSON válido, el error lo dice con el cuerpo que
+ * llegó: antes ese fallo se traducía a "no está abierto" y no había forma
+ * de saber qué pasaba.
+ */
+async function fetchJson (path, options) {
+  const res = await fetch(LUNA_BASE + path, Object.assign({
+    signal: AbortSignal.timeout(LUNA_TIMEOUT_MS)
+  }, options || {}));
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Luna Fetch respondió ' + res.status + ' con un cuerpo no válido: ' + text.slice(0, 120));
+  }
+  return data;
+}
+
+/** Comprobación de vida: ¿responde la app de escritorio? */
+async function checkHealth () {
+  try {
+    const res = await fetch(LUNA_BASE + '/health', { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) });
+    if (!res.ok) {
+      // La app contesta pero esta versión no tiene /health: está abierta.
+      return { ok: true, legacy: true, response: { status: res.status } };
+    }
+    const data = await res.json();
+    return { ok: true, response: data };
+  } catch (e) {
+    return { ok: false, error: connectionError(e) };
+  }
+}
+
+async function postDownload (url, format, quality, downloadLyrics) {
   const body = { url: url, format: format || 'mp4' };
   if (quality) body.quality = quality;
+  if (downloadLyrics) body.downloadLyrics = true;
   const cookies = await cookiesForUrl(url);
   if (cookies) body.cookies = cookies;
-  const res = await fetch(`${LUNA_BASE}/download`, {
+  return fetchJson('/download', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
-  return res.json();
 }
 
-async function queueSunoUrl (url, format) {
+async function queueSunoUrl (url, format, downloadLyrics) {
   try {
-    const data = await postDownload(url, format || 'mp3');
+    const data = await postDownload(url, format || 'mp3', '', downloadLyrics);
     return { ok: data.ok !== false, response: data };
   } catch (e) {
-    return { ok: false, error: 'Luna Fetch no está abierto en tu PC.' };
+    return { ok: false, error: connectionError(e) };
   }
 }
 
@@ -82,22 +139,24 @@ async function queueSunoUrl (url, format) {
  * Encola varios enlaces de una vez (Fase 3 del importador de Suno).
  * Una sola ida y vuelta al servidor local en lugar de N.
  */
-async function queueSunoBatch (urls, format) {
+async function queueSunoBatch (urls, format, downloadLyrics) {
   const list = (urls || []).filter((url) => typeof url === 'string' && url.trim());
   if (!list.length) return { ok: false, error: 'No hay enlaces para encolar.' };
   try {
     const body = { urls: list, format: format || 'mp3' };
+    if (downloadLyrics) body.downloadLyrics = true;
     const cookies = await cookiesForUrl(list[0]);
     if (cookies) body.cookies = cookies;
     const res = await fetch(`${LUNA_BASE}/download/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(LUNA_TIMEOUT_MS)
     });
     const data = await res.json();
     return { ok: data.ok !== false, response: data };
   } catch (e) {
-    return { ok: false, error: 'Luna Fetch no está abierto en tu PC.' };
+    return { ok: false, error: connectionError(e) };
   }
 }
 
@@ -154,7 +213,8 @@ async function syncCookies () {
     const res = await fetch(`${LUNA_BASE}/cookies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cookies: text })
+      body: JSON.stringify({ cookies: text }),
+      signal: AbortSignal.timeout(LUNA_TIMEOUT_MS)
     });
     return { ok: res.ok, count: all.length };
   } catch (e) {
@@ -169,11 +229,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  // Comprobación de vida: la extensión pregunta si la app está en marcha
+  // antes de enviar nada, y así distingue "app cerrada" de otros fallos.
+  if (message.action === 'health') {
+    checkHealth().then((r) => sendResponse(r));
+    return true;
+  }
+
   if (message.action === 'analyze') {
-    fetch(`${LUNA_BASE}/analyze?url=${encodeURIComponent(message.url)}`)
-      .then((res) => res.json())
+    fetchJson('/analyze?url=' + encodeURIComponent(message.url), { method: 'GET' })
       .then((data) => sendResponse(data))
-      .catch(() => sendResponse({ ok: false, error: 'Luna Fetch no está abierto en tu PC.' }));
+      .catch((e) => sendResponse({ ok: false, error: connectionError(e) }));
     return true;
   }
 
@@ -182,19 +248,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const quality = message.quality || '';
     postDownload(message.url, format, quality)
       .then((data) => sendResponse({ ok: data.ok !== false, response: data }))
-      .catch(() => sendResponse({ ok: false, error: 'Luna Fetch no está abierto en tu PC.' }));
+      .catch((e) => sendResponse({ ok: false, error: connectionError(e) }));
     return true;
   }
 
   // ── Suno ────────────────────────────────────────────────────────────────
 
   if (message.action === 'sunoQueue') {
-    queueSunoUrl(message.url, message.format).then((r) => sendResponse(r));
+    queueSunoUrl(message.url, message.format, message.downloadLyrics).then((r) => sendResponse(r));
     return true;
   }
 
   if (message.action === 'sunoQueueBatch') {
-    queueSunoBatch(message.urls, message.format).then((r) => sendResponse(r));
+    queueSunoBatch(message.urls, message.format, message.downloadLyrics).then((r) => sendResponse(r));
     return true;
   }
 
@@ -218,11 +284,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         await chrome.tabs.sendMessage(tab.id, {
           action: 'startSunoImport',
           format: message.format || 'mp3',
-          mode: message.mode || 'publish'
+          mode: message.mode || 'links',
+          downloadLyrics: message.downloadLyrics === true
         });
         sendResponse({ ok: true });
       } catch (e) {
         sendResponse({ ok: false, error: 'No se pudo iniciar en la pestaña de Suno: ' + (e && e.message ? e.message : e) });
+      }
+    })();
+    return true;
+  }
+
+  if (message.action === 'sunoStopImport') {
+    (async () => {
+      try {
+        const tab = await sunoTab();
+        if (tab && tab.id) {
+          await chrome.tabs.sendMessage(tab.id, { action: 'stopSunoImport' });
+        }
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e && e.message ? e.message : e) });
       }
     })();
     return true;

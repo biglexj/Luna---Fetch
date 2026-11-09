@@ -133,13 +133,17 @@ fun main(args: Array<String>) {
                 onDownloadRequest = { url, format, quality, cookieFile ->
                     presenter.startDirectDownload(url, format, quality, cookieFile = cookieFile)
                 },
+                onDownloadWithOptions = { url, format, quality, cookieFile, downloadLyrics ->
+                    presenter.startDirectDownload(url, format, quality, cookieFile = cookieFile, downloadLyrics = downloadLyrics)
+                },
                 onAnalyzeRequest = { url, cookieFile ->
                     val info = (bindings.engine as? DesktopDownloadEngine)?.analyzeWithCookieFile(url, cookieFile)
                         ?: bindings.engine.analyze(url)
-                    val vq = com.biglexj.lunafetch.domain.FormatCatalog.qualities(com.biglexj.lunafetch.domain.MediaFormat.Mp4, info.maxHeight)
-                    val aq = com.biglexj.lunafetch.domain.FormatCatalog.qualities(com.biglexj.lunafetch.domain.MediaFormat.Mp3, info.maxHeight)
+                    val vq = com.biglexj.lunafetch.domain.FormatCatalog.qualities(com.biglexj.lunafetch.domain.MediaFormat.Mp4)
+                    val aq = com.biglexj.lunafetch.domain.FormatCatalog.qualities(com.biglexj.lunafetch.domain.MediaFormat.Mp3)
                     vq to aq
-                }
+                },
+                onPendingRequest = { presenter.pendingCount() }
             ).also { it.start() }
         }
 

@@ -1,21 +1,31 @@
-# 🚀 Luna Fetch — v1.2.1
+# 🚀 Luna Fetch v1.3.0 — Rediseño de Navegación, Ajustes Integrados y Suno AI
 
-Instalador de Windows modernizado con Inno Setup e importador de listas de Suno desde el navegador.
+Luna Fetch 1.3.0 renueva por completo la experiencia visual y funcional en escritorio y móvil, introduciendo una barra lateral de navegación adaptable inspirada en Material 3 Expressive, un panel de Ajustes integrado en pantalla completa, un instalador nativo para Windows ligero y sin elevación, e integración avanzada con Suno AI para la importación por lotes de canciones y playlists con metadatos reales.
 
-## 📝 Resumen
+---
 
-Luna Fetch 1.2.1 es el parche sobre la 1.2.0 publicada en GitHub. El instalador EXE de Windows deja de generarse con el bootstrapper de WiX y pasa a generarse con la plantilla propia de Biglex en Inno Setup. Además, la extensión de navegador aprende a importar listas de Suno de una sola vez.
+### Novedades destacadas
 
-## 🔔 Novedades destacadas
+- **Navegación adaptable y panel de Ajustes integrado**: Nueva barra lateral (NavigationRail) que centraliza Descargas e Historial y ancla Ajustes. Se sustituyen los diálogos flotantes por una pantalla completa con pestañas temáticas (General con selector visual de tema, Sincronización Synapse y Acerca de / Actualizaciones), mejorando la legibilidad y el aprovechamiento de la pantalla.
+- **Instalador de Windows modernizado (Inno Setup)**: Empaquetado nativo rápido con Biglex Modern UI 2.0. Instalación directa por usuario en `%LOCALAPPDATA%\Programs\LunaFetch` sin solicitar permisos de administrador, con soporte automático para temas claro y oscuro, esquinas redondeadas en Windows 11 y actualización limpia en el mismo directorio.
+- **Integración con Suno AI y extracción de alta fidelidad**: Captura de canciones y playlists de Suno AI desde la extensión de navegador en un solo clic. El extractor nativo procesa las cookies de sesión para obtener título, artista, estilo, carátula incrustada y letra sincronizada, indicando de forma explícita las pistas instrumentales.
+- **Organización automática por tipo de medio**: Cada descarga se clasifica automáticamente en las carpetas estándar «Música» o «Videos» dentro de tu directorio de destino, tanto en Windows como en Android.
+- **Conexión robusta con la extensión de navegador**: El servidor local resuelve de forma precisa la longitud de peticiones por bytes UTF-8, garantizando transferencias estables sin desconexiones e incorporando verificación de estado en tiempo real.
+- **Compilación multiplataforma optimizada**: Pipeline de lanzamiento independiente que genera y firma por separado el instalador de Windows y el paquete APK de Android.
 
-- 🛠️ **Instalador de Windows modernizado (Inno Setup)**: Pantalla única de entrada con presentación, ruta editable y botón principal, progreso y éxito nativos, tema claro/oscuro automático según Windows, esquinas nativas de Windows 11 e ícono centrado. La instalación es por usuario y sin elevación, y la actualización se aplica en el mismo directorio sin instalar en paralelo. La coexistencia con el instalador anterior queda documentada en `packaging\windows\MIGRATION.md`.
+---
 
-- ☀️ **Importador de listas de Suno**: La extensión publica en lote las canciones de la lista abierta de Suno, captura el enlace público de cada una sin copiarlo a mano y las envía a Luna Fetch en un solo envío. Todo ocurre dentro de la pestaña de Suno ya autenticada. Incluye autoenvío de los enlaces públicos que copies dentro de Suno, un modo acelerado por API que degrada al método de interfaz si Suno deja de responder, y un modo diagnóstico para recalibrar los selectores si la web cambia.
+### Descargas e instalación
 
-- 🎵 **Ficha real también en canciones privadas**: Las cookies de la sesión de Suno llegan al extractor, de modo que el título, el autor, el estilo, la letra y la portada son los auténticos aunque la canción no sea pública.
+- **Windows (x64)**: [LunaFetch-Windows-1.3.0.exe](https://github.com/biglexj/Luna---Fetch/releases/download/v1.3.0/LunaFetch-Windows-1.3.0.exe)
+- **Extensión de navegador (v1.4.4)**: Disponible en la carpeta `browser-extension` del repositorio (carga descomprimida en Chrome, Edge, Brave u Opera).
 
-## 📦 Windows x64
+---
 
-[Descargar Instalador (Windows x64)](https://github.com/biglexj/Luna---Fetch/releases/download/v1.2.1/LunaFetch-Windows-1.2.1.exe)
+### Soporte oficial
+
+- **Sitio oficial**: https://www.biglexj.com/
+- **GitHub**: https://github.com/biglexj/Luna---Fetch
+- **Reportar un problema**: https://github.com/biglexj/Luna---Fetch/issues
 
 ¡Gracias por usar Luna Fetch! 🌙

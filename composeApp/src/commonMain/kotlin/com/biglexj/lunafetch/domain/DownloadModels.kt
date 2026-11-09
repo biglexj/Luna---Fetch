@@ -43,7 +43,31 @@ enum class MediaFormat(
     Mp3("Audio MP3", "mp3", true),
     M4a("Audio M4A", "m4a", true),
     Flac("Audio FLAC (Lossless)", "flac", true),
-    Wav("Audio WAV (Lossless)", "wav", true),
+    Wav("Audio WAV (Lossless)", "wav", true);
+
+    companion object {
+        /**
+         * Formato que corresponde a un nombre recibido desde fuera.
+         *
+         * La extensión del navegador y el importador de Suno envían el formato
+         * como texto ("mp3", "flac", "Audio FLAC (Lossless)"…): cada uno debe
+         * volver a su formato, no convertirse en MP3.
+         */
+        fun resolve(name: String): MediaFormat {
+            val value = name.trim().lowercase()
+            return when {
+                value.contains("flac") -> Flac
+                value.contains("wav") -> Wav
+                value.contains("m4a") -> M4a
+                value.contains("webm") -> WebM
+                value.contains("mp3") -> Mp3
+                value.contains("mp4") -> Mp4
+                // Audio sin especificar: MP3 es el formato habitual.
+                value.contains("audio") -> Mp3
+                else -> Mp4
+            }
+        }
+    }
 }
 
 data class QualityOption(
@@ -53,7 +77,16 @@ data class QualityOption(
 )
 
 object FormatCatalog {
-    fun qualities(format: MediaFormat, maxHeight: Int): List<QualityOption> {
+
+    /**
+     * Calidades ofrecidas para un formato de vídeo.
+     *
+     * La primera opción, «Mejor calidad», no impone techo: se descarga la mayor
+     * que exista en el video. Las demás sí limitan: al elegir 2K, la descarga
+     * no pasa de 2K. Todas están disponibles aunque el video no llegue a esa
+     * altura, porque el selector `bestvideo*[height<=X]` cae a la mejor que haya.
+     */
+    fun qualities(format: MediaFormat): List<QualityOption> {
         if (format.isAudio) {
             return if (format == MediaFormat.Flac || format == MediaFormat.Wav) {
                 listOf(
@@ -68,23 +101,26 @@ object FormatCatalog {
             }
         }
 
-        val safeHeight = maxHeight.coerceAtLeast(360)
-        val list = mutableListOf<QualityOption>()
+        val list = mutableListOf(QualityOption("Mejor calidad", bestSelector(format)))
         listOf(4320, 2160, 1440, 1080, 720, 480, 360).forEach { height ->
-            if (height <= safeHeight || height == 360) {
-                val label = when (height) {
-                    4320 -> "8K · Ultra HD"
-                    2160 -> "4K · Ultra HD"
-                    1440 -> "1440p · 2K"
-                    1080 -> "1080p · Full HD"
-                    720 -> "720p · HD"
-                    else -> "${height}p"
-                }
-
-                list.add(QualityOption(label, videoSelector(format, height)))
+            val label = when (height) {
+                4320 -> "8K · Ultra HD"
+                2160 -> "4K · Ultra HD"
+                1440 -> "1440p · 2K"
+                1080 -> "1080p · Full HD"
+                720 -> "720p · HD"
+                else -> "${height}p"
             }
+            list.add(QualityOption(label, videoSelector(format, height)))
         }
         return list
+    }
+
+    /** Selector sin límite de altura: la mejor calidad que exista en el video. */
+    private fun bestSelector(format: MediaFormat): String = when (format) {
+        MediaFormat.Mp4 -> "bestvideo*[ext=mp4]+bestaudio[ext=m4a]/bestvideo*[ext=mp4]+bestaudio/bestvideo*+bestaudio/best"
+        MediaFormat.WebM -> "bestvideo*[ext=webm]+bestaudio[ext=webm]/bestvideo*[ext=webm]+bestaudio/bestvideo*+bestaudio/best"
+        else -> "bestaudio/best"
     }
 
     private fun videoSelector(format: MediaFormat, height: Int, maxFps: Int? = null): String {
@@ -117,6 +153,11 @@ data class DownloadRequest(
      * otras) sin necesidad de que el contenido sea público.
      */
     val cookieFile: String? = null,
+    /**
+     * Indica si se debe guardar el archivo de letra (.txt) cuando esté
+     * disponible. Desactivado por defecto.
+     */
+    val downloadLyrics: Boolean = false,
 )
 
 enum class DownloadPhase {

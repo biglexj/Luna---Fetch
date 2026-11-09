@@ -1,5 +1,6 @@
 package com.biglexj.lunafetch.feature.download
 
+import com.biglexj.lunafetch.feature.components.ActionButton
 import com.biglexj.lunafetch.feature.components.LunaCard
 
 import androidx.compose.foundation.background
@@ -9,9 +10,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -27,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,48 +74,45 @@ fun DownloadOptionsCard(
     }
     if (state.selectedFormat.isAudio) {
         Spacer(Modifier.height(10.dp))
-        Text(
-            "Incluye los metadatos y portada disponibles.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-    state.video?.takeIf { it.isCollection }?.let { collection ->
-        Spacer(Modifier.height(10.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Descargar colección completa", style = MaterialTheme.typography.labelLarge)
+                Text("Descargar letra (.txt)", style = MaterialTheme.typography.labelLarge)
                 Text(
-                    "${collection.collectionCount} elementos",
+                    "Guarda la letra de la canción si existe (no aplica a instrumentales).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Switch(
-                checked = state.downloadCollection,
-                onCheckedChange = presenter::setDownloadCollection,
+                checked = state.downloadLyrics,
+                onCheckedChange = { presenter.setDownloadLyrics(it) },
                 enabled = !state.isDownloading,
             )
         }
     }
+    val collection = state.video?.takeIf { it.isCollection }
+    if (collection != null) {
+        CollectionDownloadRow(
+            collectionCount = collection.collectionCount,
+            checked = state.downloadCollection,
+            enabled = !state.isDownloading,
+            onCheckedChange = { presenter.setDownloadCollection(it) },
+        )
+    }
     Spacer(Modifier.height(12.dp))
     Text("Destino", style = MaterialTheme.typography.labelLarge)
     Spacer(Modifier.height(6.dp))
-    OutlinedButton(
+    ActionButton(
+        text = platform.destinationLabel(state.destination),
         onClick = presenter::chooseDestination,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        modifier = Modifier.fillMaxWidth(),
         enabled = !state.isDownloading,
-        shape = RoundedCornerShape(20.dp),
-    ) {
-        Text(
-            platform.destinationLabel(state.destination),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
+    )
     Spacer(Modifier.height(6.dp))
     Text(
         "Se guardará en la subcarpeta «${MediaFolders.folderFor(state.selectedFormat)}» de la carpeta elegida.",
@@ -119,7 +122,7 @@ fun DownloadOptionsCard(
 
     if (state.discoveredPeers.isNotEmpty()) {
         Spacer(Modifier.height(14.dp))
-        Text("Dispositivo de Descarga (Aurora LAN)", style = MaterialTheme.typography.labelLarge)
+        Text("Dispositivo de descarga · Synapse", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(6.dp))
 
         androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -147,8 +150,9 @@ fun DownloadOptionsCard(
                             val isSelected = if (target == null) state.selectedTargetPeer == null else state.selectedTargetPeer?.id == target.id
                             OutlinedButton(
                                 onClick = { presenter.selectTargetPeer(target) },
-                                modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                                modifier = Modifier.weight(1f).height(58.dp),
                                 shape = RoundedCornerShape(16.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                                 colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
                                     containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
                                                      else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
@@ -161,15 +165,18 @@ fun DownloadOptionsCard(
                                             else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                                 ),
                             ) {
-                                Text(
-                                    if (target == null) "📍 Este equipo" else "${target.icon} ${target.name}",
-                                    // El nombre puede ocupar dos líneas antes de
-                                    // recortarse: "Motorola motorola edge 60
-                                    // fusion" no cabía en una sola.
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                )
+                                androidx.compose.foundation.layout.Box(
+                                    modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = if (target == null) "📍 Este equipo" else "${target.icon} ${target.name}",
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    )
+                                }
                             }
                         }
                         repeat(columns - rowItems.size) {
@@ -185,30 +192,22 @@ fun DownloadOptionsCard(
 
     val selectedPeer = state.selectedTargetPeer?.takeIf { peer -> state.discoveredPeers.any { it.id == peer.id } }
     if (selectedPeer != null) {
-        Button(
+        ActionButton(
+            text = if (state.isSendingToPeer) "Enviando enlace…" else "🚀 Mandar a descargar a ${selectedPeer.name}",
             onClick = { presenter.pushDownloadToPeer(selectedPeer) },
-            modifier = Modifier.fillMaxWidth().height(54.dp),
+            modifier = Modifier.fillMaxWidth(),
             enabled = !state.isSendingToPeer && state.url.isNotBlank(),
-            shape = RoundedCornerShape(50),
-        ) {
-            Text(
-                if (state.isSendingToPeer) "Enviando enlace…" else "🚀 Mandar a descargar a ${selectedPeer.name}",
-                fontWeight = FontWeight.Bold,
-            )
-        }
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        )
     } else {
-        Button(
+        ActionButton(
+            text = if (state.downloadCollection) "Descargar playlist"
+            else "Descargar ${state.selectedFormat.extension.uppercase()}",
             onClick = presenter::download,
-            modifier = Modifier.fillMaxWidth().height(54.dp),
+            modifier = Modifier.fillMaxWidth(),
             enabled = state.video != null && !state.isDownloading && state.activeQueueItemId == null,
-            shape = RoundedCornerShape(50),
-        ) {
-            Text(
-                if (state.downloadCollection) "Descargar colección"
-                else "Descargar ${state.selectedFormat.extension.uppercase()}",
-                fontWeight = FontWeight.Bold,
-            )
-        }
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        )
     }
 }
 
@@ -223,11 +222,13 @@ fun <T> Selector(
     enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    // El desplegable se abre con el mismo ancho que el botón que lo dispara.
+    var buttonWidth by remember { mutableStateOf(0) }
     Box(modifier) {
         OutlinedButton(
             onClick = { expanded = true },
             enabled = enabled,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).onSizeChanged { buttonWidth = it.width },
             shape = RoundedCornerShape(20.dp),
             border = androidx.compose.foundation.BorderStroke(
                 width = if (expanded) 2.dp else 1.dp,
@@ -250,6 +251,7 @@ fun <T> Selector(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier
+                .width(with(LocalDensity.current) { buttonWidth.toDp() })
                 .background(MaterialTheme.colorScheme.surface)
                 .clip(RoundedCornerShape(16.dp)),
         ) {
@@ -286,3 +288,32 @@ fun <T> Selector(
         }
     }
 }
+
+@Composable
+private fun CollectionDownloadRow(
+    collectionCount: Int,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Spacer(Modifier.height(10.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Descargar playlist completa", style = MaterialTheme.typography.labelLarge)
+            Text(
+                "$collectionCount elementos",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+        )
+    }
+}
+

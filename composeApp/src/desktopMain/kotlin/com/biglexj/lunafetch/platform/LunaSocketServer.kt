@@ -3,7 +3,10 @@ package com.biglexj.lunafetch.platform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
+import java.io.EOFException
 import java.io.File
+import java.io.InputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
@@ -18,16 +21,34 @@ import java.net.URLDecoder
  *   POST /analyze
  *   POST /download
  *   POST /download/batch
- *   GET /download?url=...&format=mp4|mp3
+ *   GET  /download?url=...&format=mp4|mp3
+ *   GET  /health
  *   OPTIONS /...  (CORS preflight)
  */
 class LunaSocketServer(
     private val onDownloadRequest: (url: String, format: String, quality: String?, cookieFile: String?) -> com.biglexj.lunafetch.domain.EnqueueResult,
     private val onAnalyzeRequest: (suspend (url: String, cookieFile: String?) -> Pair<List<com.biglexj.lunafetch.domain.QualityOption>, List<com.biglexj.lunafetch.domain.QualityOption>>)? = null,
+    private val onPendingRequest: () -> Int = { 0 },
     private val port: Int = System.getProperty("lunafetch.port")?.toIntOrNull() ?: PORT,
+    private val onDownloadWithOptions: ((url: String, format: String, quality: String?, cookieFile: String?, downloadLyrics: Boolean) -> com.biglexj.lunafetch.domain.EnqueueResult)? = null,
 ) {
     companion object {
         const val PORT = 51234
+
+        /** Cabeceras CORS: la extensión vive en otro origen y usa `fetch`. */
+        private const val CORS_HEADERS = "Access-Control-Allow-Origin: *\r\n" +
+            "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
+            "Access-Control-Allow-Headers: *\r\n" +
+            // Chrome/Edge piden permiso explícito para llegar a la red local
+            // desde un origen público (Local Network Access).
+            "Access-Control-Allow-Private-Network: true\r\n" +
+            "Access-Control-Max-Age: 600\r\n"
+
+        /** Tope de cabeceras: 64 KB bastan de sobra para estas peticiones. */
+        private const val MAX_HEADER_BYTES = 64 * 1024
+
+        /** Tope del cuerpo: las cookies de sesión ocupan unos pocos KB. */
+        private const val MAX_BODY_BYTES = 4 * 1024 * 1024
 
         private fun jsonString(json: String, key: String): String? {
             val pattern = Regex(""""$key"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""")
@@ -51,7 +72,7 @@ class LunaSocketServer(
                     'r' -> out.append('\r')
                     't' -> out.append('\t')
                     'b' -> out.append('\b')
-                    'f' -> out.append('')
+                    'f' -> out.append('\u000C')
                     'u' -> {
                         val hex = value.substring(index + 2, minOf(index + 6, value.length))
                         val code = hex.toIntOrNull(16)
@@ -92,10 +113,88 @@ class LunaSocketServer(
         private fun saveCookiesFile(cookiesText: String?): String? {
             if (cookiesText.isNullOrBlank()) return null
             return runCatching {
-                val file = File(System.getProperty("java.io.tmpdir"), "luna_session_cookies.txt")
+                val file = cookieFile()
+                file.parentFile?.mkdirs()
                 file.writeText(cookiesText, Charsets.UTF_8)
                 file.absolutePath
             }.getOrNull()
+        }
+
+        /**
+         * Fichero donde se guardan las cookies de sesión que envía la
+         * extensión. Se puede redirigir con `-Dlunafetch.cookies=<ruta>` para
+         * que las pruebas no toquen el fichero del usuario.
+         */
+        private fun cookieFile(): File {
+            val override = System.getProperty("lunafetch.cookies")
+            if (!override.isNullOrBlank()) return File(override)
+            return File(System.getProperty("java.io.tmpdir"), "luna_session_cookies.txt")
+        }
+
+        /** Escapa un texto para poder meterlo dentro de una cadena JSON. */
+        private fun jsonEscape(value: String): String =
+            value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ").replace("\r", " ")
+
+        /** Petición HTTP leída del socket: línea, cabeceras y cuerpo. */
+        private data class RawRequest(
+            val method: String,
+            val path: String,
+            val contentLength: Int,
+            val body: String,
+        )
+
+        /**
+         * Lee una petición HTTP completa.
+         *
+         * El cuerpo se lee en BYTES: `Content-Length` cuenta bytes, así que
+         * leerlo como caracteres dejaba el servidor esperando de más cuando el
+         * cuerpo incluía un carácter multibyte (por ejemplo una cookie con
+         * tilde). En ese caso la conexión moría sin responder y la extensión
+         * creía que la aplicación estaba apagada.
+         */
+        private fun readRequest(input: InputStream): RawRequest {
+            val headerBytes = ByteArrayOutputStream()
+            var state = 0
+            while (true) {
+                val byte = input.read()
+                if (byte < 0) throw EOFException("Conexión cerrada antes de enviar la cabecera")
+                headerBytes.write(byte)
+                state = when {
+                    byte == '\r'.code && state % 2 == 0 -> state + 1
+                    byte == '\n'.code && state % 2 == 1 -> state + 1
+                    else -> 0
+                }
+                if (state == 4) break
+                if (headerBytes.size() > MAX_HEADER_BYTES) {
+                    throw EOFException("Cabeceras HTTP demasiado grandes")
+                }
+            }
+
+            val headerText = String(headerBytes.toByteArray(), Charsets.UTF_8)
+            val lines = headerText.split("\r\n")
+            val requestLine = lines.firstOrNull().orEmpty()
+            val method = requestLine.split(" ").getOrNull(0)?.trim().orEmpty().uppercase()
+            val path = requestLine.split(" ").getOrNull(1)?.trim().orEmpty()
+
+            var contentLength = 0
+            for (line in lines.drop(1)) {
+                if (line.startsWith("Content-Length:", ignoreCase = true)) {
+                    contentLength = line.substringAfter(":").trim().toIntOrNull() ?: 0
+                }
+            }
+            if (contentLength < 0 || contentLength > MAX_BODY_BYTES) {
+                throw EOFException("Cuerpo HTTP fuera de rango: $contentLength bytes")
+            }
+
+            val body = ByteArray(contentLength)
+            var read = 0
+            while (read < contentLength) {
+                val count = input.read(body, read, contentLength - read)
+                if (count < 0) throw EOFException("Cuerpo HTTP incompleto: $read de $contentLength bytes")
+                read += count
+            }
+
+            return RawRequest(method, path, contentLength, String(body, Charsets.UTF_8))
         }
     }
 
@@ -132,152 +231,186 @@ class LunaSocketServer(
         runCatching { serverSocket?.close() }
     }
 
+    /**
+     * Registro de peticiones: deja constancia de lo que llega desde la
+     * extensión para poder diagnosticar sin depender de la consola.
+     */
+    private fun logRequest(line: String) {
+        runCatching {
+            val file = File(System.getProperty("java.io.tmpdir"), "luna_fetch_server.log")
+            if (file.exists() && file.length() > 1024 * 1024) file.delete()
+            file.appendText("${java.time.LocalDateTime.now()} $line\n", Charsets.UTF_8)
+        }
+    }
+
     private suspend fun handleClient(socket: Socket) {
         socket.use { s ->
             s.soTimeout = 8000
-            val reader = s.getInputStream().bufferedReader()
-            val writer = s.getOutputStream().bufferedWriter()
-            val firstLine = reader.readLine() ?: return
-
-            val corsHeaders = "Access-Control-Allow-Origin: *\r\n" +
-                              "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n" +
-                              "Access-Control-Allow-Headers: *\r\n"
-
-            if (firstLine.startsWith("OPTIONS")) {
-                writer.write("HTTP/1.1 200 OK\r\n${corsHeaders}\r\n")
-                writer.flush()
-                return
-            }
-
-            val path = firstLine.split(" ").getOrNull(1) ?: ""
-
-            var contentLength = 0
-            var headerLine: String? = reader.readLine()
-            while (!headerLine.isNullOrBlank()) {
-                if (headerLine.startsWith("Content-Length:", ignoreCase = true)) {
-                    contentLength = headerLine.substringAfter(":").trim().toIntOrNull() ?: 0
-                }
-                headerLine = reader.readLine()
-            }
-
-            var bodyString = ""
-            if (contentLength > 0) {
-                val charBuffer = CharArray(contentLength)
-                var readTotal = 0
-                while (readTotal < contentLength) {
-                    val read = reader.read(charBuffer, readTotal, contentLength - readTotal)
-                    if (read <= 0) break
-                    readTotal += read
-                }
-                bodyString = String(charBuffer, 0, readTotal)
-            }
-
-            val url: String? = parseQueryParam(path, "url") ?: jsonString(bodyString, "url")
-            val format: String = parseQueryParam(path, "format") ?: jsonString(bodyString, "format") ?: "mp4"
-            val quality: String? = parseQueryParam(path, "quality") ?: jsonString(bodyString, "quality")
-            val cookiesRaw = jsonString(bodyString, "cookies")?.replace("\\n", "\n")?.replace("\\t", "\t")
-            val cookieFile = saveCookiesFile(cookiesRaw)
+            val input = s.getInputStream()
+            val writer = s.getOutputStream().bufferedWriter(Charsets.UTF_8)
+            val startedAt = System.currentTimeMillis()
 
             fun sendJsonResponse(status: String, jsonBody: String) {
                 val bytes = jsonBody.toByteArray(Charsets.UTF_8)
                 val response = "$status\r\n" +
-                               corsHeaders +
-                               "Content-Type: application/json\r\n" +
+                               CORS_HEADERS +
+                               "Content-Type: application/json; charset=utf-8\r\n" +
                                "Content-Length: ${bytes.size}\r\n\r\n" +
                                jsonBody
                 writer.write(response)
                 writer.flush()
             }
 
-            // Endpoint dedicado de sincronización de cookies desde la extensión.
-            // El cuerpo debe ser JSON con { "cookies": "<contenido Netscape>" }.
-            if (path.startsWith("/cookies")) {
-                val saved = cookieFile != null
-                sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true,"saved":$saved}""")
-                return
-            }
+            var request: RawRequest? = null
+            try {
+                request = readRequest(input)
+                val method = request.method
+                val path = request.path
 
-            val method = firstLine.substringBefore(" ")
-
-            // Envío por lotes: una sola petición con N enlaces, en lugar de N
-            // idas y venidas al servidor. Lo usa el importador de listas de Suno.
-            if (path.startsWith("/download/batch") && method == "POST") {
-                val urls = jsonStringArray(bodyString, "urls")
-                if (urls.isEmpty()) {
-                    sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"No se recibió ningún enlace"}""")
+                if (method == "OPTIONS") {
+                    writer.write("HTTP/1.1 200 OK\r\n${CORS_HEADERS}Content-Length: 0\r\n\r\n")
+                    writer.flush()
+                    logRequest("OPTIONS $path -> 204 (preflight)")
                     return
                 }
-                val results = mutableListOf<String>()
-                var queued = 0
-                var skipped = 0
-                var invalid = 0
-                var pending = 0
-                for (candidate in urls) {
-                    val result = onDownloadRequest(candidate, format, quality, cookieFile)
-                    pending = result.pending
-                    val safeUrl = candidate.replace("\\", "\\\\").replace("\"", "\\\"")
+
+                // Comprobación de vida: la extensión la usa para saber si la
+                // aplicación está abierta antes de enviar nada.
+                if (path.startsWith("/health")) {
+                    val pending = runCatching { onPendingRequest() }.getOrDefault(0)
+                    val version = System.getProperty("lunafetch.version").orEmpty()
+                    sendJsonResponse(
+                        "HTTP/1.1 200 OK",
+                        """{"ok":true,"app":"Luna Fetch","version":"${jsonEscape(version)}","pid":${ProcessHandle.current().pid()},"pending":$pending}""",
+                    )
+                    logRequest("GET $path -> 200 (health, pendientes=$pending)")
+                    return
+                }
+
+                val bodyString = request.body
+                val url: String? = parseQueryParam(path, "url") ?: jsonString(bodyString, "url")
+                val format: String = parseQueryParam(path, "format") ?: jsonString(bodyString, "format") ?: "mp4"
+                val quality: String? = parseQueryParam(path, "quality") ?: jsonString(bodyString, "quality")
+                val downloadLyrics: Boolean = bodyString.contains(""""downloadLyrics":true""") || path.contains("downloadLyrics=true")
+                val cookiesRaw = jsonString(bodyString, "cookies")?.replace("\\n", "\n")?.replace("\\t", "\t")
+                val cookieFile = saveCookiesFile(cookiesRaw)
+
+                val executeEnqueue: (String) -> com.biglexj.lunafetch.domain.EnqueueResult = { targetUrl ->
+                    onDownloadWithOptions?.invoke(targetUrl, format, quality, cookieFile, downloadLyrics)
+                        ?: onDownloadRequest(targetUrl, format, quality, cookieFile)
+                }
+
+                // Endpoint dedicado de sincronización de cookies desde la extensión.
+                // El cuerpo debe ser JSON con { "cookies": "<contenido Netscape>" }.
+                if (path.startsWith("/cookies")) {
+                    val saved = cookieFile != null
+                    sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true,"saved":$saved}""")
+                    logRequest("POST $path -> 200 (cookies guardadas=$saved)")
+                    return
+                }
+
+                // Envío por lotes: una sola petición con N enlaces, en lugar de N
+                // idas y venidas al servidor. Lo usa el importador de listas de Suno.
+                if (path.startsWith("/download/batch") && method == "POST") {
+                    val urls = jsonStringArray(bodyString, "urls")
+                    if (urls.isEmpty()) {
+                        sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"No se recibió ningún enlace"}""")
+                        logRequest("POST $path -> 400 (lote vacío)")
+                        return
+                    }
+                    val results = mutableListOf<String>()
+                    var queued = 0
+                    var skipped = 0
+                    var invalid = 0
+                    var pending = 0
+                    for (candidate in urls) {
+                        val result = executeEnqueue(candidate)
+                        pending = result.pending
+                        val safeUrl = candidate.replace("\\", "\\\\").replace("\"", "\\\"")
+                        when (result.outcome) {
+                            com.biglexj.lunafetch.domain.EnqueueOutcome.Queued -> {
+                                queued += 1
+                                results += """{"url":"$safeUrl","queued":true,"pending":${result.pending}}"""
+                            }
+                            com.biglexj.lunafetch.domain.EnqueueOutcome.DuplicateInQueue -> {
+                                skipped += 1
+                                results += """{"url":"$safeUrl","queued":false,"reason":"duplicate_queue","pending":${result.pending}}"""
+                            }
+                            com.biglexj.lunafetch.domain.EnqueueOutcome.AlreadyDownloaded -> {
+                                skipped += 1
+                                results += """{"url":"$safeUrl","queued":false,"reason":"already_downloaded","pending":${result.pending}}"""
+                            }
+                            com.biglexj.lunafetch.domain.EnqueueOutcome.InvalidUrl -> {
+                                skipped += 1
+                                invalid += 1
+                                results += """{"url":"$safeUrl","queued":false,"reason":"invalid_url"}"""
+                            }
+                        }
+                    }
+                    val body = """{"ok":${invalid == 0},"queued":$queued,"skipped":$skipped,"invalid":$invalid,""" +
+                        """"pending":$pending,"results":[${results.joinToString(",")}]}"""
+                    sendJsonResponse("HTTP/1.1 200 OK", body)
+                    logRequest("POST $path -> 200 (lote: encolados=$queued, omitidos=$skipped)")
+                    return
+                }
+
+                val analyzeHandler = onAnalyzeRequest
+                if (path.startsWith("/analyze") && (method == "GET" || method == "POST") && !url.isNullOrBlank() && analyzeHandler != null) {
+                    runCatching { analyzeHandler.invoke(url, cookieFile) }
+                        .onSuccess { (videoQualities, audioQualities) ->
+                            val vqJson = videoQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
+                            val aqJson = audioQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
+                            val body = """{"ok":true,"videoQualities":[$vqJson],"audioQualities":[$aqJson]}"""
+                            sendJsonResponse("HTTP/1.1 200 OK", body)
+                        }
+                        .onFailure { error ->
+                            val body = """{"ok":false,"error":"${jsonEscape(error.message ?: "No se pudo analizar el enlace")}"}"""
+                            sendJsonResponse("HTTP/1.1 400 Bad Request", body)
+                        }
+                    logRequest("$method $path -> 200 (análisis)")
+                    return
+                }
+
+                if (!url.isNullOrBlank()) {
+                    val result = executeEnqueue(url)
                     when (result.outcome) {
-                        com.biglexj.lunafetch.domain.EnqueueOutcome.Queued -> {
-                            queued += 1
-                            results += """{"url":"$safeUrl","queued":true,"pending":${result.pending}}"""
-                        }
-                        com.biglexj.lunafetch.domain.EnqueueOutcome.DuplicateInQueue -> {
-                            skipped += 1
-                            results += """{"url":"$safeUrl","queued":false,"reason":"duplicate_queue","pending":${result.pending}}"""
-                        }
-                        com.biglexj.lunafetch.domain.EnqueueOutcome.AlreadyDownloaded -> {
-                            skipped += 1
-                            results += """{"url":"$safeUrl","queued":false,"reason":"already_downloaded","pending":${result.pending}}"""
-                        }
-                        com.biglexj.lunafetch.domain.EnqueueOutcome.InvalidUrl -> {
-                            skipped += 1
-                            invalid += 1
-                            results += """{"url":"$safeUrl","queued":false,"reason":"invalid_url"}"""
-                        }
+                        com.biglexj.lunafetch.domain.EnqueueOutcome.InvalidUrl ->
+                            sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL no válida"}""")
+                        com.biglexj.lunafetch.domain.EnqueueOutcome.DuplicateInQueue ->
+                            sendJsonResponse(
+                                "HTTP/1.1 200 OK",
+                                """{"ok":true,"queued":false,"reason":"duplicate_queue","pending":${result.pending}}""",
+                            )
+                        com.biglexj.lunafetch.domain.EnqueueOutcome.AlreadyDownloaded ->
+                            sendJsonResponse(
+                                "HTTP/1.1 200 OK",
+                                """{"ok":true,"queued":false,"reason":"already_downloaded","pending":${result.pending}}""",
+                            )
+                        com.biglexj.lunafetch.domain.EnqueueOutcome.Queued ->
+                            sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true,"queued":true,"pending":${result.pending}}""")
                     }
+                    logRequest("$method $path -> 200 (${result.outcome}, pendientes=${result.pending})")
+                } else {
+                    sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL vacía"}""")
+                    logRequest("$method $path -> 400 (URL vacía)")
                 }
-                val body = """{"ok":${invalid == 0},"queued":$queued,"skipped":$skipped,"invalid":$invalid,""" +
-                    """"pending":$pending,"results":[${results.joinToString(",")}]}"""
-                sendJsonResponse("HTTP/1.1 200 OK", body)
-                return
-            }
-
-            val analyzeHandler = onAnalyzeRequest
-            if (path.startsWith("/analyze") && (method == "GET" || method == "POST") && !url.isNullOrBlank() && analyzeHandler != null) {
-                runCatching { analyzeHandler.invoke(url, cookieFile) }
-                    .onSuccess { (videoQualities, audioQualities) ->
-                        val vqJson = videoQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
-                        val aqJson = audioQualities.joinToString(",") { """{"id":"${it.displayName}","label":"${it.displayName}"}""" }
-                        val body = """{"ok":true,"videoQualities":[$vqJson],"audioQualities":[$aqJson]}"""
-                        sendJsonResponse("HTTP/1.1 200 OK", body)
-                    }
-                    .onFailure { error ->
-                        val body = """{"ok":false,"error":"${error.message ?: "No se pudo analizar el enlace"}"}"""
-                        sendJsonResponse("HTTP/1.1 400 Bad Request", body)
-                    }
-                return
-            }
-
-            if (!url.isNullOrBlank()) {
-                val result = onDownloadRequest(url, format, quality, cookieFile)
-                when (result.outcome) {
-                    com.biglexj.lunafetch.domain.EnqueueOutcome.InvalidUrl ->
-                        sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL no válida"}""")
-                    com.biglexj.lunafetch.domain.EnqueueOutcome.DuplicateInQueue ->
-                        sendJsonResponse(
-                            "HTTP/1.1 200 OK",
-                            """{"ok":true,"queued":false,"reason":"duplicate_queue","pending":${result.pending}}""",
-                        )
-                    com.biglexj.lunafetch.domain.EnqueueOutcome.AlreadyDownloaded ->
-                        sendJsonResponse(
-                            "HTTP/1.1 200 OK",
-                            """{"ok":true,"queued":false,"reason":"already_downloaded","pending":${result.pending}}""",
-                        )
-                    com.biglexj.lunafetch.domain.EnqueueOutcome.Queued ->
-                        sendJsonResponse("HTTP/1.1 200 OK", """{"ok":true,"queued":true,"pending":${result.pending}}""")
+            } catch (error: Exception) {
+                // Antes el fallo se tragaba la conexión y la extensión
+                // receiveía un error de red ("no está abierto") sin saber por
+                // qué. Ahora se responde con el motivo real.
+                val message = error.message ?: error.javaClass.simpleName
+                runCatching {
+                    sendJsonResponse(
+                        "HTTP/1.1 500 Internal Server Error",
+                        """{"ok":false,"error":"${jsonEscape(message)}"}""",
+                    )
                 }
-            } else {
-                sendJsonResponse("HTTP/1.1 400 Bad Request", """{"ok":false,"error":"URL vacía"}""")
+                logRequest("${request?.method ?: "?"} ${request?.path ?: "?"} -> 500 ($message)")
+            } finally {
+                val elapsed = System.currentTimeMillis() - startedAt
+                if (elapsed > 2000) {
+                    logRequest("petición lenta: ${request?.path ?: "?"} tardó ${elapsed} ms")
+                }
             }
         }
     }

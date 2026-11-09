@@ -191,7 +191,18 @@ if (-not $SkipBuild) {
         # Tocar el exe aqui garantiza que Assert-BuildFresh pase en Build-Installer.ps1.
         $exePath = Join-Path $root "composeApp\build\compose\binaries\main\app\LunaFetch\LunaFetch.exe"
         if (Test-Path -LiteralPath $exePath) {
-            (Get-Item -LiteralPath $exePath).LastWriteTime = [datetime]::Now
+            # jpackage deja el ejecutable con el atributo de solo lectura y en
+            # Windows no se puede cambiar la fecha de un fichero de solo lectura:
+            # el error abortaba la release antes de generar el APK. Se quita el
+            # atributo y, si aun asi falla, se avisa pero no se detiene la
+            # compilacion.
+            try {
+                $exe = Get-Item -LiteralPath $exePath
+                if ($exe.IsReadOnly) { $exe.IsReadOnly = $false }
+                $exe.LastWriteTime = [datetime]::Now
+            } catch {
+                Write-Warning "No se pudo refrescar la fecha del ejecutable: $($_.Exception.Message)"
+            }
         }
     }
 }
@@ -214,68 +225,83 @@ try {
 }
 
 $publishedArtifacts = @()
+# Cada plataforma se compila por separado: un fallo en Windows no debe dejar
+# el APK sin generar. Los errores se recogen y se informan al final.
+$platformErrors = @()
 
 if (-not $SkipWindows) {
-    $exe = Join-Path $output "LunaFetch-Windows-$Version.exe"
-    # Instalador modernizado con Inno Setup (plantilla Biglex Modern 2.0).
-    # La distribucion de la app ya la genero :composeApp:createDistributable.
-    $installerArguments = @{
-        Version = $Version
-        SkipAppBuild = $true
-        OutputDir = $output
-    }
-    if ($SkipSigning) { $installerArguments['SkipSigning'] = $true }
-    & (Join-Path $root "scripts\packaging\Build-Installer.ps1") @installerArguments
-    if ($LASTEXITCODE -ne 0) { throw "Falló la compilación del instalador de Inno Setup." }
-    if (-not (Test-Path -LiteralPath $exe)) { throw "No se generó el instalador de Windows: $exe" }
-    (Get-Item -LiteralPath $exe).IsReadOnly = $false
+    try {
+        $exe = Join-Path $output "LunaFetch-Windows-$Version.exe"
+        # Instalador modernizado con Inno Setup (plantilla Biglex Modern 2.0).
+        # La distribucion de la app ya la genero :composeApp:createDistributable.
+        $installerArguments = @{
+            Version = $Version
+            SkipAppBuild = $true
+            OutputDir = $output
+        }
+        if ($SkipSigning) { $installerArguments['SkipSigning'] = $true }
+        & (Join-Path $root "scripts\packaging\Build-Installer.ps1") @installerArguments
+        if ($LASTEXITCODE -ne 0) { throw "Falló la compilación del instalador de Inno Setup." }
+        if (-not (Test-Path -LiteralPath $exe)) { throw "No se generó el instalador de Windows: $exe" }
+        (Get-Item -LiteralPath $exe).IsReadOnly = $false
 
-    if (-not $SkipSigning) {
-        $certificate = Join-Path $root "LunaFetch_Dev_Certificate.pfx"
-        if (-not (Test-Path -LiteralPath $certificate)) { throw "Falta LunaFetch_Dev_Certificate.pfx." }
-        Invoke-Checked $signTool @("sign", "/fd", "SHA256", "/f", $certificate, $exe)
-        Assert-SignedArtifact -Path $exe -Publisher "CN=biglexj"
+        if (-not $SkipSigning) {
+            $certificate = Join-Path $root "LunaFetch_Dev_Certificate.pfx"
+            if (-not (Test-Path -LiteralPath $certificate)) { throw "Falta LunaFetch_Dev_Certificate.pfx." }
+            Invoke-Checked $signTool @("sign", "/fd", "SHA256", "/f", $certificate, $exe)
+            Assert-SignedArtifact -Path $exe -Publisher "CN=biglexj"
+        }
+        $publishedArtifacts += $exe
+    } catch {
+        $platformErrors += "Windows: $($_.Exception.Message)"
     }
-    $publishedArtifacts += $exe
 }
 
 $androidArtifacts = @()
 if (-not $SkipAndroid) {
-    $androidVariant = if ($LocalOnly) { "debug" } else { "release" }
-    $apkOutput = Join-Path $root "composeApp\build\outputs\apk\$androidVariant"
-    $metadataPath = Join-Path $apkOutput "output-metadata.json"
-    if (-not (Test-Path -LiteralPath $metadataPath)) { throw "No se generó el metadato de APK: $metadataPath" }
-    $metadata = Get-Content -LiteralPath $metadataPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    try {
+        $androidVariant = if ($LocalOnly) { "debug" } else { "release" }
+        $apkOutput = Join-Path $root "composeApp\build\outputs\apk\$androidVariant"
+        $metadataPath = Join-Path $apkOutput "output-metadata.json"
+        if (-not (Test-Path -LiteralPath $metadataPath)) { throw "No se generó el metadato de APK: $metadataPath" }
+        $metadata = Get-Content -LiteralPath $metadataPath -Raw -Encoding UTF8 | ConvertFrom-Json
 
-    $buildTools = Get-ChildItem -LiteralPath (Join-Path $env:ANDROID_HOME "build-tools") -Directory |
-        Sort-Object { [version]$_.Name } -Descending |
-        Select-Object -First 1
-    if (-not $buildTools) { throw "No se encontraron Android build-tools para validar los APK." }
-    $apkSigner = Join-Path $buildTools.FullName "apksigner.bat"
-    $aapt = Join-Path $buildTools.FullName "aapt.exe"
+        $buildTools = Get-ChildItem -LiteralPath (Join-Path $env:ANDROID_HOME "build-tools") -Directory |
+            Sort-Object { [version]$_.Name } -Descending |
+            Select-Object -First 1
+        if (-not $buildTools) { throw "No se encontraron Android build-tools para validar los APK." }
+        $apkSigner = Join-Path $buildTools.FullName "apksigner.bat"
+        $aapt = Join-Path $buildTools.FullName "aapt.exe"
 
-    $element = @($metadata.elements)[0]
-    if (-not $element) { throw "No se encontró el elemento APK en $metadataPath" }
-    $apkSource = Join-Path $apkOutput $element.outputFile
-    if (-not (Test-Path -LiteralPath $apkSource)) { throw "No se generó el APK: $apkSource" }
+        $element = @($metadata.elements)[0]
+        if (-not $element) { throw "No se encontró el elemento APK en $metadataPath" }
+        $apkSource = Join-Path $apkOutput $element.outputFile
+        if (-not (Test-Path -LiteralPath $apkSource)) { throw "No se generó el APK: $apkSource" }
 
-    if (-not $LocalOnly) {
-        Invoke-Checked $apkSigner @("verify", "--verbose", "--print-certs", $apkSource)
+        if (-not $LocalOnly) {
+            Invoke-Checked $apkSigner @("verify", "--verbose", "--print-certs", $apkSource)
+        }
+        $badging = (& $aapt dump badging $apkSource) -join "`n"
+        if ($LASTEXITCODE -ne 0) { throw "No se pudo inspeccionar el APK." }
+        if ($badging -notmatch "name='com\.biglexj\.lunafetch'") {
+            throw "El applicationId del APK no corresponde a Luna Fetch."
+        }
+        if ($badging -notmatch "versionCode='$newCode'" -or $badging -notmatch "versionName='$([regex]::Escape($Version))'") {
+            throw "La versión interna del APK no coincide con $Version ($newCode)."
+        }
+
+        $debugSuffix = if ($LocalOnly) { "-debug" } else { "" }
+        $apk = Join-Path $output "LunaFetch-Android-$Version$debugSuffix.apk"
+        Copy-Item -LiteralPath $apkSource -Destination $apk
+        $androidArtifacts = @($apk)
+        $publishedArtifacts += $apk
+    } catch {
+        $platformErrors += "Android: $($_.Exception.Message)"
     }
-    $badging = (& $aapt dump badging $apkSource) -join "`n"
-    if ($LASTEXITCODE -ne 0) { throw "No se pudo inspeccionar el APK." }
-    if ($badging -notmatch "name='com\.biglexj\.lunafetch'") {
-        throw "El applicationId del APK no corresponde a Luna Fetch."
-    }
-    if ($badging -notmatch "versionCode='$newCode'" -or $badging -notmatch "versionName='$([regex]::Escape($Version))'") {
-        throw "La versión interna del APK no coincide con $Version ($newCode)."
-    }
+}
 
-    $debugSuffix = if ($LocalOnly) { "-debug" } else { "" }
-    $apk = Join-Path $output "LunaFetch-Android-$Version$debugSuffix.apk"
-    Copy-Item -LiteralPath $apkSource -Destination $apk
-    $androidArtifacts = @($apk)
-    $publishedArtifacts += $apk
+if ($platformErrors.Count -gt 0) {
+    throw ("Falló la compilación de: " + ($platformErrors -join "; "))
 }
 
 if ($publishedArtifacts.Count -eq 0) {

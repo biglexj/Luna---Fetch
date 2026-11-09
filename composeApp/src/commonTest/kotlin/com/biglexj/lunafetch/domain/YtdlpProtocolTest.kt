@@ -27,7 +27,7 @@ class YtdlpProtocolTest {
             url = "https://example.com/watch?v=1&list=2",
             destination = "unused",
             format = MediaFormat.Mp3,
-            quality = FormatCatalog.qualities(MediaFormat.Mp3, 1080).first(),
+            quality = FormatCatalog.qualities(MediaFormat.Mp3).first(),
         )
         val outputTemplate = "C:/Downloads/%(title)s.%(ext)s"
         val arguments = YtdlpProtocol.buildDownloadArguments(request, outputTemplate)
@@ -48,7 +48,7 @@ class YtdlpProtocolTest {
             url = "https://example.com/playlist?list=2",
             destination = "unused",
             format = MediaFormat.M4a,
-            quality = FormatCatalog.qualities(MediaFormat.M4a, 1080).first(),
+            quality = FormatCatalog.qualities(MediaFormat.M4a).first(),
             downloadCollection = true,
         )
 
@@ -74,7 +74,7 @@ class YtdlpProtocolTest {
             url = "https://www.tiktok.com/@user/video/123456789",
             destination = "unused",
             format = MediaFormat.Mp4,
-            quality = FormatCatalog.qualities(MediaFormat.Mp4, 1080).first(),
+            quality = FormatCatalog.qualities(MediaFormat.Mp4).first(),
         )
         val arguments = YtdlpProtocol.buildDownloadArguments(request, "C:/Downloads/%(title)s.%(ext)s")
         assertTrue("--ignore-config" in arguments)

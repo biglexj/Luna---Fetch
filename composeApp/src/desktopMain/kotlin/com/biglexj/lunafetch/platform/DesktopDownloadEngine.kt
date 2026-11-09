@@ -31,13 +31,14 @@ class DesktopDownloadEngine(
     override suspend fun analyze(url: String): VideoInfo = analyzeWithCookieFile(url, null)
 
     suspend fun analyzeWithCookieFile(url: String, customCookieFile: String? = null): VideoInfo = withContext(Dispatchers.IO) {
+        val effectiveCookieFile = customCookieFile ?: defaultSessionCookieFile()
         if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(url)) {
-            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.analyze(url, customCookieFile)
+            return@withContext com.biglexj.lunafetch.domain.SunoExtractor.analyze(url, effectiveCookieFile)
         }
 
         val analyzeOptions = YtdlpProtocol.buildAnalyzeArguments(url)
 
-        val (exitCode, outputs) = executeWithCookieFallback(analyzeOptions, url, customCookieFile = customCookieFile)
+        val (exitCode, outputs) = executeWithCookieFallback(analyzeOptions, url, customCookieFile = effectiveCookieFile)
         val (stdout, stderr) = outputs
         if (exitCode != 0) {
             throw DownloadException(stderr.trim().ifBlank { stdout.trim() }.ifBlank { "yt-dlp terminó con código $exitCode." })
@@ -57,13 +58,15 @@ class DesktopDownloadEngine(
         onProgress: (DownloadProgress) -> Unit,
         onLog: (String) -> Unit,
     ): DownloadResult = withContext(Dispatchers.IO) {
+        val effectiveCookieFile = customCookieFile ?: request.cookieFile ?: defaultSessionCookieFile()
         // El contenido se ordena en subcarpetas: `audio` para el material
         // sonoro y `video` para el visual.
         val scopedRequest = request.copy(
             destination = com.biglexj.lunafetch.domain.MediaFolders.resolve(request.destination, request.format),
+            cookieFile = effectiveCookieFile,
         )
 
-        if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(request.url)) {
+        if (com.biglexj.lunafetch.domain.SunoExtractor.isSunoUrl(scopedRequest.url)) {
             return@withContext com.biglexj.lunafetch.domain.SunoExtractor.download(scopedRequest, onProgress, onLog)
         }
 
@@ -302,5 +305,10 @@ class DesktopDownloadEngine(
             it.jsonObject["height"]?.jsonPrimitive?.intOrNull
         }.maxOrNull() ?: 1080
         return if (maxH > 0) maxH else 1080
+    }
+
+    private fun defaultSessionCookieFile(): String? {
+        val tempFile = File(System.getProperty("java.io.tmpdir"), "luna_session_cookies.txt")
+        return tempFile.takeIf { it.exists() && it.length() > 0 }?.absolutePath
     }
 }

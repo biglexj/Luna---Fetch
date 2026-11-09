@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.biglexj.lunafetch.feature.components.ActionButton
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
 import com.biglexj.lunafetch.domain.MediaFormat
@@ -223,7 +225,7 @@ fun QuickDownloadSheet(
                         Column {
                             Text(
                                 if (selectedFormat.isAudio) "Audio de máxima fidelidad (MP3 · 320 kbps)"
-                                else "Resolución máxima disponible (1080p / 4K / HD)",
+                                else "Resolución máxima disponible (hasta 8K)",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -238,30 +240,16 @@ fun QuickDownloadSheet(
 
                 // ── Destino ───────────────────────────────────────────────────────
                 Text("Destino", style = MaterialTheme.typography.labelLarge)
-                OutlinedButton(
+                ActionButton(
+                    text = if (state.destination.isBlank()) "⚠️ Seleccionar carpeta de destino"
+                    else "📂 " + platform.destinationLabel(state.destination),
                     onClick = presenter::chooseDestination,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentColor = if (state.destination.isBlank()) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurface,
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = if (state.destination.isBlank()) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-                                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-                        contentColor = if (state.destination.isBlank()) MaterialTheme.colorScheme.error
-                                       else MaterialTheme.colorScheme.onSurface,
-                    ),
-                    border = BorderStroke(
-                        width = if (state.destination.isBlank()) 1.5.dp else 1.dp,
-                        color = if (state.destination.isBlank()) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                    ),
-                ) {
-                    Text(
-                        if (state.destination.isBlank()) "⚠️ Seleccionar carpeta de destino"
-                        else "📂 " + platform.destinationLabel(state.destination),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = if (state.destination.isBlank()) FontWeight.Bold else FontWeight.Normal,
-                    )
-                }
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Se guardará en la subcarpeta «${MediaFolders.folderFor(selectedFormat)}».",
@@ -270,7 +258,8 @@ fun QuickDownloadSheet(
                 )
 
                 // ── Botón Principal de Descarga Inmediata (Flujo Inverso) ─────────
-                Button(
+                ActionButton(
+                    text = if (selectedFormat.isAudio) "🎵 Descargar Música" else "🎬 Descargar Video",
                     onClick = {
                         if (state.destination.isBlank()) {
                             presenter.showToast("⚠️ Selecciona una carpeta de destino para guardar")
@@ -281,15 +270,9 @@ fun QuickDownloadSheet(
                             onDismiss()
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(50),
-                ) {
-                    Text(
-                        if (selectedFormat.isAudio) "🎵 Descargar Música" else "🎬 Descargar Video",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp),
+                )
 
                 Text(
                     "⚡ Se procesará en segundo plano con notificación activa",
@@ -302,31 +285,26 @@ fun QuickDownloadSheet(
                 // ── Aurora Synapse LAN Peers (Opcional si hay dispositivos) ───────
                 if (state.discoveredPeers.isNotEmpty()) {
                     state.discoveredPeers.forEach { peer ->
-                        OutlinedButton(
+                        ActionButton(
+                            text = "🚀 Mandar a descargar a ${peer.name}",
                             onClick = {
                                 presenter.pushDownloadToPeer(peer)
                                 onDismiss()
                             },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
-                                contentColor = MaterialTheme.colorScheme.primary,
-                            ),
-                            border = BorderStroke(
-                                width = 1.5.dp,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            ),
-                        ) {
-                            Text("🚀 Mandar a descargar a ${peer.name}", fontWeight = FontWeight.Bold)
-                        }
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                        )
                     }
                 }
 
                 state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(50)) {
-                    Text("Cancelar")
-                }
+                ActionButton(
+                    text = "Cancelar",
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                )
                 Spacer(Modifier.height(10.dp))
             }
         }

@@ -1,5 +1,6 @@
 package com.biglexj.lunafetch.feature.download
 
+import com.biglexj.lunafetch.feature.components.ActionButton
 import com.biglexj.lunafetch.feature.components.LunaCard
 import com.biglexj.lunafetch.feature.components.formatDuration
 
@@ -109,10 +110,10 @@ fun CollectionEntriesCard(video: VideoInfo, isAudio: Boolean) {
 
     LunaCard(modifier = Modifier.animateContentSize()) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            CoverThumbnail(video.thumbnailUrl, "Portada de ${video.collectionTitle ?: "la colección"}", isAudio, sourceUrl = video.url)
+            CoverThumbnail(video.thumbnailUrl, "Portada de ${video.collectionTitle ?: "la playlist"}", isAudio, sourceUrl = video.url)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    video.collectionTitle ?: "Lista de reproducción",
+                    video.collectionTitle ?: "Playlist",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
@@ -120,7 +121,7 @@ fun CollectionEntriesCard(video: VideoInfo, isAudio: Boolean) {
                 )
                 Text(video.uploader, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    "$totalEntries canciones detectadas",
+                    if (isAudio) "$totalEntries canciones detectadas" else "$totalEntries videos detectados",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -141,7 +142,7 @@ fun CollectionEntriesCard(video: VideoInfo, isAudio: Boolean) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "Mostrando ${displayedEntries.size} de $totalEntries canciones",
+                        "Mostrando ${displayedEntries.size} de $totalEntries ${if (isAudio) "canciones" else "videos"}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -159,22 +160,20 @@ fun CollectionEntriesCard(video: VideoInfo, isAudio: Boolean) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        OutlinedButton(
+                        ActionButton(
+                            text = "Mostrar más (+10)",
                             onClick = { visibleLimit = minOf(visibleLimit + 10, totalEntries) },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(50),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        ) {
-                            Text("Mostrar más (+10)", style = MaterialTheme.typography.labelMedium)
-                        }
-                        OutlinedButton(
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        )
+                        ActionButton(
+                            text = "Mostrar todo",
                             onClick = { visibleLimit = totalEntries },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(50),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        ) {
-                            Text("Mostrar todo", style = MaterialTheme.typography.labelMedium)
-                        }
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        )
                     }
                 }
             }

@@ -7,6 +7,8 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +20,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
 enum class ThemeMode { System, Light, Dark }
+
+/** Tema efectivo en pantalla (claro u oscuro) para que la UI pueda reflejarlo. */
+val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 @Composable
 expect fun platformDynamicColorScheme(useDarkTheme: Boolean): ColorScheme?
@@ -43,6 +48,14 @@ private val LunaLightColors = lightColorScheme(
     surfaceTint = Color.Transparent,
     outline = Color(0xFF70827D),
     outlineVariant = Color(0xFFD4E3DF),
+    // Roles de contenedor con matiz teal: sin esto Material usa su gris lavanda por defecto.
+    surfaceBright = Color(0xFFF6FBF9),
+    surfaceDim = Color(0xFFDCE6E3),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFEFF5F3),
+    surfaceContainer = Color(0xFFE9F0EE),
+    surfaceContainerHigh = Color(0xFFE2EAE7),
+    surfaceContainerHighest = Color(0xFFDCE4E1),
 )
 
 private val LunaDarkColors = darkColorScheme(
@@ -66,6 +79,15 @@ private val LunaDarkColors = darkColorScheme(
     surfaceTint = Color.Transparent,
     outline = Color(0xFF50615D),
     outlineVariant = Color(0xFF263639),
+    surfaceBright = Color(0xFF343C3D),
+    surfaceDim = Color(0xFF0D1415),
+    surfaceContainerLowest = Color(0xFF080E0F),
+    surfaceContainerLow = Color(0xFF182123),
+    surfaceContainer = Color(0xFF1C2628),
+    surfaceContainerHigh = Color(0xFF263033),
+    surfaceContainerHighest = Color(0xFF313B3D),
+    inverseSurface = Color(0xFF313B3D),
+    inverseOnSurface = Color(0xFFE1E8E6),
 )
 
 private val LunaShapes = Shapes(
@@ -110,5 +132,7 @@ fun LunaFetchTheme(
         ThemeMode.Dark -> true
     }
     val colors = platformDynamicColorScheme(dark) ?: if (dark) LunaDarkColors else LunaLightColors
-    MaterialTheme(colorScheme = colors, shapes = LunaShapes, content = content)
+    CompositionLocalProvider(LocalIsDarkTheme provides dark) {
+        MaterialTheme(colorScheme = colors, shapes = LunaShapes, content = content)
+    }
 }

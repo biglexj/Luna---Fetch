@@ -49,6 +49,13 @@ object LinkCanonicalizer {
         if (host.endsWith("tiktok.com")) {
             return "tt:$pathNoSlash"
         }
+        if (host.endsWith("suno.com")) {
+            val uuidRegex = Regex("""[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}""", RegexOption.IGNORE_CASE)
+            val match = uuidRegex.find(url)
+            if (match != null) {
+                return "suno:${match.value.lowercase()}"
+            }
+        }
 
         val params = query.split('&')
             .filter { it.isNotBlank() }

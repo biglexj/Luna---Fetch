@@ -1,5 +1,20 @@
 Set-StrictMode -Version Latest
 
+# Windows PowerShell tiene que cargar sus propios modulos de sistema. Si el
+# proceso hereda un PSModulePath de PowerShell 7 (la carpeta WindowsApps entra
+# al abrir la terminal), los modulos que se cargan son los de PS7 y sus cmdlets
+# no existen en 5.1: Get-FileHash y Get-AuthenticodeSignature dejan de estar
+# disponibles y la release se cae antes de generar los artefactos.
+$systemModulePaths = @(
+    (Join-Path $PSHOME "Modules")
+    "C:\Program Files\WindowsPowerShell\Modules"
+    "C:\Windows\System32\WindowsPowerShell\v1.0\Modules"
+    (Join-Path ([Environment]::GetFolderPath('MyDocuments')) "PowerShell\Modules")
+) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+if ($systemModulePaths.Count -gt 0) {
+    $env:PSModulePath = ($systemModulePaths -join ";")
+}
+
 function Invoke-Checked {
     param(
         [Parameter(Mandatory)] [string]$Executable,
@@ -143,8 +158,19 @@ function Assert-SignedArtifact {
         [Parameter(Mandatory)] [string]$Path,
         [Parameter(Mandatory)] [string]$Publisher
     )
-    $signature = Get-AuthenticodeSignature -LiteralPath $Path
-    if (-not $signature.SignerCertificate -or $signature.SignerCertificate.Subject -ne $Publisher) {
+    $subject = $null
+    try {
+        $signature = Get-AuthenticodeSignature -LiteralPath $Path -ErrorAction Stop
+        $subject = $signature.SignerCertificate.Subject
+    } catch {
+        # En algunos equipos el modulo Microsoft.PowerShell.Security no carga
+        # (choque de TypeData al registrar los tipos de seguridad). Se lee el
+        # certificado directamente por .NET para no depender del modulo: si el
+        # fichero no estuviera firmado, la lectura fallaria igual.
+        $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate]::CreateFromSignedFile($Path)
+        $subject = $certificate.Subject
+    }
+    if (-not $subject -or $subject -ne $Publisher) {
         throw "La firma de '$Path' no corresponde a $Publisher."
     }
 }

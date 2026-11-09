@@ -14,45 +14,59 @@
           <polyline points="7 10 12 15 17 10"/>
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
-        <h1>Luna Fetch</h1>
+        <h1 id="brand-title">Luna Fetch</h1>
       </div>
-      <p class="subtitle">Envía un enlace a tu escritorio</p>
+      <p id="brand-subtitle" class="subtitle">Envía un enlace a tu escritorio</p>
     </header>
 
-    <label class="lbl" for="url">Enlace</label>
-    <input id="url" type="text" placeholder="https://…" autocomplete="off" spellcheck="false">
-
-    <div class="format-row">
-      <button class="fmt-btn selected" data-fmt="mp4">🎬 Video MP4</button>
-      <button class="fmt-btn"          data-fmt="mp3">🎵 Audio MP3</button>
+    <!-- Sección general (YouTube y webs estándar) -->
+    <div id="general-section">
+      <label class="lbl" for="url">Enlace</label>
+      <input id="url" type="text" placeholder="https://…" autocomplete="off" spellcheck="false">
     </div>
 
-    <button id="send" class="send-btn">Enviar a Luna Fetch</button>
+    <!-- Sección contextual de Suno -->
+    <div id="suno-section" style="display:none">
+      <label class="lbl" for="suno-mode">Modo</label>
+      <select id="suno-mode">
+        <option value="links" selected>Solo enlaces (sin publicar)</option>
+        <option value="publish">Publicar y enviar</option>
+      </select>
+      <div style="margin-top:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cdd6f4;cursor:pointer">
+          <input type="checkbox" id="suno-lyrics">
+          Descargar letra (.txt)
+        </label>
+      </div>
+    </div>
+
+    <!-- Formato compartido único -->
+    <label class="lbl" for="fmt">Formato</label>
+    <select id="fmt">
+      <option value="mp3">🎵 Audio MP3</option>
+      <option value="flac">🎵 Audio FLAC (sin pérdidas)</option>
+      <option value="m4a">🎵 Audio M4A</option>
+      <option value="wav">🎵 Audio WAV (sin pérdidas)</option>
+      <option value="mp4">🎬 Video MP4</option>
+      <option value="webm">🎬 Video WebM</option>
+    </select>
+
+    <!-- Acciones generales -->
+    <div id="general-actions">
+      <button id="send" class="send-btn">Enviar a Luna Fetch</button>
+    </div>
+
+    <!-- Acciones en Suno -->
+    <div id="suno-actions" style="display:none">
+      <div class="suno-actions-row">
+        <button id="suno-import" class="send-btn" style="flex:2">Importar lista abierta</button>
+        <button id="suno-stop" class="ghost-btn" style="flex:1;color:#ef4444">Detener</button>
+      </div>
+      <button id="suno-copy" class="ghost-btn" style="width:100%;margin-top:8px">Enviar enlace copiado</button>
+    </div>
+
+    <!-- Estado y mensajes de cola en tiempo real -->
     <div id="status" class="status"></div>
-
-    <div class="hint">
-      💡 Se descarga en la mejor calidad disponible.
-      <br>📥 Puedes enviar varios enlaces: se descargan uno tras otro.
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="lbl">☀️ Suno</div>
-    <div class="format-row">
-      <button class="fmt-btn selected" data-sfmt="mp3">🎵 Audio MP3</button>
-      <button class="fmt-btn"          data-sfmt="mp4">🎬 Video MP4</button>
-    </div>
-    <div class="suno-row">
-      <button id="suno-import" class="ghost-btn">Importar lista abierta</button>
-      <button id="suno-copy"   class="ghost-btn">Enviar enlace copiado</button>
-    </div>
-    <label class="switch-row">
-      <input type="checkbox" id="suno-auto">
-      <span>Autoenviar enlaces públicos de Suno</span>
-    </label>
-    <div class="suno-hint">
-      Publica las canciones de la lista abierta y las envía solas a Luna Fetch.
-    </div>
   </div>
 
   <script src="suno-links.js"></script>

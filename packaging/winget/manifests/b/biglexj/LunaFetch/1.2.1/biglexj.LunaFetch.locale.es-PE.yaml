@@ -24,9 +24,8 @@ Tags:
   - video
   - youtube
 ReleaseNotes: |-
-  Luna Fetch 1.2.1 es el parche sobre la 1.2.0 publicada en GitHub.
-  El instalador EXE de Windows se genera con la plantilla propia de Biglex en Inno Setup,
-  con switches /VERYSILENT y /SILENT.
+  Luna Fetch 1.2.1 se publica con instalador EXE para Windows (Inno Setup, plantilla Biglex Modern 2.0, con switches /VERYSILENT y /SILENT)
+  y APK Android separados para ARM64, ARM32 y x86_64.
 ReleaseNotesUrl: https://github.com/biglexj/Luna---Fetch/releases/tag/v1.2.1
 ManifestType: defaultLocale
 ManifestVersion: 1.10.0

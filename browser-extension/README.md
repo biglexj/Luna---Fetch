@@ -43,6 +43,21 @@ Una vez instalada la extensión:
   orden en que se envió. La tarjeta "Cola de descargas" muestra cuántos enlaces
   faltan y el estado de cada uno.
 
+### 🔌 Estado de la conexión
+
+Al abrir el popup, la extensión comprueba que Luna Fetch esté respondiendo y
+muestra el resultado bajo el botón de envío:
+
+- **✅ Conectado con Luna Fetch**: la aplicación está abierta y escuchando.
+- **⚠️ Sin conexión…**: la aplicación no responde en `127.0.0.1:51234`. El
+  mensaje indica el motivo concreto, para que no haya que adivinar si el
+  problema es que la app está cerrada, que el navegador no la alcanza o que la
+  propia extensión no logra hablar con su servicio en segundo plano.
+
+Si un envío falla, el popup muestra el motivo real del fallo en lugar de un
+mensaje genérico. El servidor local deja además un registro de cada petición
+en `%TEMP%\luna_fetch_server.log`.
+
 ---
 
 ## ☀️ Suno: importar la lista abierta de una sola vez
@@ -59,6 +74,10 @@ pestaña de Suno que ya tienes autenticada.
 3. En la sección **☀️ Suno**, elige el formato y pulsa **«Importar lista abierta»**.
 4. El importador se abre en la pestaña de Suno: publica lo que esté en privado,
    copia cada enlace y envía el lote.
+
+Los formatos disponibles son los mismos que en la app: MP4, WebM, MP3, M4A,
+FLAC y WAV. El de audio elegido es el que se descarga tal cual: un FLAC llega
+al disco como FLAC y no convertido a MP3.
 
 En el panel del importador puedes cambiar de modo:
 

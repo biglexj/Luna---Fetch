@@ -66,7 +66,7 @@ object NetscapeCookieJar {
             .substringBefore('/')
             .substringBefore(':')
             .trim()
-            .removePrefix(".")
+            .trimStart('.')
         val parts = clean.split('.')
         return if (parts.size >= 2) {
             "${parts[parts.size - 2]}.${parts.last()}"
@@ -144,15 +144,16 @@ object NetscapeCookieJar {
     fun cookieHeaderForHost(content: String, host: String): String {
         val root = rootDomainOf(host).lowercase()
         if (root.isBlank()) return ""
+        val nowSeconds = System.currentTimeMillis() / 1000L
         return parse(content)
-            .filter { matchesHost(it.domain, root) }
+            .filter { matchesHost(it.domain, root) && (it.expiration <= 0L || it.expiration > nowSeconds) }
             .joinToString("; ") { "${it.name}=${it.value}" }
             .trim()
     }
 
     /** ¿El dominio de la cookie corresponde al host solicitado? */
     private fun matchesHost(cookieDomain: String, root: String): Boolean {
-        val domain = cookieDomain.trim().removePrefix(".").lowercase()
+        val domain = cookieDomain.trim().trimStart('.').lowercase()
         if (domain.isBlank()) return false
         return domain == root || root.endsWith(".$domain") || domain.endsWith(".$root")
     }

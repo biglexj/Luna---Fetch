@@ -71,37 +71,31 @@ input[type="text"]:focus { border-color: #2ec4a3; }
 .send-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 
 .status {
-  margin-top: 6px;
+  margin-top: 10px;
   font-size: 12px;
   text-align: center;
-  min-height: 8px;
+  min-height: 14px;
+  line-height: 1.4;
   word-break: break-word;
 }
 
-.hint {
-  margin-top: 6px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, .08);
-  font-size: 11px;
-  color: #888;
-  line-height: 1.5;
+/* ── Acciones Suno ──────────────────────────────────────────────────────── */
+.suno-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
-
-/* ── Sección Suno ───────────────────────────────────────────────────────── */
-.divider {
-  margin: 12px 0 4px;
-  border-top: 1px solid rgba(255, 255, 255, .08);
+.suno-actions-row .send-btn {
+  margin-top: 0;
 }
-.suno-row { display: flex; gap: 8px; margin: 4px 0 6px; }
 .ghost-btn {
-  flex: 1;
-  padding: 7px 6px;
+  padding: 10px;
   border: 1px solid rgba(255, 255, 255, .15);
   border-radius: 10px;
   background: rgba(255, 255, 255, .05);
   color: #cdd6f4;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-family: inherit;
   font-weight: 500;
   transition: all .15s ease;
@@ -109,20 +103,3 @@ input[type="text"]:focus { border-color: #2ec4a3; }
 .ghost-btn:hover { background: rgba(255, 255, 255, .12); color: #fff; }
 .ghost-btn:active { transform: scale(.98); }
 .ghost-btn:disabled { opacity: .6; cursor: not-allowed; }
-
-.switch-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: #cdd6f4;
-  cursor: pointer;
-}
-.switch-row input { accent-color: #2ec4a3; margin: 0; }
-
-.suno-hint {
-  margin-top: 5px;
-  font-size: 11px;
-  color: #888;
-  line-height: 1.45;
-}

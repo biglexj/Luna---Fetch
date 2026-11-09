@@ -293,4 +293,15 @@ if (-not $SkipSigning) {
 $hash = (Get-Sha256Hex -LiteralPath $installer).ToLowerInvariant()
 Write-Host "Instalador listo: $installer" -ForegroundColor Green
 Write-Host "SHA256: $hash" -ForegroundColor Green
+
+# Sincronizar copia en '12. Releases'
+$releasesGlobalDir = 'D:\Proyectos\biglexj\12. Releases'
+if (Test-Path -LiteralPath $releasesGlobalDir) {
+    $installerLeaf = Split-Path $installer -Leaf
+    Get-ChildItem -LiteralPath $releasesGlobalDir -Filter "LunaFetch-Windows-*.exe" -File |
+        Where-Object { $_.Name -ne $installerLeaf } |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+    Copy-Item -LiteralPath $installer -Destination (Join-Path $releasesGlobalDir $installerLeaf) -Force
+    Write-Host "Copia sincronizada en 12. Releases\$installerLeaf" -ForegroundColor Green
+}
 exit 0

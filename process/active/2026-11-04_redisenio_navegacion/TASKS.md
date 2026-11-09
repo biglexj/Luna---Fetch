@@ -1,0 +1,21 @@
+# Tareas
+
+- [x] Navegación lateral y navegación inferior para anchos menores de 760 dp.
+- [x] Descargas e Historial como vistas separadas.
+- [x] Tema, comportamiento, navegador, Synapse y Acerca de en Ajustes.
+- [x] Retirar los títulos duplicados y el límite de ancho de Acerca de.
+- [x] Iconos vectoriales coherentes y Ajustes al pie de la barra.
+- [x] Corregir el orden de inicialización de la detección de Windows.
+- [x] Reparar la ruta de inicio instalada y comprobar el servidor local.
+- [x] Filas de Ajustes con borde redondeado y padding interno, con el realce de hover contenido.
+- [x] Botón de tema en la barra lateral con los tres estados (monitor, sol y luna).
+- [x] Selectores de tema y de canal en pastillas blancas con la activa en verde menta.
+- [x] Acerca de compacto: actualizaciones de Luna y motor de Luna en dos columnas.
+- [x] Botones de una sola acción transparentes con borde y realce de hover en toda la app.
+- [x] Historial con el alto completo de la ventana y once descargas por página.
+- [x] Contenedores del tema con matiz teal en lugar del gris lavanda de Material.
+- [x] Quitar de la URL de YouTube la radio automática para analizar el video suelto.
+- [x] Calidad con «Mejor calidad» por defecto y el resto de selectores como límite.
+- [x] Formatos MP3, M4A, FLAC y WAV en la extensión y en el panel del importador de Suno.
+- [x] Cada formato de audio se descarga en su formato: antes todo acababa en MP3.
+- [ ] Aceptación visual final de Biglex sobre la instancia actualizada.

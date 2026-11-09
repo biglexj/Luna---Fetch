@@ -3,6 +3,7 @@ package com.biglexj.lunafetch.feature.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LunaCard(
     modifier: Modifier = Modifier,
+    fillHeight: Boolean = false,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -34,27 +36,28 @@ fun LunaCard(
         MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
     )
     val elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    val heightModifier = if (fillHeight) Modifier.fillMaxHeight() else Modifier
 
     if (onClick != null) {
         Card(
             onClick = onClick,
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth().then(heightModifier),
             shape = shape,
             colors = colors,
             elevation = elevation,
             border = border,
         ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(20.dp), content = content)
+            Column(modifier = Modifier.fillMaxWidth().then(heightModifier).padding(20.dp), content = content)
         }
     } else {
         Card(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth().then(heightModifier),
             shape = shape,
             colors = colors,
             border = border,
             elevation = elevation,
         ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(20.dp), content = content)
+            Column(modifier = Modifier.fillMaxWidth().then(heightModifier).padding(20.dp), content = content)
         }
     }
 }

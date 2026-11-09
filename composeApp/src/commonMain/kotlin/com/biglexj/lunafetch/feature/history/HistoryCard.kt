@@ -3,23 +3,20 @@ package com.biglexj.lunafetch.feature.history
 import com.biglexj.lunafetch.feature.components.LunaCard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.biglexj.lunafetch.domain.HistoryPaginator
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
 import com.biglexj.lunafetch.domain.PlatformBindings
@@ -41,59 +39,84 @@ fun HistoryCard(
     presenter: LunaFetchPresenter,
     platform: PlatformBindings,
 ) {
-    if (state.history.isEmpty()) return
-
-    // Diez descargas por página: el historial no crece sin límite y el
-    // selector de abajo permite llegar a las anteriores.
-    val pageCount = com.biglexj.lunafetch.domain.HistoryPaginator.pageCount(state.history.size)
-    var page by remember(state.history.firstOrNull()?.id) { mutableStateOf(0) }
-    val currentPage = page.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
-    val pageItems = com.biglexj.lunafetch.domain.HistoryPaginator.itemsForPage(state.history, currentPage)
-
-    LunaCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    if (state.history.isEmpty()) {
+        LunaCard(modifier = Modifier.fillMaxWidth()) {
             Text("Historial de descargas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            TextButton(onClick = presenter::clearHistory) {
-                Text("Limpiar todo", style = MaterialTheme.typography.bodySmall)
-            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Aún no hay descargas en el historial.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        // El historial va en una sola columna: en varias los títulos quedaban
-        // ilegibles y los avisos se apilaban letra por letra. El scroll es el
-        // de toda la ventana, no uno propio.
-        Column(modifier = Modifier.fillMaxWidth()) {
-            pageItems.forEach { item ->
-                HistoryRow(item = item, state = state, presenter = presenter, platform = platform)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-            }
-        }
-        if (pageCount > 1) {
-            Spacer(Modifier.height(6.dp))
+        return
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val totalHeight = maxHeight
+        val headerHeight = 40.dp
+        val footerHeight = 40.dp
+        val cardPadding = 40.dp
+        val availableForRows = totalHeight - headerHeight - footerHeight - cardPadding
+        val rowHeight = 42.dp
+        val dynamicPageSize = (availableForRows / rowHeight).toInt().coerceIn(3, 40)
+
+        val pageCount = HistoryPaginator.pageCount(state.history.size, dynamicPageSize)
+        var page by remember(state.history.firstOrNull()?.id, dynamicPageSize) { mutableStateOf(0) }
+        val currentPage = page.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
+        val pageItems = HistoryPaginator.itemsForPage(state.history, currentPage, dynamicPageSize)
+
+        LunaCard(modifier = Modifier.fillMaxSize(), fillHeight = true) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(
-                    onClick = { page = (currentPage - 1).coerceAtLeast(0) },
-                    enabled = currentPage > 0,
-                ) {
-                    Text("‹ Anterior")
+                Text("Historial de descargas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                TextButton(onClick = presenter::clearHistory) {
+                    Text("Limpiar todo", style = MaterialTheme.typography.bodySmall)
                 }
-                Text(
-                    "Página ${currentPage + 1} de $pageCount · ${state.history.size} descargas",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(
-                    onClick = { page = (currentPage + 1).coerceAtMost(pageCount - 1) },
-                    enabled = currentPage < pageCount - 1,
+            }
+            Spacer(Modifier.height(8.dp))
+
+            Column(Modifier.weight(1f).fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
                 ) {
-                    Text("Siguiente ›")
+                    pageItems.forEach { item ->
+                        HistoryRow(
+                            item = item,
+                            state = state,
+                            presenter = presenter,
+                            platform = platform,
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                    }
+                }
+                if (pageCount > 1) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(
+                            onClick = { page = (currentPage - 1).coerceAtLeast(0) },
+                            enabled = currentPage > 0,
+                        ) {
+                            Text("‹ Anterior")
+                        }
+                        Text(
+                            "Página ${currentPage + 1} de $pageCount · ${state.history.size} descargas",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(
+                            onClick = { page = (currentPage + 1).coerceAtMost(pageCount - 1) },
+                            enabled = currentPage < pageCount - 1,
+                        ) {
+                            Text("Siguiente ›")
+                        }
+                    }
                 }
             }
         }
@@ -106,6 +129,7 @@ private fun HistoryRow(
     state: LunaFetchState,
     presenter: LunaFetchPresenter,
     platform: PlatformBindings,
+    modifier: Modifier = Modifier,
 ) {
     val fileState = platform.localFileState(item.path)
     val isLocal = fileState != com.biglexj.lunafetch.domain.LocalFileState.Missing
@@ -125,7 +149,7 @@ private fun HistoryRow(
         item.originDevice.ifBlank { platform.deviceName }
     }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -242,24 +266,17 @@ private fun HistoryRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HistoryActionButton(
     icon: String,
     tooltip: String,
     onClick: () -> Unit,
 ) {
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(androidx.compose.material3.TooltipAnchorPosition.Above),
-        tooltip = { PlainTooltip { Text(tooltip) } },
-        state = rememberTooltipState(),
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(32.dp),
     ) {
-        IconButton(
-            onClick = onClick,
-            modifier = Modifier.size(32.dp),
-        ) {
-            Text(icon, fontSize = 14.sp)
-        }
+        Text(icon, fontSize = 14.sp)
     }
 }
 

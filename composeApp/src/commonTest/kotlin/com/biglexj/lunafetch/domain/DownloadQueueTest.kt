@@ -368,4 +368,42 @@ class DownloadQueueTest {
             job.cancel()
         }
     }
+
+    /**
+     * En la cola, lo que ya terminó (completado, fallido o cancelado) se
+     * muestra al final; lo que sigue vivo, en su orden de encolado.
+     */
+    @Test
+    fun finishedItemsAreShownAtTheEndOfTheQueue() {
+        val queue = listOf(
+            QueuedDownload(formatName = "mp4", id = "completado", url = "https://youtu.be/a", status = QueueItemStatus.Completed),
+            QueuedDownload(formatName = "mp4", id = "espera", url = "https://youtu.be/b", status = QueueItemStatus.Pending),
+            QueuedDownload(formatName = "mp4", id = "fallido", url = "https://youtu.be/c", status = QueueItemStatus.Failed),
+            QueuedDownload(formatName = "mp4", id = "descargando", url = "https://youtu.be/d", status = QueueItemStatus.Running),
+            QueuedDownload(formatName = "mp4", id = "cancelado", url = "https://youtu.be/e", status = QueueItemStatus.Cancelled),
+        )
+
+        val ordered = queue.sortedForDisplay()
+
+        assertEquals(
+            listOf("espera", "descargando", "completado", "fallido", "cancelado"),
+            ordered.map { it.id },
+        )
+    }
+
+    /** El orden dentro de cada grupo se conserva: la cola no se reordena sola. */
+    @Test
+    fun displayOrderKeepsTheOrderWithinEachGroup() {
+        val queue = listOf(
+            QueuedDownload(formatName = "mp4", id = "fallido-1", url = "https://youtu.be/a", status = QueueItemStatus.Failed),
+            QueuedDownload(formatName = "mp4", id = "espera-1", url = "https://youtu.be/b", status = QueueItemStatus.Pending),
+            QueuedDownload(formatName = "mp4", id = "espera-2", url = "https://youtu.be/c", status = QueueItemStatus.Pending),
+            QueuedDownload(formatName = "mp4", id = "completado-1", url = "https://youtu.be/d", status = QueueItemStatus.Completed),
+        )
+
+        assertEquals(
+            listOf("espera-1", "espera-2", "fallido-1", "completado-1"),
+            queue.sortedForDisplay().map { it.id },
+        )
+    }
 }

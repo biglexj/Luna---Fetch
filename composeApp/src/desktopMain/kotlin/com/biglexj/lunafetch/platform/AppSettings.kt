@@ -7,8 +7,22 @@ import java.util.prefs.Preferences
  * Desktop-only settings stored in Java Preferences (HKCU on Windows).
  * Each property reads/writes synchronously; values survive app restarts.
  */
-class AppSettings {
-    private val prefs = Preferences.userRoot().node("com/biglexj/lunafetch/settings")
+class AppSettings internal constructor(
+    private val prefs: Preferences = Preferences.userRoot().node("com/biglexj/lunafetch/settings"),
+    private val osName: String = System.getProperty("os.name").orEmpty(),
+    private val executablePath: () -> String? = {
+        System.getProperty("jpackage.app-path")
+            ?: ProcessHandle.current().info().command().orElse(null)
+    },
+    private val executeAutoStart: (Array<String>) -> Unit = { command ->
+        val process = ProcessBuilder(*command).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        check(process.waitFor() == 0) { output }
+    },
+) {
+    // Se necesita durante init: declararlo después hacía que Windows usara
+    // por error la rama de Linux al reparar el arranque automático.
+    private val isWindows = osName.lowercase().contains("win")
 
     init {
         // Enforce autostart registry key on startup if enabled
@@ -65,8 +79,6 @@ class AppSettings {
         set(v) {
             if (v != null) prefs.put("windowPositionY", v.toString()) else prefs.remove("windowPositionY")
         }
-
-    private val isWindows = System.getProperty("os.name")?.lowercase()?.contains("win") == true
 
     /** Whether the native messaging host manifest is installed for Chrome/Edge/Chromium. */
     val isNativeHostInstalled: Boolean
@@ -156,7 +168,7 @@ class AppSettings {
 
     private fun applyAutoStart(enable: Boolean) {
         runCatching {
-            val exePath = ProcessHandle.current().info().command().orElse(null) ?: return
+            val exePath = executablePath() ?: return
             // Ignore java runner during development
             if (exePath.endsWith("java.exe", ignoreCase = true) || exePath.endsWith("javaw.exe", ignoreCase = true) ||
                 exePath.endsWith("/java", ignoreCase = true)) {
@@ -166,11 +178,11 @@ class AppSettings {
                 val key = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
                 val valueName = "LunaFetch"
                 if (enable) {
-                    Runtime.getRuntime().exec(
+                    executeAutoStart(
                         arrayOf("reg", "add", key, "/v", valueName, "/t", "REG_SZ", "/d", "\"$exePath\" --autostart", "/f")
                     )
                 } else {
-                    Runtime.getRuntime().exec(
+                    executeAutoStart(
                         arrayOf("reg", "delete", key, "/v", valueName, "/f")
                     )
                 }
@@ -198,6 +210,6 @@ class AppSettings {
                     }
                 }
             }
-        }
+        }.onFailure { System.err.println("[Luna Fetch] No se pudo actualizar el inicio automático: ${it.message}") }
     }
 }

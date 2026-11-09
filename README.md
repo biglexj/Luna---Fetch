@@ -1,6 +1,6 @@
-# Luna Fetch 🌙 — v1.2.1
+# Luna Fetch 🌙 — v1.3.0
 
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.2.1-2ec4a3)](https://github.com/biglexj/Luna---Fetch/releases/tag/v1.2.1)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.3.0-2ec4a3)](https://github.com/biglexj/Luna---Fetch/releases/tag/v1.3.0)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 [![Plataformas](https://img.shields.io/badge/plataformas-Windows%20%7C%20Android%20%7C%20Linux-lightgrey.svg)](#plataformas)
 
@@ -45,7 +45,7 @@ En escritorio, `yt-dlp` y FFmpeg deben estar disponibles en `PATH`. En Android e
 
 ## Extensión de navegador
 
-La extensión de Chromium (Chrome, Edge, Brave y Opera) vive en [`browser-extension/`](browser-extension/) y va en su propia línea de versiones: la **v1.4.4** acompaña a la 1.2.1 de la aplicación. No se instala con el instalador de Windows; se carga de forma manual:
+La extensión de Chromium (Chrome, Edge, Brave y Opera) vive en [`browser-extension/`](browser-extension/) y va en su propia línea de versiones: la **v1.4.4** acompaña a la 1.3.0 de la aplicación. No se instala con el instalador de Windows; se carga de forma manual:
 
 1. Abre `chrome://extensions` (o `edge://extensions`).
 2. Activa **Modo de desarrollador**.

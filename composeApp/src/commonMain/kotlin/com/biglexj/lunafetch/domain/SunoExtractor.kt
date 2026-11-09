@@ -46,7 +46,8 @@ object SunoExtractor {
         val clean = rawUrl.trim()
         val directId = extractId(clean)
         if (directId != null && !clean.contains("/s/")) {
-            return@withContext "https://suno.com/song/$directId"
+            val query = clean.substringAfter('?', "")
+            return@withContext if (query.isNotBlank()) "https://suno.com/song/$directId?$query" else "https://suno.com/song/$directId"
         }
 
         runCatching {
@@ -61,12 +62,17 @@ object SunoExtractor {
             if (status in 300..399) {
                 val location = connection.getHeaderField("Location")
                 if (!location.isNullOrBlank()) {
+                    if (location == "/" || location.equals("https://suno.com/", ignoreCase = true) || location.equals("https://suno.com", ignoreCase = true)) {
+                        throw DownloadException("El enlace compartido de Suno ha caducado o no existe (Suno redirigió a la página principal).")
+                    }
                     val target = if (location.startsWith("http")) location else "https://suno.com$location"
                     val id = extractId(target)
-                    if (id != null) return@withContext "https://suno.com/song/$id"
+                    if (id != null) {
+                        return@withContext if (target.contains("?")) target else "https://suno.com/song/$id"
+                    }
                 }
             }
-        }
+        }.getOrThrow()
         clean
     }
 
@@ -99,7 +105,7 @@ object SunoExtractor {
         val canonicalUrl = resolveCanonicalUrl(rawUrl)
         val id = extractId(canonicalUrl) ?: throw DownloadException("No se pudo identificar el ID único de la canción de Suno.")
 
-        val metadata = fetchMetadata(id, cookieFile)
+        val metadata = fetchMetadata(id, cookieFile, targetPageUrl = canonicalUrl.ifBlank { rawUrl })
 
         val uploaderText = when {
             metadata.displayName.isNotBlank() && metadata.creatorHandle.isNotBlank() ->
@@ -130,7 +136,7 @@ object SunoExtractor {
     ): DownloadResult = withContext(Dispatchers.IO) {
         val canonicalUrl = resolveCanonicalUrl(request.url)
         val id = extractId(canonicalUrl) ?: throw DownloadException("No se encontró el ID de la canción de Suno.")
-        val meta = fetchMetadata(id, request.cookieFile)
+        val meta = fetchMetadata(id, request.cookieFile, targetPageUrl = canonicalUrl.ifBlank { request.url })
 
         val destinationDir = File(request.destination)
         if (!destinationDir.exists() && !destinationDir.mkdirs()) {
@@ -143,22 +149,44 @@ object SunoExtractor {
         onProgress(DownloadProgress(0.0, phase = DownloadPhase.Preparing))
         onLog("Iniciando extracción de Suno AI para: ${meta.title}")
 
-        // El stream MP4 canónico de Suno (cdn1.suno.ai/$id.mp4) contiene el audio AAC a 48kHz sin cifrar.
-        // Los streams .m4a de CloudFront usan cifrado propietario (encoding: 1.0.0), por lo que siempre usamos el stream canónico de cdn1.
-        val sourceStreamUrl = "https://cdn1.suno.ai/$id.mp4"
+        val candidates = if (isAudio) {
+            val list = mutableListOf<StreamCandidate>()
+            if (meta.audioUrl.isNotBlank() && !meta.audioUrl.contains("/forbidden", ignoreCase = true)) {
+                list.add(StreamCandidate(meta.audioUrl, "audio directo de Suno"))
+            }
+            // Para canciones privadas/compartidas, el stream seguro Mango de CloudFront
+            // es el único con acceso legítimo sin depender de permisos de cdn1/cdn2.
+            list.add(StreamCandidate(SunoMangoDecryptor.streamUrlForId(id), "stream seguro Suno (Mango Opus M4A)"))
+            list.add(StreamCandidate("https://cdn1.suno.ai/$id.mp3", "stream MP3 (cdn1)"))
+            list.add(StreamCandidate("https://cdn2.suno.ai/$id.mp3", "stream MP3 (cdn2)"))
+            list.add(StreamCandidate("https://cdn1.suno.ai/$id.m4a", "stream M4A (cdn1)"))
+            list.add(StreamCandidate("https://cdn2.suno.ai/$id.m4a", "stream M4A (cdn2)"))
+            if (meta.videoUrl.isNotBlank()) {
+                list.add(StreamCandidate(meta.videoUrl, "stream de video de Suno"))
+            }
+            list.add(StreamCandidate("https://cdn1.suno.ai/$id.mp4", "stream MP4 canónico (cdn1)"))
+            list.add(StreamCandidate("https://cdn2.suno.ai/$id.mp4", "stream MP4 canónico (cdn2)"))
+            list.distinctBy { it.url }
+        } else {
+            val list = mutableListOf<StreamCandidate>()
+            if (meta.videoUrl.isNotBlank()) {
+                list.add(StreamCandidate(meta.videoUrl, "stream de video de Suno"))
+            }
+            list.add(StreamCandidate("https://cdn1.suno.ai/$id.mp4", "stream de video MP4 (cdn1)"))
+            list.add(StreamCandidate("https://cdn2.suno.ai/$id.mp4", "stream de video MP4 (cdn2)"))
+            list.distinctBy { it.url }
+        }
 
         val finalExtension = request.format.extension
-        val finalFile = File(destinationDir, "$sanitizedTitle.$finalExtension")
+        val finalFile = uniqueOutputFile(destinationDir, sanitizedTitle, finalExtension)
+        val sanitizedBaseName = finalFile.nameWithoutExtension
         val tempSourceFile = if (isAudio) {
-            File(destinationDir, "${sanitizedTitle}_suno_source.mp4")
+            File(destinationDir, "${sanitizedBaseName}_suno_source_${System.currentTimeMillis()}.tmp")
         } else {
             finalFile
         }
 
-        val logDescription = if (isAudio) "stream fuente canónico (.mp4)" else "stream de video (.mp4)"
-        onLog("Descargando $logDescription: $sourceStreamUrl")
-
-        downloadHttpStream(sourceStreamUrl, tempSourceFile) { pct, speed, size ->
+        val chosenStream = downloadFirstAvailableStream(candidates, tempSourceFile, request.cookieFile, onLog) { pct, speed, size ->
             onProgress(DownloadProgress(pct, speed = speed, size = size, phase = DownloadPhase.Downloading))
         }
 
@@ -176,8 +204,9 @@ object SunoExtractor {
                 actualOutputFile = finalFile
                 deleteQuietly(tempSourceFile)
             } else {
-                // Si FFmpeg no está disponible o la conversión falló, preservar el MP4 original descargado
-                val preservedFile = File(destinationDir, "$sanitizedTitle.mp4")
+                // Si FFmpeg no está disponible o la conversión falló, preservar el archivo original descargado
+                val rawExtension = chosenStream.url.substringBefore('?').substringAfterLast('.', "mp3")
+                val preservedFile = uniqueOutputFile(destinationDir, sanitizedBaseName, rawExtension)
                 if (tempSourceFile.exists()) {
                     if (!tempSourceFile.renameTo(preservedFile)) {
                         runCatching {
@@ -191,10 +220,15 @@ object SunoExtractor {
             }
         }
 
-        // Guardar la letra de la canción si existe en un archivo .txt acompañante
-        if (meta.lyricsPrompt.isNotBlank() && !meta.lyricsPrompt.equals("Prompt", ignoreCase = true)) {
+        // Guardar la letra de la canción si el usuario lo activó y la canción NO es instrumental
+        val isInstrumentalPrompt = meta.isInstrumental ||
+            meta.lyricsPrompt.trim().equals("[Instrumental]", ignoreCase = true) ||
+            meta.lyricsPrompt.trim().equals("Instrumental", ignoreCase = true) ||
+            meta.lyricsPrompt.trim().startsWith("[Instrumental", ignoreCase = true)
+
+        if (request.downloadLyrics && !isInstrumentalPrompt && meta.lyricsPrompt.isNotBlank() && !meta.lyricsPrompt.equals("Prompt", ignoreCase = true)) {
             runCatching {
-                val lyricsFile = File(destinationDir, "$sanitizedTitle.lyrics.txt")
+                val lyricsFile = File(destinationDir, "$sanitizedBaseName.lyrics.txt")
                 lyricsFile.writeText(buildString {
                     appendLine(meta.title)
                     appendLine("Autor: ${meta.displayName} (@${meta.creatorHandle})")
@@ -208,23 +242,15 @@ object SunoExtractor {
                 })
                 onLog("Letra lírica guardada en: ${lyricsFile.name}")
             }
-        } else {
-            // Se distingue el caso esperado (canción instrumental) del
-            // anómalo (la ficha no trae la letra): el primero no es un fallo.
-            onLog(
-                if (meta.isInstrumental) {
-                    "🎼 La canción es instrumental: Suno no tiene letra que guardar."
-                } else {
-                    "⚠️ La ficha de Suno no incluye la letra de esta canción."
-                }
-            )
+        } else if (isInstrumentalPrompt) {
+            onLog("🎼 La canción es instrumental: no se genera archivo de letra.")
         }
 
         onProgress(DownloadProgress(100.0, phase = DownloadPhase.Completed))
         onLog("✅ Descarga de Suno completada con éxito.")
 
         val outputList = mutableListOf(actualOutputFile.absolutePath)
-        val lyricsCandidate = File(destinationDir, "$sanitizedTitle.lyrics.txt")
+        val lyricsCandidate = File(destinationDir, "$sanitizedBaseName.lyrics.txt")
         if (lyricsCandidate.exists()) {
             outputList.add(lyricsCandidate.absolutePath)
         }
@@ -235,23 +261,45 @@ object SunoExtractor {
         )
     }
 
-    private fun fetchMetadata(id: String, cookieFile: String? = null): SunoSongMetadata {
-        val targetUrl = "https://suno.com/song/$id"
-        val connection = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 12_000
-            readTimeout = 12_000
-            setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
-            setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-            setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
-            setRequestProperty("Referer", "https://suno.com/")
-            // Con la sesión del navegador, Suno entrega la ficha completa
-            // aunque la canción sea privada.
-            sessionCookieHeader(cookieFile)?.let { setRequestProperty("Cookie", it) }
+    private fun fetchMetadata(
+        id: String,
+        cookieFile: String? = null,
+        targetPageUrl: String? = null,
+    ): SunoSongMetadata {
+        var currentUrl = when {
+            !targetPageUrl.isNullOrBlank() && targetPageUrl.startsWith("http") -> targetPageUrl
+            else -> "https://suno.com/song/$id"
         }
+        var redirectCount = 0
+        var connection: HttpURLConnection? = null
 
         val html = try {
-            connection.inputStream.bufferedReader().use { it.readText() }
+            while (true) {
+                val url = URL(currentUrl)
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    instanceFollowRedirects = false
+                    requestMethod = "GET"
+                    connectTimeout = 12_000
+                    readTimeout = 12_000
+                    setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+                    setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
+                    setRequestProperty("Referer", "https://suno.com/")
+                    sessionCookieHeader(cookieFile)?.let { setRequestProperty("Cookie", it) }
+                }
+                connection = conn
+
+                val status = conn.responseCode
+                if (status in 300..399 && redirectCount < 5) {
+                    val loc = conn.getHeaderField("Location") ?: break
+                    currentUrl = if (loc.startsWith("http")) loc else URL(url, loc).toString()
+                    redirectCount++
+                    conn.disconnect()
+                    continue
+                }
+                break
+            }
+            connection!!.inputStream.bufferedReader().use { it.readText() }
         } catch (t: Throwable) {
             // Fallback con CDN predeterminado
             return SunoSongMetadata(
@@ -283,28 +331,42 @@ object SunoExtractor {
      */
     internal fun parseMetadata(html: String, id: String): SunoSongMetadata {
         val clipIndex = findClipIndex(html, id)
-        val windowStart = if (clipIndex > 0) maxOf(0, clipIndex - CLIP_WINDOW_BEFORE) else 0
-        val windowEnd = if (clipIndex >= 0) minOf(html.length, clipIndex + CLIP_WINDOW_AFTER) else html.length
+        val windowStart = if (clipIndex >= 0) maxOf(0, clipIndex - CLIP_WINDOW_BEFORE) else 0
+        val windowEnd = if (clipIndex >= 0) minOf(html.length, clipIndex + CLIP_WINDOW_AFTER) else 0
 
-        val payloadTitle = extractTitle(html, windowStart, windowEnd, clipIndex)
-        val author = extractAuthor(html, windowStart, windowEnd, clipIndex)
+        // Solo se extrae el título del payload si se localizó el clip; de lo contrario
+        // se evita escanear la página para no capturar textos promocionales como
+        // «Consigue la experiencia completa de la app» de la portada de Suno.
+        val payloadTitle = if (clipIndex >= 0) extractTitle(html, windowStart, windowEnd, clipIndex) else null
+        val author = if (clipIndex >= 0) extractAuthor(html, windowStart, windowEnd, clipIndex) else null
         val displayName = author?.first
         val handle = author?.second
-        val duration = extractNumber(html, "duration", windowStart, windowEnd)
-        val styleTags = extractField(html, "tags", windowStart, windowEnd, clipIndex, maxLength = 6000)
-        val lyrics = extractLyrics(html, windowStart, windowEnd, clipIndex)
-        val cover = extractUrlField(html, "image_large_url", windowStart, windowEnd)
-            ?: extractUrlField(html, "image_url", windowStart, windowEnd)
-            ?: defaultCoverUrl(id)
-
-        // Suno marca las canciones sin voz con `make_instrumental: true`: su
-        // letra viene vacía por diseño, no por un fallo de lectura.
-        val isInstrumental = Regex("""\\?"make_instrumental\\?"\s*:\s*true""")
-            .containsMatchIn(html.substring(windowStart, windowEnd))
-
+        val duration = if (clipIndex >= 0) extractNumber(html, "duration", windowStart, windowEnd) else null
+        val styleTags = if (clipIndex >= 0) extractField(html, "tags", windowStart, windowEnd, clipIndex, maxLength = 6000) else null
+        val lyrics = if (clipIndex >= 0) extractLyrics(html, windowStart, windowEnd, clipIndex) else ""
         // La cabecera HTML (<title> y la meta descripción) sirve de red de
         // seguridad cuando el payload interno cambia de forma.
         val head = parseHeadMetadata(html)
+
+        val cover = if (clipIndex >= 0) {
+            extractUrlField(html, "image_large_url", windowStart, windowEnd)
+                ?: extractUrlField(html, "image_url", windowStart, windowEnd)
+                ?: head.coverUrl
+                ?: defaultCoverUrl(id)
+        } else {
+            head.coverUrl ?: defaultCoverUrl(id)
+        }
+
+        val isInstrumental = if (clipIndex >= 0) {
+            Regex("""\\?"make_instrumental\\?"\s*:\s*true""")
+                .containsMatchIn(html.substring(windowStart, windowEnd))
+        } else false
+
+        val audioUrl = extractUrlField(html, "audio_url", windowStart, windowEnd)
+            ?.takeIf { !it.contains("/forbidden", ignoreCase = true) }
+            .orEmpty()
+        val videoUrl = extractUrlField(html, "video_url", windowStart, windowEnd)
+            ?: "https://cdn1.suno.ai/$id.mp4"
 
         return SunoSongMetadata(
             id = id,
@@ -317,8 +379,8 @@ object SunoExtractor {
             lyricsPrompt = lyrics.takeIf { it.isNotBlank() && !it.equals("Prompt", ignoreCase = true) }.orEmpty(),
             tags = styleTags.orEmpty(),
             coverUrl = cover,
-            videoUrl = "https://cdn1.suno.ai/$id.mp4",
-            audioUrl = "",
+            videoUrl = videoUrl,
+            audioUrl = audioUrl,
             isInstrumental = isInstrumental,
         )
     }
@@ -451,6 +513,42 @@ object SunoExtractor {
         return decodeFlightValue(raw).trim().takeIf { it.isNotBlank() }
     }
 
+    private val GENERIC_UI_TITLES = setOf(
+        "consigue la experiencia completa de la app",
+        "get the full app experience",
+        "sharing settings",
+        "configuración para compartir",
+        "publish song",
+        "publicar canción",
+        "edit song details",
+        "editar detalles de la canción",
+        "enter phone number",
+        "enter email address",
+        "enter code",
+        "suno | ai music generator",
+        "suno",
+        "you're invited to suno",
+        "restaurando tu sesión...",
+        "restaurando tu sesión",
+        "restaurando tu sesion...",
+        "restaurando tu sesion",
+        "restoring your session...",
+        "restoring your session",
+        "restoring session...",
+        "restoring session",
+    )
+
+    private fun isGenericTitle(title: String?): Boolean {
+        if (title.isNullOrBlank()) return true
+        val lower = title.trim().lowercase()
+        return GENERIC_UI_TITLES.contains(lower) ||
+            lower.startsWith("consigue la experiencia") ||
+            lower.startsWith("get the full app") ||
+            lower.startsWith("restaurando tu sesi") ||
+            lower.startsWith("restoring your session") ||
+            lower.startsWith("restoring session")
+    }
+
     /**
      * Recupera el título de la canción.
      *
@@ -466,9 +564,10 @@ object SunoExtractor {
         ).find(segment)
         if (withCounters != null) {
             val value = decodeFlightValue(withCounters.groupValues[1])
-            if (value.isNotBlank()) return value
+            if (value.isNotBlank() && !isGenericTitle(value)) return value
         }
-        return extractField(html, "title", fromIndex, toIndex, anchor)
+        val candidate = extractField(html, "title", fromIndex, toIndex, anchor)
+        return candidate?.takeIf { !isGenericTitle(it) }
     }
 
     /**
@@ -509,16 +608,22 @@ object SunoExtractor {
     }
 
     /**
-     * Lee la cabecera HTML de la ficha: título, autor y alias del autor.
+     * Lee la cabecera HTML de la ficha: título, autor, alias y portada.
      */
     private fun parseHeadMetadata(html: String): HeadMetadata {
+        val ogTitle = Regex("""<meta\s+(?:property|name)=["'](?:og:title|twitter:title)["']\s+content=["']([^"']{1,200})["']""")
+            .find(html)?.groupValues?.get(1)?.trim()
+            ?.replace("&amp;", "&")
+            ?.replace("&quot;", "\"")
+            ?.takeIf { !isGenericTitle(it) }
+
         val titleTag = Regex("""<title>([^<]{1,200})</title>""").find(html)?.groupValues?.get(1)?.trim()
         val rawTitle = titleTag
             ?.removeSuffix("| Suno")
             ?.trim()
             ?.takeIf { it.isNotBlank() }
 
-        val description = Regex("""<meta\s+name="description"\s+content="([^"]{1,400})"""")
+        val description = Regex("""<meta\s+(?:property|name)=["'](?:description|og:description)["']\s+content=["']([^"']{1,400})["']""")
             .find(html)?.groupValues?.get(1)
             ?.replace("&amp;", "&")
             ?.replace("&quot;", "\"")
@@ -536,16 +641,20 @@ object SunoExtractor {
                 }
             }
 
-        val title = rawTitle?.let { full ->
+        val titleFromTag = rawTitle?.let { full ->
             val byIndex = full.indexOf(" by ")
             val withoutAuthor = if (byIndex > 0) full.substring(0, byIndex).trim() else full
             withoutAuthor.ifBlank { null }
-        }
+        }?.takeIf { !isGenericTitle(it) }
+
+        val coverFromMeta = Regex("""<meta\s+(?:property|name)=["'](?:og:image|twitter:image)["']\s+content=["'](https?://[^"']+)["']""")
+            .find(html)?.groupValues?.get(1)?.trim()
 
         return HeadMetadata(
-            title = title,
+            title = ogTitle ?: titleFromTag,
             author = authorFromDescription?.first?.takeIf { it.isNotBlank() },
             handle = authorFromDescription?.second,
+            coverUrl = coverFromMeta,
         )
     }
 
@@ -553,6 +662,7 @@ object SunoExtractor {
         val title: String? = null,
         val author: String? = null,
         val handle: String? = null,
+        val coverUrl: String? = null,
     )
 
     /**
@@ -643,13 +753,114 @@ object SunoExtractor {
     private fun sessionCookieHeader(cookieFile: String?): String? {
         if (cookieFile.isNullOrBlank()) return null
         val content = runCatching { File(cookieFile).readText() }.getOrNull() ?: return null
-        val header = NetscapeCookieJar.cookieHeaderForHost(content, "suno.com")
-        return header.takeIf { it.isNotBlank() }
+        val sunoCom = NetscapeCookieJar.cookieHeaderForHost(content, "suno.com")
+        val sunoAi = NetscapeCookieJar.cookieHeaderForHost(content, "suno.ai")
+        val combined = listOfNotNull(sunoCom.takeIf { it.isNotBlank() }, sunoAi.takeIf { it.isNotBlank() })
+            .joinToString("; ")
+        return combined.takeIf { it.isNotBlank() }
+    }
+
+    private data class StreamCandidate(val url: String, val description: String)
+
+    private fun downloadFirstAvailableStream(
+        candidates: List<StreamCandidate>,
+        targetFile: File,
+        cookieFile: String?,
+        onLog: (String) -> Unit,
+        onProgress: (percentage: Double, speed: String, size: String) -> Unit,
+    ): StreamCandidate {
+        var had403 = false
+        var lastException: Exception? = null
+
+        for (candidate in candidates) {
+            onLog("Probando stream (${candidate.description}): ${candidate.url}")
+            try {
+                if (candidate.url.contains(SunoMangoDecryptor.MANGO_CDN_HOST)) {
+                    downloadMangoStream(candidate.url, targetFile, cookieFile, onLog, onProgress)
+                } else {
+                    downloadHttpStream(candidate.url, targetFile, cookieFile, onProgress)
+                }
+                if (targetFile.exists() && targetFile.length() > 0) {
+                    onLog("Descarga completada desde ${candidate.description}")
+                    return candidate
+                }
+            } catch (ex: DownloadException) {
+                lastException = ex
+                if (ex.message?.contains("privada", ignoreCase = true) == true || ex.message?.contains("403") == true) {
+                    had403 = true
+                }
+                onLog("Stream no disponible (${ex.message}): ${candidate.url}")
+                deleteQuietly(targetFile)
+            } catch (t: Throwable) {
+                lastException = Exception(t.message, t)
+                onLog("Error al acceder a ${candidate.url}: ${t.message}")
+                deleteQuietly(targetFile)
+            }
+        }
+
+        if (had403) {
+            throw DownloadException("La canción es privada en Suno. Hazla pública en Suno (Compartir → Pública) para poder descargarla.")
+        }
+        throw DownloadException(lastException?.message ?: "No se pudo descargar ningún stream de la pista de Suno.")
+    }
+
+    private fun downloadMangoStream(
+        streamUrl: String,
+        targetFile: File,
+        cookieFile: String?,
+        onLog: (String) -> Unit,
+        onProgress: (percentage: Double, speed: String, size: String) -> Unit,
+    ) {
+        val id = extractId(streamUrl) ?: throw DownloadException("No se encontró el ID del clip de Suno para descifrado Mango.")
+        val cookieHeader = sessionCookieHeader(cookieFile)
+        onLog("Obteniendo credenciales de reproducción de Suno (Mango Rights)...")
+        val rights = SunoMangoDecryptor.fetchRights(id, cookieHeader)
+            ?: throw DownloadException("No se pudo obtener la autorización de reproducción segura de Suno.")
+
+        onLog("Descargando y descifrando stream seguro en tiempo real...")
+        val connection = (URL(streamUrl).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15_000
+            readTimeout = 25_000
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+            setRequestProperty("Accept", "*/*")
+            setRequestProperty("Referer", "https://suno.com/")
+            setRequestProperty("Origin", "https://suno.com")
+            if (!cookieHeader.isNullOrBlank()) setRequestProperty("Cookie", cookieHeader)
+        }
+
+        if (connection.responseCode !in 200..299) {
+            throw DownloadException("El servidor de audio seguro de Suno respondió con código HTTP ${connection.responseCode}")
+        }
+
+        val totalBytes = connection.contentLengthLong
+        var downloadedBytes = 0L
+        val startTime = System.currentTimeMillis()
+
+        connection.inputStream.use { input ->
+            FileOutputStream(targetFile).use { output ->
+                SunoMangoDecryptor.decryptStream(
+                    clipId = id,
+                    rights = rights,
+                    inputStream = input,
+                    outputStream = output,
+                ) { totalDecrypted ->
+                    downloadedBytes = totalDecrypted
+                    val elapsedSeconds = ((System.currentTimeMillis() - startTime) / 1000.0).coerceAtLeast(0.01)
+                    val bytesPerSecond = downloadedBytes / elapsedSeconds
+                    val speed = formatSpeed(bytesPerSecond)
+                    val size = "${(downloadedBytes / (1024 * 1024.0)).format(1)} MB"
+                    val pct = if (totalBytes > 0) (downloadedBytes.toDouble() / totalBytes * 100.0).coerceIn(0.0, 100.0) else 50.0
+                    onProgress(pct, speed, size)
+                }
+            }
+        }
     }
 
     private fun downloadHttpStream(
         streamUrl: String,
         targetFile: File,
+        cookieFile: String? = null,
         onProgress: (percentage: Double, speed: String, size: String) -> Unit,
     ) {
         var currentUrl = streamUrl
@@ -667,6 +878,7 @@ object SunoExtractor {
                 setRequestProperty("Accept", "*/*")
                 setRequestProperty("Referer", "https://suno.com/")
                 setRequestProperty("Origin", "https://suno.com")
+                sessionCookieHeader(cookieFile)?.let { setRequestProperty("Cookie", it) }
             }
 
             val status = connection.responseCode
@@ -678,6 +890,10 @@ object SunoExtractor {
                 continue
             }
             break
+        }
+
+        if (connection.responseCode == 403) {
+            throw DownloadException("La canción es privada en Suno. Hazla pública en Suno (Compartir → Pública) para poder descargarla.")
         }
 
         if (connection.responseCode !in 200..299) {
@@ -718,7 +934,7 @@ object SunoExtractor {
     ): Boolean {
         val audioCodec = when (format) {
             MediaFormat.Mp3 -> listOf("-c:a", "libmp3lame", "-q:a", "0")
-            MediaFormat.M4a -> listOf("-c:a", "copy")
+            MediaFormat.M4a -> listOf("-c:a", "aac", "-b:a", "256k")
             MediaFormat.Flac -> listOf("-c:a", "flac")
             MediaFormat.Wav -> listOf("-c:a", "pcm_s16le")
             else -> listOf("-c:a", "copy")
@@ -782,6 +998,16 @@ object SunoExtractor {
             process.destroy()
             exitCode == 0
         }.getOrDefault(false)
+    }
+
+    private fun uniqueOutputFile(dir: File, baseName: String, extension: String): File {
+        var file = File(dir, "$baseName.$extension")
+        var counter = 1
+        while (file.exists() && file.length() > 0L) {
+            file = File(dir, "$baseName ($counter).$extension")
+            counter++
+        }
+        return file
     }
 
     private fun sanitizeFilename(name: String): String {

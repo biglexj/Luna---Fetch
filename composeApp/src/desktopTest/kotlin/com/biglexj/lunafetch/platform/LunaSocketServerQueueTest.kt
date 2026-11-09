@@ -28,6 +28,20 @@ import kotlin.test.assertTrue
  */
 class LunaSocketServerQueueTest {
 
+    companion object {
+        /**
+         * Las cookies de sesión se guardan en un fichero temporal. En las
+         * pruebas se redirigen a la carpeta de compilación para no sobrescribir
+         * el fichero real del usuario.
+         */
+        init {
+            val target = java.io.File(
+                "build/test-temp/luna_session_cookies.txt",
+            ).absoluteFile
+            System.setProperty("lunafetch.cookies", target.absolutePath)
+        }
+    }
+
     private class RecordingEngine(private val delayMs: Long = 30) : DownloadEngine {
         val downloadedUrls = java.util.Collections.synchronizedList(mutableListOf<String>())
         var maxConcurrent = 0
@@ -311,6 +325,112 @@ class LunaSocketServerQueueTest {
         } finally {
             server.stop()
             presenterScope.cancel()
+        }
+    }
+
+    /**
+     * El cuerpo se lee en bytes: `Content-Length` cuenta bytes, no caracteres.
+     * Con un carácter multibyte (una cookie con tilde, por ejemplo) el servidor
+     * esperaba de más, agotaba el tiempo de espera y moría sin responder. La
+     * extensión veía entonces un error de red y"She's que Luna Fetch no está
+     * abierto en tu PC" aunque la app estaba funcionando.
+     */
+    @Test
+    fun bodyWithMultiByteCharactersIsAnsweredWithoutHanging() = runBlocking {
+        val engine = RecordingEngine()
+        val presenterScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        val presenter = LunaFetchPresenter(FakePlatform(engine), scope = presenterScope)
+        val server = LunaSocketServer(
+            onDownloadRequest = { url, format, quality, cookieFile ->
+                presenter.startDirectDownload(url, format, quality)
+            },
+            port = 0,
+        )
+        server.start()
+
+        try {
+            withTimeout(5000) {
+                while (server.boundPort == 0) delay(20)
+            }
+            val body = """
+                {"url":"https://suno.com/song/33333333-3333-4333-8333-333333333333","format":"mp3",
+                 "cookies":".suno.com\tTRUE\t/\tTRUE\t0\tsesión\tvalor-áé-ñ"}
+            """.trimIndent()
+
+            val started = System.currentTimeMillis()
+            val response = httpPost(server.boundPort, "/download", body)
+            val elapsed = System.currentTimeMillis() - started
+
+            assertTrue(elapsed < 5000, "La respuesta no debe tardar (tardó ${elapsed} ms): $response")
+            assertTrue(response.contains("\"ok\":true"), "Respuesta inesperada: $response")
+            assertTrue(response.contains("\"queued\":true"), "El enlace debe encolarse: $response")
+        } finally {
+            server.stop()
+            presenterScope.cancel()
+        }
+    }
+
+    /**
+     * La extensión pregunta por /health al abrir el popup: así sabe si la app
+     * está viva antes de enviar nada.
+     */
+    @Test
+    fun healthEndpointReportsThatTheApplicationIsAlive() = runBlocking {
+        val engine = RecordingEngine()
+        val presenterScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        val presenter = LunaFetchPresenter(FakePlatform(engine), scope = presenterScope)
+        val server = LunaSocketServer(
+            onDownloadRequest = { url, format, quality, cookieFile ->
+                presenter.startDirectDownload(url, format, quality)
+            },
+            onPendingRequest = { presenter.pendingCount() },
+            port = 0,
+        )
+        server.start()
+
+        try {
+            withTimeout(5000) {
+                while (server.boundPort == 0) delay(20)
+            }
+            val response = httpGet(server.boundPort, "/health")
+
+            assertTrue(response.contains("\"ok\":true"), "Respuesta inesperada: $response")
+            assertTrue(response.contains("Luna Fetch"), "Debe identificar la aplicación: $response")
+            assertTrue(response.contains("\"pending\":0"), "Debe informar de la cola: $response")
+        } finally {
+            server.stop()
+            presenterScope.cancel()
+        }
+    }
+
+    /**
+     * Si el manejador falla, el servidor responde con el error en vez de
+     * dejar la conexión muerta: si no, la extensión solo veía un error de red
+     * y no podía saber qué había pasado.
+     */
+    @Test
+    fun failingHandlerAnswersWithAnErrorInsteadOfDroppingTheConnection() = runBlocking {
+        val server = LunaSocketServer(
+            onDownloadRequest = { _, _, _, _ -> throw IllegalStateException("fallo simulado") },
+            port = 0,
+        )
+        server.start()
+
+        try {
+            withTimeout(5000) {
+                while (server.boundPort == 0) delay(20)
+            }
+            val response = httpPost(
+                server.boundPort,
+                "/download",
+                """{"url":"https://youtu.be/fallo","format":"mp4"}""",
+            )
+
+            assertTrue(response.contains("500 Internal Server Error"), "Debe informar del fallo: $response")
+            assertTrue(response.contains("\"ok\":false"), "Debe marcar el fallo: $response")
+            assertTrue(response.contains("fallo simulado"), "Debe incluir el motivo: $response")
+        } finally {
+            server.stop()
         }
     }
 }

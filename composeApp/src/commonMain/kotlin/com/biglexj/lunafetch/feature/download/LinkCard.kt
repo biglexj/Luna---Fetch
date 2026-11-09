@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.biglexj.lunafetch.domain.LunaFetchPresenter
 import com.biglexj.lunafetch.domain.LunaFetchState
 import com.biglexj.lunafetch.domain.PlatformBindings
+import com.biglexj.lunafetch.feature.components.ActionButton
 import com.biglexj.lunafetch.feature.components.LunaCard
 
 @Composable
@@ -81,7 +82,8 @@ fun LinkCard(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            OutlinedButton(
+            ActionButton(
+                text = "📋 Pegar",
                 onClick = {
                     val clip = platform.readClipboardText()?.trim().orEmpty()
                     if (clip.isNotBlank()) {
@@ -92,20 +94,16 @@ fun LinkCard(
                     }
                 },
                 enabled = !state.isAnalyzing && !state.isDownloading,
-                modifier = Modifier.weight(1f).height(48.dp),
-                shape = RoundedCornerShape(50),
-            ) {
-                Text("📋 Pegar", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.weight(1f),
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-            Button(
+            ActionButton(
+                text = if (state.isAnalyzing) "Analizando…" else "Analizar",
                 onClick = presenter::analyze,
                 enabled = !state.isAnalyzing && !state.isDownloading && state.url.isNotBlank(),
-                modifier = Modifier.weight(1f).height(48.dp),
-                shape = RoundedCornerShape(50),
-            ) {
-                Text(if (state.isAnalyzing) "Analizando…" else "Analizar", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 

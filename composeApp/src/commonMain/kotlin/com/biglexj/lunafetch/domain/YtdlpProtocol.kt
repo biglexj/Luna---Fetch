@@ -85,6 +85,11 @@ object YtdlpProtocol {
     )
 
     fun buildDownloadArguments(request: DownloadRequest, outputTemplate: String): List<String> = buildList {
+        val formatSelector = if (request.downloadCollection) {
+            if (request.format.isAudio) "bestaudio/best" else "bestvideo*+bestaudio/best"
+        } else {
+            request.quality.formatSelector
+        }
         addAll(
             listOf(
                 "--ignore-config",
@@ -99,7 +104,7 @@ object YtdlpProtocol {
                 "--print",
                 "filename:${OutputPrefix}%(filename)s",
                 "-f",
-                request.quality.formatSelector,
+                formatSelector,
             ),
         )
         if (request.format.isAudio) {
@@ -124,7 +129,12 @@ object YtdlpProtocol {
         } else {
             addAll(listOf("--merge-output-format", request.format.extension))
         }
-        add(if (request.downloadCollection) "--yes-playlist" else "--no-playlist")
+        if (request.downloadCollection) {
+            add("--yes-playlist")
+            add("--ignore-errors")
+        } else {
+            add("--no-playlist")
+        }
         // Por defecto yt-dlp no sobrescribe un archivo existente: lo marca como
         // ya descargado y lo omite. Al reparar un archivo dañado hay que
         // forzar la escritura.

@@ -63,9 +63,12 @@ PrivilegesRequiredOverridesAllowed=
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 ; --- Comportamiento --------------------------------------------------------
-CloseApplications=yes
+CloseApplications=force
 RestartApplications=no
 SetupLogging=yes
+; Metadatos del ejecutable: la version real viaja en los tres campos que
+; Windows muestra en las propiedades del archivo.
+VersionInfoVersion={#MyAppVersion}
 VersionInfoDescription={#MyAppName} instalador
 VersionInfoProductName={#MyAppName}
 VersionInfoCompany=Biglex
@@ -83,12 +86,11 @@ spanish.ClickFinish=Pulsa Finalizar para cerrar el instalador.
 spanish.RunApp=Ejecutar {#MyAppName}
 
 [Files]
+; Extraído explícitamente por la UI; al principio para evitar descomprimir payload solid.
+Source: "{#MyAppIcon}"; Flags: dontcopy
 ; Distribucion real de la app (app-image de jpackage), preparada en staging
 ; por el script de build.
 Source: "{#MyAppPayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Icono oficial transparente: se incrusta para la vista previa de la
-; cabecera y el contenedor del logo. dontcopy evita instalarlo como payload.
-Source: "{#MyAppIcon}"; Flags: dontcopy
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
@@ -105,6 +107,38 @@ Filename: "{win}\explorer.exe"; Parameters: """{app}\{#MyAppExe}"""; Description
 #include "BiglexModernUI.iss"
 
 [Code]
+{ Cierra la app si esta corriendo: cierre suave, espera y cierre forzado. }
+procedure StopRunningApp();
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM {#MyAppExe} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(500);
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#MyAppExe} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Log('Cierre de instancias de {#MyAppExe} en ejecucion completado.');
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  StopRunningApp;
+  Result := True;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  NeedsRestart := False;
+  StopRunningApp;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    StopRunningApp;
+  end;
+end;
+
 { Nota de transicion: el actualizador automatico de la app lanza el instalador
   descargado con /passive (convencion del bootstrapper WiX Burn). Inno Setup
   ignora ese parametro y abre el asistente. Inno no expone al script la ruta
@@ -126,7 +160,6 @@ begin
   Result := ModernNextButtonClick(CurPageID);
 end;
 
-[Code]
 procedure CancelButtonClick(CurPageID: Integer; var Cancel, Confirm: Boolean);
 begin
   ModernCancelButtonClick(CurPageID, Cancel, Confirm);

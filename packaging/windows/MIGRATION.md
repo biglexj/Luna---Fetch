@@ -29,7 +29,7 @@ GitHub Releases.
 
 | | MSI (anterior) | EXE Inno Setup (nuevo) |
 | --- | --- | --- |
-| Identificador | `UpgradeCode` `{EA999172-1299-4930-93C9-90EA30707C17}` (estable) y `ProductCode` propio de cada compilación (por ejemplo `{7756E96D-3A23-3DF7-B54A-A3C2C23BB658}` en 1.3.1) | `AppId` `{BE666925-88CF-4246-AA76-C1D171EA74E3}` (estable) |
+| Identificador | `UpgradeCode` `{EA999172-1299-4930-93C9-90EA30707C17}` (estable) y `ProductCode` propio de cada compilación (por ejemplo `{7756E96D-3A23-3DF7-B54A-A3C2C23BB658}`, el de la compilación MSI heredada de la línea interna 1.3.1 instalada en esta máquina) | `AppId` `{BE666925-88CF-4246-AA76-C1D171EA74E3}` (estable) |
 | Clave de desinstalación | `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\{7756E96D-…}` (el MSI por usuario se registra en HKLM en esta máquina) | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{BE666925-…}_is1` |
 | Carpeta | `%LOCALAPPDATA%\LunaFetch` | `%LOCALAPPDATA%\Programs\LunaFetch` |
 | Ejecutable | `%LOCALAPPDATA%\LunaFetch\LunaFetch.exe` | `%LOCALAPPDATA%\Programs\LunaFetch\LunaFetch.exe` |
@@ -90,7 +90,8 @@ Installer ejecuta `MsiExec.exe /X{…}` con el `ProductCode` correcto de la
 versión instalada, que cambia en cada compilación.
 
 **Opción por consola**, con el `ProductCode` de la versión instalada (en esta
-máquina, 1.3.1):
+máquina, la compilación MSI heredada de la línea interna 1.3.1, anterior a la
+línea pública 1.2.x):
 
 ```powershell
 msiexec /x {7756E96D-3A23-3DF7-B54A-A3C2C23BB658}
@@ -166,7 +167,7 @@ el relanzamiento no es fiable.
 .\scripts\packaging\Build-Installer.ps1 -SkipAppBuild -SkipSigning
 
 # Instalar en silencio (para pruebas)
-& ".\release\LunaFetch-Windows-1.3.1.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+& ".\release\LunaFetch-Windows-1.2.1.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
 # Desinstalar la copia de Inno Setup
 & "$env:LOCALAPPDATA\Programs\LunaFetch\unins000.exe" /VERYSILENT

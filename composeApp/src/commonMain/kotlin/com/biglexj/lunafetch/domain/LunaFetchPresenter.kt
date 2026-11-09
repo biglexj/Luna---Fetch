@@ -17,7 +17,7 @@ data class LunaFetchState(
     val destination: String = "",
     val video: VideoInfo? = null,
     val selectedFormat: MediaFormat = MediaFormat.Mp4,
-    val qualities: List<QualityOption> = FormatCatalog.qualities(MediaFormat.Mp4, 1080),
+    val qualities: List<QualityOption> = FormatCatalog.qualities(MediaFormat.Mp4),
     val selectedQuality: QualityOption = qualities.first(),
     val downloadCollection: Boolean = false,
     val isAnalyzing: Boolean = false,
@@ -41,6 +41,7 @@ data class LunaFetchState(
     val diagnostics: List<DiagnosticEntry> = emptyList(),
     val queue: List<QueuedDownload> = emptyList(),
     val activeQueueItemId: String? = null,
+    val downloadLyrics: Boolean = false,
 )
 
 class LunaFetchPresenter(
@@ -376,13 +377,13 @@ class LunaFetchPresenter(
     }
 
     fun setUrl(value: String) {
-        val sanitized = TikTokUtils.sanitizeUrl(value)
+        val sanitized = UrlUtils.normalize(value)
         _state.update { it.copy(url = sanitized, error = null) }
     }
 
     fun selectFormat(format: MediaFormat) {
         _state.update { current ->
-            val qualities = FormatCatalog.qualities(format, current.video?.maxHeight ?: 1080)
+            val qualities = FormatCatalog.qualities(format)
             current.copy(selectedFormat = format, qualities = qualities, selectedQuality = qualities.first())
         }
     }
@@ -392,6 +393,8 @@ class LunaFetchPresenter(
     fun setDownloadCollection(value: Boolean) = _state.update { current ->
         current.copy(downloadCollection = value && current.video?.isCollection == true)
     }
+
+    fun setDownloadLyrics(value: Boolean) = _state.update { it.copy(downloadLyrics = value) }
 
     fun removeFromHistory(id: String) {
         _state.update { current ->
@@ -408,7 +411,7 @@ class LunaFetchPresenter(
 
     fun analyze() {
         val rawUrl = state.value.url.trim()
-        val url = TikTokUtils.sanitizeUrl(rawUrl)
+        val url = UrlUtils.normalize(rawUrl)
         if (url != rawUrl) {
             setUrl(url)
         }
@@ -422,7 +425,7 @@ class LunaFetchPresenter(
             runCatching { platform.engine.analyze(url) }
                 .onSuccess { video ->
                     _state.update { current ->
-                        val qualities = FormatCatalog.qualities(current.selectedFormat, video.maxHeight)
+                        val qualities = FormatCatalog.qualities(current.selectedFormat)
                         val hasSingleVideoId = url.contains("watch?v=") || url.contains("v=") || url.contains("youtu.be/")
                         val shouldDefaultToCollection = video.isCollection && !hasSingleVideoId
                         current.copy(
@@ -475,8 +478,9 @@ class LunaFetchPresenter(
         force: Boolean = false,
         repairPath: String? = null,
         cookieFile: String? = null,
+        downloadLyrics: Boolean = false,
     ): EnqueueResult {
-        val url = TikTokUtils.sanitizeUrl(rawUrl)
+        val url = UrlUtils.normalize(rawUrl)
         if (!isSupportedUrl(url)) return EnqueueResult(EnqueueOutcome.InvalidUrl)
 
         val canonicalKey = LinkCanonicalizer.canonicalKey(url)
@@ -518,6 +522,7 @@ class LunaFetchPresenter(
             canonicalKey = canonicalKey,
             repairPath = repairTarget,
             cookieFile = cookieFile.orEmpty(),
+            downloadLyrics = downloadLyrics,
         )
 
         // La comprobación de duplicados y el encolado ocurren en el mismo
@@ -559,7 +564,7 @@ class LunaFetchPresenter(
     }
 
     /** Número de enlaces de la cola que aún no terminaron. */
-    private fun pendingCount(): Int = synchronized(queueLock) { queueItems.count { !it.isFinished } }
+    fun pendingCount(): Int = synchronized(queueLock) { queueItems.count { !it.isFinished } }
 
     // ── Queue worker ────────────────────────────────────────────────────
 
@@ -638,7 +643,7 @@ class LunaFetchPresenter(
             return
         }
 
-        val qualities = FormatCatalog.qualities(format, video.maxHeight)
+        val qualities = FormatCatalog.qualities(format)
         val matchedQuality = item.quality?.let { requested ->
             qualities.firstOrNull {
                 it.displayName.contains(requested, ignoreCase = true) ||
@@ -668,6 +673,7 @@ class LunaFetchPresenter(
             downloadCollection = shouldDownloadCollection,
             replaceExisting = item.isRepair,
             cookieFile = item.cookieFile.takeIf { it.isNotBlank() },
+            downloadLyrics = item.downloadLyrics,
         )
 
         when (runDownload(request = request, video = video, format = format, quality = matchedQuality, canonicalKey = item.canonicalKey)) {
@@ -695,14 +701,7 @@ class LunaFetchPresenter(
         }
     }
 
-    private fun resolveMediaFormat(formatName: String): MediaFormat = when {
-        formatName.contains("audio", ignoreCase = true) ||
-            formatName.contains("mp3", ignoreCase = true) ||
-            formatName.contains("m4a", ignoreCase = true) ||
-            formatName.contains("flac", ignoreCase = true) ||
-            formatName.contains("wav", ignoreCase = true) -> MediaFormat.Mp3
-        else -> MediaFormat.Mp4
-    }
+    private fun resolveMediaFormat(formatName: String): MediaFormat = MediaFormat.resolve(formatName)
 
     // ── Queue state helpers ─────────────────────────────────────────────
 
@@ -800,6 +799,7 @@ class LunaFetchPresenter(
             format = current.selectedFormat,
             quality = current.selectedQuality,
             downloadCollection = current.downloadCollection,
+            downloadLyrics = current.downloadLyrics,
         )
         operation?.cancel()
         operation = scope.launch {
@@ -1121,7 +1121,7 @@ class LunaFetchPresenter(
         /**
          * Descargas que conserva el historial.
          *
-         * La tarjeta muestra diez por página con su propio selector, así que
+         * La tarjeta muestra once por página con su propio selector, así que
          * se guardan más para que el historial sea navegable.
          */
         const val HISTORY_LIMIT = 50

@@ -49,6 +49,7 @@ data class QueuedDownload(
      * (Suno) entreguen la ficha real del contenido.
      */
     val cookieFile: String = "",
+    val downloadLyrics: Boolean = false,
 ) {
     val isPending: Boolean get() = status == QueueItemStatus.Pending
     val isRunning: Boolean get() = status == QueueItemStatus.Running
@@ -70,6 +71,22 @@ data class QueuedDownload(
 
     /** Indica que este enlace repara un archivo dañado y debe reemplazarlo. */
     val isRepair: Boolean get() = repairPath.isNotBlank()
+}
+
+/**
+ * Orden de presentación de la cola: primero lo que sigue vivo (descargando o
+ * en espera) y al final lo ya terminado (completado, fallido o cancelado).
+ *
+ * El orden de entrada dentro de cada grupo se conserva: la cola sigue
+ * mostrando en qué orden se procesarán los enlaces pendientes.
+ */
+fun List<QueuedDownload>.sortedForDisplay(): List<QueuedDownload> {
+    val active = mutableListOf<QueuedDownload>()
+    val finished = mutableListOf<QueuedDownload>()
+    for (item in this) {
+        if (item.isFinished) finished += item else active += item
+    }
+    return active + finished
 }
 
 /**

@@ -60,7 +60,8 @@ class SunoExtractorTest {
                     url = "https://suno.com/song/6a011fc0-5d07-4810-b422-b3f8af4032fc",
                     destination = tempDir.absolutePath,
                     format = MediaFormat.Flac,
-                    quality = FormatCatalog.qualities(MediaFormat.Flac, 1080).first(),
+                    quality = FormatCatalog.qualities(MediaFormat.Flac).first(),
+                    downloadLyrics = true,
                 )
 
                 val meta = SunoExtractor.analyze("https://suno.com/song/6a011fc0-5d07-4810-b422-b3f8af4032fc")
@@ -73,7 +74,7 @@ class SunoExtractorTest {
                 )
 
                 assertTrue(result.outputPaths.isNotEmpty())
-                val audioFile = java.io.File(result.openPath)
+                val audioFile = java.io.File(result.openPath.orEmpty())
                 assertTrue(audioFile.exists())
                 assertTrue(audioFile.length() > 100_000L) // Valid converted audio file
 
@@ -92,6 +93,41 @@ class SunoExtractorTest {
             }
         }
     }
+
+    @Test
+    fun testSharedLinkAnalyzeAndDownload() {
+        kotlinx.coroutines.runBlocking {
+            val shareUrl = "https://suno.com/s/KRR1DtfevY96GOaM"
+            val info = SunoExtractor.analyze(shareUrl)
+            println("SHARED LINK INFO: $info")
+            assertEquals("Cozy Futuristic Chill", info.title)
+            assertTrue(info.uploader.contains("Biglex J"))
+
+            val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "suno_shared_test_${System.currentTimeMillis()}")
+            tempDir.mkdirs()
+            try {
+                val req = DownloadRequest(
+                    url = shareUrl,
+                    destination = tempDir.absolutePath,
+                    format = MediaFormat.Flac,
+                    quality = FormatCatalog.qualities(MediaFormat.Flac).first(),
+                    downloadLyrics = true,
+                )
+
+                val result = SunoExtractor.download(
+                    request = req,
+                    onProgress = { /* noop */ },
+                    onLog = { println("LOG: $it") },
+                )
+
+                assertTrue(result.outputPaths.isNotEmpty())
+                val audioFile = java.io.File(result.openPath.orEmpty())
+                assertTrue(audioFile.exists())
+                assertTrue(audioFile.length() > 500_000L) // Valid FLAC converted from decrypted Opus
+                println("SUCCESSFULLY DOWNLOADED AND DECRYPTED: ${audioFile.name} (${audioFile.length()} bytes)")
+            } finally {
+                tempDir.deleteRecursively()
+            }
+        }
+    }
 }
-
-
