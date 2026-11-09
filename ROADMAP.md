@@ -22,7 +22,7 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 - [x] **Resiliencia en Extracción de TikTok**: Mitigación de bloqueos de impersonación y status code 0 mediante fallback de endpoints API y cookies de navegador.
 - [x] **Pruebas Físicas Android**: Validación de descargas reales en dispositivos Android físicos por ABI (ARM64, ARM32, x86_64).
 - [ ] **Empaquetado Linux**: Pruebas de instalación y ejecución en paquetes DEB/RPM.
-- [ ] **Comprobación del Importador de Suno en la Sesión Real**: Ejecutar el importador sobre la lista «Espacio Vtuber» con la extensión cargada en el navegador y confirmar la llegada de los MP3 a `<destino>/Música/` con portada y letra.
+- [x] **Comprobación del Importador de Suno en la Sesión Real**: Ejecutar el importador sobre la lista «Espacio Vtuber» con la extensión cargada en el navegador y confirmar la llegada de los MP3 a `<destino>/Música/` con portada y letra.
 - [ ] **Liberación de Ranuras en Suno**: Endpoint opcional que borra la canción en Suno una vez verificado que el archivo local existe y pesa lo esperado. *Destructivo e irreversible en el servicio: solo se implementa si Biglex lo pide de forma explícita.*
 
 ---
@@ -44,6 +44,15 @@ Plan de trabajo, objetivos de producto y hoja de ruta estratégica del proyecto.
 ---
 
 ## 🟢 Completado
+
+- [x] **v1.3.0** — 2026-11-08
+  - Rediseño de navegación con NavigationRail adaptable conforme a Material 3 Expressive y diálogo de Ajustes integrado en pantalla completa (General, Sincronización Synapse y Acerca de).
+  - Empaquetado nativo para Windows con instalador Inno Setup (Biglex Modern UI 2.0), instalación por usuario sin requerir elevación en `%LOCALAPPDATA%\Programs\LunaFetch` y soporte de esquinas redondeadas y temas claro/oscuro.
+  - Integración nativa con Suno AI: importador de listas abiertas desde la extensión del navegador, extracción de metadatos auténticos con carátula incrustada, soporte de cookies de sesión para pistas privadas y control opcional de descarga de letras con omisión para instrumentales.
+  - Descarga robusta de colecciones y playlists con selección individual de máxima resolución y continuidad ante elementos eliminados o privados (`--ignore-errors`).
+  - Clasificación automática de archivos por tipo de medio en carpetas estándar `Música` y `Videos` en escritorio y Android.
+  - Paginación dinámica en las pantallas de Cola e Historial adaptada a la altura de la ventana sin scroll vertical innecesario.
+  - Servidor local HTTP de la extensión robustecido mediante lectura de bytes UTF-8 con Content-Length y endpoint de diagnóstico de conectividad.
 
 - [x] **v1.2.0**
   - Compatibilidad universal de extracción en más de 1,000 plataformas y sitios web sin listas restrictivas de dominios.

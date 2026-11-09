@@ -217,7 +217,7 @@ $iscc = $IsccPath
 # --- Versión real ----------------------------------------------------------
 $propertiesPath = Join-Path $root "gradle.properties"
 $properties = Get-Content -LiteralPath $propertiesPath -Raw -Encoding UTF8
-$versionMatch = [regex]::Match($properties, '(?m)^lunafetch\.versionName=(\d+\.\d+\.\d+)$')
+$versionMatch = [regex]::Match($properties, '(?m)^lunafetch\.versionName=(\d+\.\d+\.\d+)\r?$')
 if (-not $versionMatch.Success) { throw "No se pudo leer la versión de Luna Fetch." }
 if (-not $Version) { $Version = $versionMatch.Groups[1].Value }
 Assert-SemanticVersion $Version

@@ -18,8 +18,8 @@ $repository = "biglexj/Luna---Fetch"
 $propertiesPath = Join-Path $root "gradle.properties"
 $releaseNotesPath = Join-Path $root $ReleaseNotesFile
 $properties = Get-Content -LiteralPath $propertiesPath -Raw -Encoding UTF8
-$versionMatch = [regex]::Match($properties, '(?m)^lunafetch\.versionName=(\d+\.\d+\.\d+)$')
-$codeMatch = [regex]::Match($properties, '(?m)^lunafetch\.versionCode=(\d+)$')
+$versionMatch = [regex]::Match($properties, '(?m)^lunafetch\.versionName=(\d+\.\d+\.\d+)\r?$')
+$codeMatch = [regex]::Match($properties, '(?m)^lunafetch\.versionCode=(\d+)\r?$')
 if (-not $versionMatch.Success -or -not $codeMatch.Success) { throw "No se pudo leer la versión de Luna Fetch." }
 
 $currentVersion = $versionMatch.Groups[1].Value

@@ -24,6 +24,16 @@ function runCmdSync(cmd: string[], cwd = root): { stdout: string; stderr: string
     };
 }
 
+function getVersionCode(): number {
+    try {
+        const props = readFileSync(join(root, "gradle.properties"), "utf-8");
+        const match = props.match(/^lunafetch\.versionCode=(\d+)$/m);
+        return match ? parseInt(match[1], 10) : 26;
+    } catch {
+        return 26;
+    }
+}
+
 const pkg = readJson(join(root, "package.json"));
 const appVersion = pkg.version;
 const appName = "Luna Fetch";
@@ -206,6 +216,7 @@ export async function main(args = Bun.argv.slice(2)): Promise<number> {
             appName: "Luna Fetch",
             repository: "biglexj/Luna---Fetch",
             version: appVersion,
+            versionCode: getVersionCode(),
             projectRoot: root,
             primaryAssetPattern: new RegExp(`^LunaFetch.*\\.exe$`, "i"),
             build: async (isPlan) => {
